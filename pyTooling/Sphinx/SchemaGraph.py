@@ -38,8 +38,8 @@ and the DOT is handed to :mod:`sphinx.ext.graphviz`. A schema language adds a mo
 
 .. seealso::
 
-   :mod:`pyTooling.Sphinx.XSDSchemaGraph`
-      |rarr| The ``xsd-graph`` directive, drawing an XML schema.
+   :mod:`pyTooling.Sphinx.XMLSchemaGraph`
+      |rarr| The ``xmlschema-graph`` directive, drawing an XML schema.
    :mod:`pyTooling.Graph.GraphViz`
       |rarr| The DOT model :class:`DotGraph` is built on.
    :mod:`pyTooling.Sphinx`
