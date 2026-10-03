@@ -63,7 +63,7 @@ class Entrypoints(Testcase):
 
 		return path
 
-	def test_AFileEntrypointIsReadRightAway(self) -> None:
+	def test_File(self) -> None:
 		"""A requirements file is read here, not when a table is built."""
 		with TemporaryDirectory() as directory:
 			root = Path(directory).resolve()
@@ -77,7 +77,7 @@ class Entrypoints(Testcase):
 		self.assertEqual({"colorama", "pytest"}, set(entrypoints["unittest"].Requirements))
 		self.assertEqual((root / "requirements.txt",), entrypoints["unittest"].Files)
 
-	def test_AnIncludedFileIsListedToo(self) -> None:
+	def test_File_Included(self) -> None:
 		"""Every file read is remembered, so a change to an include rebuilds the document naming the entrypoint."""
 		with TemporaryDirectory() as directory:
 			root = Path(directory).resolve()
@@ -92,7 +92,7 @@ class Entrypoints(Testcase):
 		self.assertEqual([root / "requirements.txt", root / "base.txt"], list(entrypoints["unittest"].Files))
 
 	@mark.skipif(sys_platform == "win32", reason="Creating a symbolic link needs a privilege Windows doesn't grant.")
-	def test_TheWholeTreeIsSpelledOneWay(self) -> None:
+	def test_File_SymbolicLink(self) -> None:
 		"""A directory reachable under two names must not put both spellings into the tree.
 
 		This is what macOS (:file:`/var` is :file:`/private/var`) and Windows (:file:`RUNNER~1` is
@@ -114,19 +114,20 @@ class Entrypoints(Testcase):
 
 		self.assertEqual([real / "requirements.txt", real / "base.txt"], list(files))
 
-	def test_APackageEntrypointIsNotResolvedYet(self) -> None:
+	def test_Package(self) -> None:
 		"""A package can only be resolved by asking the index, so it carries its name and extra until a table asks."""
 		entrypoints = readEntrypoints({"yaml": {"package": "pyTooling[yaml]"}}, Path("."))
 
 		self.assertEqual((("pyTooling", "yaml"),), entrypoints["yaml"].Packages)
 		self.assertIsNone(entrypoints["yaml"].Requirements)
 
-	def test_APackageWithoutAnExtraHasNone(self) -> None:
+	def test_Package_WithoutExtra(self) -> None:
+		"""A package without an extra has none."""
 		entrypoints = readEntrypoints({"package": {"package": "pyTooling"}}, Path("."))
 
 		self.assertEqual((("pyTooling", None),), entrypoints["package"].Packages)
 
-	def test_SeveralPackagesAreDeclaredWithThePluralForm(self) -> None:
+	def test_Packages(self) -> None:
 		"""``packages`` takes an iterable; ``package`` takes one string. Both are the same statement."""
 		entrypoints = readEntrypoints({
 			"tuple": {"packages": ("pyTooling[yaml]", "pyTooling[terminal]")},
@@ -136,7 +137,7 @@ class Entrypoints(Testcase):
 		self.assertEqual((("pyTooling", "yaml"), ("pyTooling", "terminal")), entrypoints["tuple"].Packages)
 		self.assertEqual((("pyTooling", None),), entrypoints["list"].Packages)
 
-	def test_APluralFieldTakesAnyIterable(self) -> None:
+	def test_Packages_Iterable(self) -> None:
 		"""The field is documented as an iterable, so a generator or a set is as good as a tuple or a list."""
 		entrypoints = readEntrypoints({
 			"generator": {"packages": (name for name in ("pyTooling[yaml]", "pyTooling[terminal]"))},
@@ -146,7 +147,7 @@ class Entrypoints(Testcase):
 		self.assertEqual((("pyTooling", "yaml"), ("pyTooling", "terminal")), entrypoints["generator"].Packages)
 		self.assertEqual((("pyTooling", None),), entrypoints["set"].Packages)
 
-	def test_SeveralFilesFlattenInTheOrderDeclared(self) -> None:
+	def test_Files(self) -> None:
 		"""``files`` reads several trees; a later file's statement wins, as a later ``-r`` reference does."""
 		with TemporaryDirectory() as directory:
 			root = Path(directory).resolve()
@@ -160,18 +161,19 @@ class Entrypoints(Testcase):
 		self.assertEqual("~=9.1", str(requirements["pytest"].specifier))
 		self.assertEqual([root / "first.txt", root / "second.txt"], list(entrypoints["both"].Files))
 
-	def test_APluralFieldRejectsABareString(self) -> None:
+	def test_Files_String(self) -> None:
 		"""A string is an iterable of strings, so 'files': 'requirements.txt' would silently become 16 paths."""
 		with self.assertRaises(SphinxExtensionError) as exceptionCapture:
 			readEntrypoints({"unittest": {"files": "requirements.txt"}}, Path("."))
 
 		self.assertIn("Use 'file'", str(exceptionCapture.exception))
 
-	def test_ASingularFieldRejectsAnIterable(self) -> None:
+	def test_File_Iterable(self) -> None:
+		"""A singular field rejects an iterable."""
 		with self.assertRaises(SphinxExtensionError):
 			readEntrypoints({"unittest": {"file": ["requirements.txt"]}}, Path("."))
 
-	def test_AMissingFileNamesTheIdentifier(self) -> None:
+	def test_File_Missing(self) -> None:
 		"""The message has to say which entry is wrong - the path alone doesn't."""
 		with TemporaryDirectory() as directory:
 			with self.assertRaises(SphinxExtensionError) as exceptionCapture:
@@ -179,31 +181,35 @@ class Entrypoints(Testcase):
 
 		self.assertIn("[unittest]", str(exceptionCapture.exception))
 
-	def test_NeitherFileNorPackageIsRejected(self) -> None:
+	def test_NoField(self) -> None:
+		"""Neither a file nor a package is rejected."""
 		with self.assertRaises(SphinxExtensionError):
 			readEntrypoints({"unittest": {}}, Path("."))
 
-	def test_BothFileAndPackageIsRejected(self) -> None:
+	def test_FileAndPackage(self) -> None:
+		"""Both a file and a package are rejected."""
 		with self.assertRaises(SphinxExtensionError):
 			readEntrypoints({"unittest": {"file": "requirements.txt", "package": "pyTooling"}}, Path("."))
 
-	def test_ASingularAndItsPluralTogetherIsRejected(self) -> None:
+	def test_FileAndFiles(self) -> None:
 		"""Exactly one field, so which of the two would win is never a question."""
 		with self.assertRaises(SphinxExtensionError):
 			readEntrypoints({"unittest": {"file": "a.txt", "files": ["b.txt"]}}, Path("."))
 
-	def test_AnUnknownFieldIsRejected(self) -> None:
+	def test_UnknownField(self) -> None:
 		"""A typo is an error rather than a silently ignored key."""
 		with self.assertRaises(SphinxExtensionError) as exceptionCapture:
 			readEntrypoints({"unittest": {"files": "requirements.txt"}}, Path("."))
 
 		self.assertIn("files", str(exceptionCapture.exception))
 
-	def test_ADeclarationThatIsNoDictionaryIsRejected(self) -> None:
+	def test_Declaration_NoDictionary(self) -> None:
+		"""A declaration that is no dictionary is rejected."""
 		with self.assertRaises(SphinxExtensionError):
 			readEntrypoints({"unittest": "requirements.txt"}, Path("."))
 
-	def test_AConfigurationThatIsNoDictionaryIsRejected(self) -> None:
+	def test_Configuration_NoDictionary(self) -> None:
+		"""A configuration that is no dictionary is rejected."""
 		with self.assertRaises(SphinxExtensionError):
 			readEntrypoints(["requirements.txt"], Path("."))
 
@@ -218,31 +224,35 @@ class VersionConstraints(Testcase):
 
 		return DependencyTable._FormatSpecifier(SpecifierSet(specifier), simplify, versionFormat)
 
-	def test_NoConstraintIsAny(self) -> None:
+	def test_Any(self) -> None:
+		"""No constraint is 'any'."""
 		self.assertEqual("any", self._format(""))
 
-	def test_OperatorsBecomeTheirSymbols(self) -> None:
+	def test_Operators(self) -> None:
 		"""'>=' is typography, not syntax, once it is printed in a table."""
 		self.assertEqual("≥3.12", self._format(">=3.12"))
 		self.assertEqual("≤2.0", self._format("<=2.0", simplify=False))
 		self.assertEqual("≠2.0", self._format("!=2.0", simplify=False))
 		self.assertEqual("=1.2.3", self._format("==1.2.3"))
 
-	def test_ACompatibleReleaseBecomesItsLowerBound(self) -> None:
+	def test_CompatibleRelease(self) -> None:
 		"""'~=0.4.6' says at least 0.4.6; the upper half is the installer's business."""
 		self.assertEqual("≥0.4.6", self._format("~=0.4.6"))
 
-	def test_AnUpperBoundIsDropped(self) -> None:
+	def test_UpperBound(self) -> None:
+		"""An upper bound is dropped."""
 		self.assertEqual("≥3.0", self._format("<4.0,>=3.0"))
 
-	def test_AnExclusionIsDropped(self) -> None:
+	def test_Exclusion(self) -> None:
+		"""An exclusion is dropped."""
 		self.assertEqual("≥1.0", self._format("!=2.0,>=1.0"))
 
-	def test_AnUpperBoundAloneSurvives(self) -> None:
+	def test_UpperBound_Alone(self) -> None:
 		"""Simplifying everything away would print nothing, so the constraint stays as it was written."""
 		self.assertEqual("<4.0", self._format("<4.0"))
 
-	def test_TheFullFormKeepsEveryPart(self) -> None:
+	def test_Full(self) -> None:
+		"""The full form keeps every part."""
 		self.assertEqual("≥3.0, <4.0", self._format("<4.0,>=3.0", simplify=False))
 		self.assertEqual("~=0.4.6", self._format("~=0.4.6", simplify=False))
 
@@ -254,26 +264,29 @@ class VersionFormats(Testcase):
 	def _format(specifier: str, versionFormat: "VersionFormat") -> str:
 		return DependencyTable._FormatSpecifier(SpecifierSet(specifier), True, versionFormat)
 
-	def test_TheDefaultIsMajorMinor(self) -> None:
+	def test_Default(self) -> None:
+		"""The default is 'MajorMinor'."""
 		from pyTooling.Sphinx.DependencyTable import DEFAULT_VERSION_FORMAT
 
 		self.assertIs(VersionFormat.MajorMinor, DEFAULT_VERSION_FORMAT)
 
-	def test_EachFormatKeepsItsParts(self) -> None:
+	def test_Formats(self) -> None:
+		"""Each format keeps its parts."""
 		self.assertEqual("≥0", self._format("~=0.4.6", VersionFormat.Major))
 		self.assertEqual("≥0.4", self._format("~=0.4.6", VersionFormat.MajorMinor))
 		self.assertEqual("≥0.4.6", self._format("~=0.4.6", VersionFormat.MajorMinorPatch))
 		self.assertEqual("≥0.4.6", self._format("~=0.4.6", VersionFormat.All))
 
-	def test_AllKeepsWhatTheOthersDrop(self) -> None:
+	def test_All(self) -> None:
+		"""'All' keeps what the others drop."""
 		self.assertEqual("=9.1.2.dev3", self._format("==9.1.2.dev3", VersionFormat.All))
 		self.assertEqual("=9.1.2", self._format("==9.1.2.dev3", VersionFormat.MajorMinorPatch))
 
-	def test_AShortVersionIsNotPaddedOut(self) -> None:
+	def test_ShortVersion(self) -> None:
 		"""'≥9' must not become '≥9.0' - that states a precision the requirement didn't."""
 		self.assertEqual("≥9", self._format(">=9", VersionFormat.MajorMinorPatch))
 
-	def test_ShorteningNeverPrintsOneStatementTwice(self) -> None:
+	def test_Duplicates(self) -> None:
 		"""'>=1.2.3, >=1.2.9' is one statement at MajorMinor, and a table saying it twice reads as a defect."""
 		self.assertEqual("≥1.2", self._format(">=1.2.3,>=1.2.9", VersionFormat.MajorMinor))
 
@@ -281,18 +294,20 @@ class VersionFormats(Testcase):
 class DependencyFormats(Testcase):
 	"""What a line of a dependency tree states is the document's choice."""
 
-	def test_TheDefaultStatesEverything(self) -> None:
+	def test_Default(self) -> None:
+		"""The default states everything."""
 		from pyTooling.Sphinx.DependencyTable import DEFAULT_DEPENDENCY_FORMAT
 
 		self.assertIs(DependencyFormat.PackageVersionLicense, DEFAULT_DEPENDENCY_FORMAT)
 
-	def test_EachFormatSaysWhatItShows(self) -> None:
+	def test_Formats(self) -> None:
+		"""Each format says what it shows."""
 		self.assertEqual(
 			[(False, False), (True, False), (False, True), (True, True)],
 			[(member.ShowsVersion, member.ShowsLicense) for member in DependencyFormat]
 		)
 
-	def test_TheMembersAreWrittenAsTheyAreSpelled(self) -> None:
+	def test_Spelling(self) -> None:
 		"""A document writes ':dependency-format: PackageVersionLicense', not 'package_version_license'."""
 		self.assertEqual("PackageVersionLicense", str(DependencyFormat.PackageVersionLicense))
 		self.assertEqual("MajorMinor", str(VersionFormat.MajorMinor))
@@ -301,7 +316,7 @@ class DependencyFormats(Testcase):
 class UnresolvedLicenseReport(Testcase):
 	"""A package needing a license override is reported with what the index published, because that is the reason."""
 
-	def test_OnePackageNamesWhatWasPublished(self) -> None:
+	def test_Package(self) -> None:
 		"""The published field is the answer to 'why does this need an override', so it is in the message."""
 		message = formatUnresolvedLicenses({"multidict": ("license: Apache License 2.0",)})
 
@@ -309,7 +324,7 @@ class UnresolvedLicenseReport(Testcase):
 		self.assertIn("license: Apache License 2.0", message)
 		self.assertIn("multidict", message)
 
-	def test_PackagesSharingAReasonAreOneGroup(self) -> None:
+	def test_Group(self) -> None:
 		"""An ambiguous classifier usually accounts for most of the list, so it is stated once, not per package."""
 		classifier = "classifier: License :: OSI Approved :: BSD License"
 		message = formatUnresolvedLicenses({"Jinja2": (classifier,), "alabaster": (classifier,), "colorama": (classifier,)})
@@ -317,7 +332,7 @@ class UnresolvedLicenseReport(Testcase):
 		self.assertEqual(1, message.count(classifier))
 		self.assertIn("Jinja2, alabaster, colorama", message)
 
-	def test_TheBiggestGroupComesFirst(self) -> None:
+	def test_Group_Order(self) -> None:
 		"""The statement worth fixing first is the one accounting for the most packages."""
 		classifier = "classifier: License :: OSI Approved :: BSD License"
 		message = formatUnresolvedLicenses({
@@ -331,13 +346,13 @@ class UnresolvedLicenseReport(Testcase):
 		self.assertEqual("    Jinja2, alabaster", lines[2])
 		self.assertEqual("  license: Apache License 2.0", lines[3])
 
-	def test_APackageWithoutAnyLicenseInformationSaysSo(self) -> None:
+	def test_NoInformation(self) -> None:
 		"""An index publishing nothing at all must not render as an empty reason."""
 		message = formatUnresolvedLicenses({"mystery": ()})
 
 		self.assertIn("the index published no license information", message)
 
-	def test_SeveralPublishedFieldsAreJoined(self) -> None:
+	def test_Fields(self) -> None:
 		"""A release can publish both a 'license' field and a classifier, and neither of them resolved."""
 		message = formatUnresolvedLicenses({
 			"sphinxcontrib-jsmath": ("license: BSD", "classifier: License :: OSI Approved :: BSD License")
