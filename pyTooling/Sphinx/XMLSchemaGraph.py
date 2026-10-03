@@ -36,7 +36,7 @@ contains what* has to follow named types through the file. This directive draws 
 
 .. code-block:: ReST
 
-   .. xsd-graph:: ../../pyTooling/Resources/TestReport-v0.1.xsd
+   .. xmlschema-graph:: ../../pyTooling/Resources/TestReport-v0.1.xsd
       :caption: The types of TestReport-v0.1.xsd.
 
 The model comes from :mod:`xmlschema`, so the picture is the schema as a validator sees it rather than as its source
@@ -67,15 +67,15 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 @export
-class XSDSchemaGraph(SchemaGraph):
+class XMLSchemaGraph(SchemaGraph):
 	"""
-	The ``xsd-graph`` directive: an XML schema, drawn from the schema itself.
+	The ``xmlschema-graph`` directive: an XML schema, drawn from the schema itself.
 
 	One argument, the path of the schema relative to the document using the directive; ``:caption:`` puts a caption
 	under the diagram.
 	"""
 
-	directiveName: str = "xsd-graph"  #: Name the directive is invoked by.
+	directiveName: str = "xmlschema-graph"  #: Name the directive is invoked by.
 
 	@staticmethod
 	def _TypeName(xsdType: XsdType) -> str:

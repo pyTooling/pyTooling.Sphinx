@@ -29,8 +29,8 @@
 # ==================================================================================================================== #
 #
 """
-Unit tests for the schema graphs: :class:`~pyTooling.Sphinx.SchemaGraph.DotGraph` and the ``xsd-graph`` directive's
-rendering in :class:`~pyTooling.Sphinx.XSDSchemaGraph.XSDSchemaGraph`.
+Unit tests for the schema graphs: :class:`~pyTooling.Sphinx.SchemaGraph.DotGraph` and the ``xmlschema-graph``
+directive's rendering in :class:`~pyTooling.Sphinx.XMLSchemaGraph.XMLSchemaGraph`.
 """
 from pathlib                         import Path
 from tempfile                        import TemporaryDirectory
@@ -40,7 +40,7 @@ from typing                          import Optional as Nullable
 from pyTooling                       import Resources
 from pyTooling.Common                import getResourceFile
 from pyTooling.Sphinx.SchemaGraph    import DotGraph
-from pyTooling.Sphinx.XSDSchemaGraph import XSDSchemaGraph
+from pyTooling.Sphinx.XMLSchemaGraph import XMLSchemaGraph
 from pyTooling.Testing               import Testcase, testsuite, testcase
 
 
@@ -146,14 +146,14 @@ class Graphs(Testcase):
 
 @testsuite("Shipped XML schema")
 class XMLSchemaGraphs(Testcase):
-	"""The XML schema pyTooling ships, drawn as the 'xsd-graph' directive draws it."""
+	"""The XML schema pyTooling ships, drawn as the 'xmlschema-graph' directive draws it."""
 
 	_dot: str  #: The rendered schema, shared by the testcases.
 
 	@classmethod
 	def setUpClass(cls) -> None:
 		"""Render the schema once for all testcases of this class."""
-		cls._dot = XSDSchemaGraph._RenderGraph(getResourceFile(Resources, "TestReport-v0.1.xsd"))
+		cls._dot = XMLSchemaGraph._RenderGraph(getResourceFile(Resources, "TestReport-v0.1.xsd"))
 
 	@testcase("Complex types as records")
 	def ComplexType(self) -> None:
@@ -233,11 +233,11 @@ class XMLSchemaGraphs(Testcase):
 
 		Renders the schema a second time and compares it with the first rendering.
 		"""
-		self.assertEqual(self._dot, XSDSchemaGraph._RenderGraph(getResourceFile(Resources, "TestReport-v0.1.xsd")))
+		self.assertEqual(self._dot, XMLSchemaGraph._RenderGraph(getResourceFile(Resources, "TestReport-v0.1.xsd")))
 
 
 @testsuite("XML schema details")
-class XSDSchemaGraphDetails(Testcase):
+class XMLSchemaGraphDetails(Testcase):
 	"""The parts of an XML schema graph that the shipped schema doesn't exercise."""
 
 	_SCHEMA = dedent("""\
@@ -277,7 +277,7 @@ class XSDSchemaGraphDetails(Testcase):
 			schema = Path(directory) / "Details.xsd"
 			schema.write_text(self._SCHEMA, encoding="utf-8")
 
-			return XSDSchemaGraph._RenderGraph(schema)
+			return XMLSchemaGraph._RenderGraph(schema)
 
 	@testcase("Enumeration order")
 	def Enumeration_Order(self) -> None:
@@ -335,7 +335,7 @@ class TypeNames(Testcase):
 		"""
 		builtin = self._Type("{http://www.w3.org/2001/XMLSchema}string")
 
-		self.assertEqual("xsd:string", XSDSchemaGraph._TypeName(builtin))
+		self.assertEqual("xsd:string", XMLSchemaGraph._TypeName(builtin))
 
 	@testcase("Named type")
 	def Named(self) -> None:
@@ -344,7 +344,7 @@ class TypeNames(Testcase):
 
 		Names a stand-in type 'status' and checks the name is unchanged.
 		"""
-		self.assertEqual("status", XSDSchemaGraph._TypeName(self._Type("status")))
+		self.assertEqual("status", XMLSchemaGraph._TypeName(self._Type("status")))
 
 	@testcase("Anonymous type")
 	def Anonymous(self) -> None:
@@ -353,7 +353,7 @@ class TypeNames(Testcase):
 
 		Names a stand-in type whose name is None.
 		"""
-		self.assertEqual("(anonymous)", XSDSchemaGraph._TypeName(self._Type(None)))
+		self.assertEqual("(anonymous)", XMLSchemaGraph._TypeName(self._Type(None)))
 
 
 @testsuite("Cardinalities")
@@ -373,7 +373,7 @@ class Cardinalities(Testcase):
 
 		Formats a stand-in element occurring 0 to 1 times and checks '0..1'.
 		"""
-		self.assertEqual("0..1", XSDSchemaGraph._Cardinality(self._Element(0, 1)))
+		self.assertEqual("0..1", XMLSchemaGraph._Cardinality(self._Element(0, 1)))
 
 	@testcase("Unbounded occurrence")
 	def Unbounded(self) -> None:
@@ -382,4 +382,4 @@ class Cardinalities(Testcase):
 
 		Formats a stand-in element whose upper limit is None and checks '1..*'.
 		"""
-		self.assertEqual("1..*", XSDSchemaGraph._Cardinality(self._Element(1, None)))
+		self.assertEqual("1..*", XMLSchemaGraph._Cardinality(self._Element(1, None)))

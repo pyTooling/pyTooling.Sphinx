@@ -294,15 +294,15 @@ documentation renders.
 
 .. _DOC/Sphinx/XSDGraph:
 
-xsd-graph
-*********
+xmlschema-graph
+***************
 
 .. grid:: 2
 
    .. grid-item::
       :columns: 6
 
-      The ``xsd-graph`` directive draws an XML schema as a Graphviz graph, from the schema file itself:
+      The ``xmlschema-graph`` directive draws an XML schema as a Graphviz graph, from the schema file itself:
 
       * every complex type is a record of its name, its attributes, and its simple-typed child elements with their
         cardinality;
@@ -320,10 +320,10 @@ xsd-graph
 
       .. code-block:: ReST
 
-         .. xsd-graph:: ../../pyTooling/Resources/TestReport-v0.1.xsd
+         .. xmlschema-graph:: ../../pyTooling/Resources/TestReport-v0.1.xsd
             :caption: The types of TestReport-v0.1.xsd.
 
-.. rst:directive:: .. xsd-graph:: <path of an XML schema>
+.. rst:directive:: .. xmlschema-graph:: <path of an XML schema>
 
    Draws the schema the argument names, relative to the document.
 
@@ -647,7 +647,7 @@ Schema Documentation
 ====================
 
 Source: :gh:`sphinx-jsonschema <lnoor/sphinx-jsonschema>`, on PyPI as
-`sphinx-jsonschema <https://pypi.org/project/sphinx-jsonschema/>`__, compared to ``xsd-graph``.
+`sphinx-jsonschema <https://pypi.org/project/sphinx-jsonschema/>`__, compared to ``xmlschema-graph``.
 
 .. rubric:: Disadvantages
 

@@ -151,7 +151,7 @@ class Registration(Project):
 		roles = {call.args[0] for call in app.add_role.call_args_list}
 		directives = {call.args[0] for call in app.add_directive.call_args_list}
 		self.assertEqual(set(STYLE_ROLES) | set(BREAK_ROLES) | {PYTHON_CODE_ROLE}, roles)
-		self.assertEqual({"condensed-class", "dependency-table", "xsd-graph", "shields"}, directives)
+		self.assertEqual({"condensed-class", "dependency-table", "xmlschema-graph", "shields"}, directives)
 		self.assertEqual(__version__, metadata["version"])
 
 	@testcase("Substitutions in the prolog")
