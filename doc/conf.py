@@ -6,6 +6,8 @@ from os.path  import abspath
 from pathlib  import Path
 from textwrap import dedent
 
+from pyTooling.Packaging import extractVersionInformation
+
 # ==============================================================================
 # Project configuration
 # ==============================================================================
@@ -22,10 +24,6 @@ ROOT = Path(__file__).resolve().parent
 sys_path.insert(0, abspath("."))
 sys_path.insert(0, abspath(".."))
 sys_path.insert(0, abspath(f"../{directoryName}"))
-
-# pyTooling is a namespace package, so its '__path__' is fixed the first time it is imported. Importing it before the
-# lines above would fix it to an installed copy without this checkout.
-from pyTooling.Packaging import extractVersionInformation
 
 
 # ==============================================================================
