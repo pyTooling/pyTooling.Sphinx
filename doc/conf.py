@@ -173,6 +173,7 @@ extensions = [
 	"sphinx_copybutton",
 	"sphinx_autodoc_typehints",
 	"autoapi.sphinx",
+	"sphinx_reports",
 # User defined extensions
 	"pyTooling.Sphinx",
 ]
@@ -250,6 +251,44 @@ inheritance_node_attrs = {
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = True
 todo_link_only = True
+
+
+# ==============================================================================
+# Sphinx_Reports
+# ==============================================================================
+report_unittest_testsuites = {
+	"src": {
+		"name":        f"{pythonProject}",
+		"xml_report":  "../report/unit/unittest.xml",
+	}
+}
+report_codecov_packages = {
+	"src": {
+		"name":        f"{pythonProject}",
+		"json_report": "../report/coverage/coverage.json",
+		"fail_below":  80,
+		"levels":      "default"
+	}
+}
+report_doccov_packages = {
+	"src": {
+		"name":       f"{pythonProject}",
+		"directory":  f"../{directoryName}",
+		"fail_below": 80,
+		"levels":     "default"
+	}
+}
+
+
+# ==============================================================================
+# pyTooling.Sphinx - dependency tables
+# ==============================================================================
+pyTooling_Dependency_Requirements = {
+	"package":       {"file": "../requirements.txt"},
+	"unittest":      {"file": "../tests/unit/requirements.txt"},
+	"documentation": {"file": "requirements.txt"},
+}
+pyTooling_Dependency_PackageOverrides = "Dependency.PackageOverrides.yaml"
 
 
 # ==============================================================================
