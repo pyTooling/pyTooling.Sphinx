@@ -41,7 +41,7 @@ from unittest.mock          import MagicMock
 from sphinx.testing.util    import SphinxTestApp
 from sphinx.util.console    import strip_colors
 
-from pyTooling.Testing      import Testcase
+from pyTooling.Testing      import Testcase, testsuite, testcase
 
 from pyTooling.Sphinx       import __version__, SUBSTITUTIONS, setup
 from pyTooling.Sphinx.Roles import BREAK_ROLES, PYTHON_CODE_ROLE, STYLE_ROLES
@@ -119,15 +119,32 @@ class Project(Testcase):
 		return lines
 
 
+@testsuite("Extension registration")
 class Registration(Project):
-	def test_Metadata(self) -> None:
+	"""What the extension registers with Sphinx."""
+
+	@testcase("Extension metadata")
+	def Metadata(self) -> None:
+		"""
+		The extension reports its version and is safe for parallel reading.
+
+		Builds an empty project with the extension and checks the build has no warnings, the version Sphinx reports is the
+		package's '__version__', and 'parallel_read_safe' is set.
+		"""
 		app = self._build("Index\n#####\n")
 
 		self.assertEqual([], self._warningLines())
 		self.assertEqual(__version__, app.extensions["pyTooling.Sphinx"].version)
 		self.assertTrue(app.extensions["pyTooling.Sphinx"].parallel_read_safe)
 
-	def test_RolesAndDirectives(self) -> None:
+	@testcase("Registered roles and directives")
+	def RolesAndDirectives(self) -> None:
+		"""
+		The extension's setup() registers every role and directive it brings.
+
+		Calls setup() with a mocked application and compares the names passed to 'add_role' and 'add_directive' with the
+		style, break and code roles and the four directives.
+		"""
 		app = MagicMock()
 		metadata = setup(app)
 
@@ -137,14 +154,30 @@ class Registration(Project):
 		self.assertEqual({"condensed-class", "dependency-table", "xsd-graph", "shields"}, directives)
 		self.assertEqual(__version__, metadata["version"])
 
-	def test_Substitutions(self) -> None:
+	@testcase("Substitutions in the prolog")
+	def Substitutions(self) -> None:
+		"""
+		The extension adds its substitutions to 'rst_prolog'.
+
+		Builds an empty project and checks the configured prolog contains 'SUBSTITUTIONS'.
+		"""
 		app = self._build("Index\n#####\n")
 
 		self.assertIn(SUBSTITUTIONS, app.config.rst_prolog)
 
 
+@testsuite("Rendering in a document")
 class Rendering(Project):
-	def test_StyleRoles(self) -> None:
+	"""What the extension's roles and stylesheet put into a built page."""
+
+	@testcase("Style roles")
+	def StyleRoles(self) -> None:
+		"""
+		The style, diff, code and break roles render without warnings.
+
+		Builds a document using ':red:', ':addition:', ':pycode:' and '|br|', and checks the page holds their output, e.g.
+		the CSS class 'colorred'.
+		"""
 		self._build("Index\n#####\n\n:red:`red` :addition:`added` :pycode:`print(1)` line|br|break\n")
 
 		self.assertEqual([], self._warningLines())
@@ -153,7 +186,14 @@ class Rendering(Project):
 		self.assertIn("added", html)
 		self.assertIn("print", html)
 
-	def test_Stylesheet(self) -> None:
+	@testcase("Stylesheet linked")
+	def Stylesheet(self) -> None:
+		"""
+		Every page links the extension's stylesheet.
+
+		Builds an empty project and checks the page links 'pyTooling.css' under the hashed name Sphinx gives a static
+		file.
+		"""
 		self._build("Index\n#####\n")
 
 		html = self._html("index")

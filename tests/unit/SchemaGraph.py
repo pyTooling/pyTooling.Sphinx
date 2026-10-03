@@ -41,7 +41,7 @@ from pyTooling                       import Resources
 from pyTooling.Common                import getResourceFile
 from pyTooling.Sphinx.SchemaGraph    import DotGraph
 from pyTooling.Sphinx.XSDSchemaGraph import XSDSchemaGraph
-from pyTooling.Testing               import Testcase
+from pyTooling.Testing               import Testcase, testsuite, testcase
 
 
 if __name__ == "__main__":  # pragma: no cover
@@ -50,11 +50,18 @@ if __name__ == "__main__":  # pragma: no cover
 	exit(1)
 
 
+@testsuite("Schema graph")
 class Graphs(Testcase):
 	"""The graph every schema graph is drawn as."""
 
-	def test_SharedAttributes(self) -> None:
-		"""Where the graph flows, how a record is shaped and the fonts belong to every schema graph alike."""
+	@testcase("Shared look")
+	def SharedAttributes(self) -> None:
+		"""
+		An empty schema graph carries the attributes every schema graph shares.
+
+		Renders an empty DotGraph and compares it with the expected DOT: left to right, the node separation, record nodes
+		and the fonts of nodes and edges.
+		"""
 		self.assertEqual(dedent("""\
 			digraph "schema" {
 			  rankdir="LR";
@@ -64,10 +71,22 @@ class Graphs(Testcase):
 			}
 			"""), str(DotGraph()))
 
-	def test_Identifier(self) -> None:
+	@testcase("Graph identifier")
+	def Identifier(self) -> None:
+		"""
+		A schema graph is written under the identifier it is given.
+
+		Renders a DotGraph named 'other' and checks the DOT text starts with that identifier.
+		"""
 		self.assertTrue(str(DotGraph("other")).startswith('digraph "other" {'))
 
-	def test_Identifier_Parameters(self) -> None:
+	@testcase("Identifier checks")
+	def Identifier_Parameters(self) -> None:
+		"""
+		A missing or non-string identifier is rejected.
+
+		Creates a DotGraph with None and with an integer, and checks the ValueError and TypeError and their messages.
+		"""
 		for identifier, exceptionType, message in (
 			(None, ValueError, "Parameter 'identifier' is None."),
 			(1,    TypeError,  "Parameter 'identifier' is not of type 'str'."),
@@ -77,15 +96,27 @@ class Graphs(Testcase):
 					DotGraph(identifier)
 				self.assertEqual(message, str(context.exception))
 
-	def test_Record(self) -> None:
-		"""The title is written in guillemets, and every compartment follows it below - an empty one as a space."""
+	@testcase("Record node")
+	def Record(self) -> None:
+		"""
+		A record is its title in guillemets, followed by one compartment per sequence of rows.
+
+		Adds a record with a title holding a '|', a compartment of two rows, an empty compartment and an attribute, and
+		checks the node is returned, the title is escaped, the rows are left-aligned and the empty compartment is a space.
+		"""
 		graph = DotGraph()
 		node = graph.AddRecord("t", "t|1", (("a", "b"), ()), {"style": "filled"})
 
 		self.assertIs(node, graph.GetNode("t"))
 		self.assertIn('  "t" [style="filled", label="{«t\\|1»|a\\lb\\l| }"];\n', str(graph))
 
-	def test_Record_Parameters(self) -> None:
+	@testcase("Record title checks")
+	def Record_Parameters(self) -> None:
+		"""
+		A missing or non-string record title is rejected.
+
+		Adds a record with None and with an integer as title, and checks the ValueError and TypeError and their messages.
+		"""
 		graph = DotGraph()
 		for title, exceptionType, message in (
 			(None, ValueError, "Parameter 'title' is None."),
@@ -96,8 +127,14 @@ class Graphs(Testcase):
 					graph.AddRecord("t", title)
 				self.assertEqual(message, str(context.exception))
 
-	def test_GetOrAddNode(self) -> None:
-		"""An edge's target without a record of its own becomes a plain node, once."""
+	@testcase("Node on demand")
+	def GetOrAddNode(self) -> None:
+		"""
+		An edge's target without a record of its own becomes a plain node, once.
+
+		Asks for an existing record and gets it back; asks twice for 'xsd:anyType' and gets the same new node, which is
+		written as a plain node.
+		"""
 		graph = DotGraph()
 		record = graph.AddRecord("t", "t")
 
@@ -107,6 +144,7 @@ class Graphs(Testcase):
 		self.assertIn('  "xsd:anyType";\n', str(graph))
 
 
+@testsuite("Shipped XML schema")
 class XMLSchemaGraphs(Testcase):
 	"""The XML schema pyTooling ships, drawn as the 'xsd-graph' directive draws it."""
 
@@ -117,43 +155,88 @@ class XMLSchemaGraphs(Testcase):
 		"""Render the schema once for all testcases of this class."""
 		cls._dot = XSDSchemaGraph._RenderGraph(getResourceFile(Resources, "TestReport-v0.1.xsd"))
 
-	def test_ComplexType(self) -> None:
-		"""A complex type is a record; its attributes and simple-typed children are its compartments."""
+	@testcase("Complex types as records")
+	def ComplexType(self) -> None:
+		"""
+		Every complex type of the schema is a record.
+
+		Checks the rendered test-report schema has a record titled 'testreport', 'testsuite' and 'testcase'.
+		"""
 		for typeIdentifier in ("testreport", "testsuite", "testcase"):
 			with self.subTest(typeIdentifier=typeIdentifier):
 				self.assertIn(f'"{typeIdentifier}" [label="{{«{typeIdentifier}»|', self._dot)
 
-	def test_Attribute(self) -> None:
-		"""A builtin type keeps the 'xsd:' prefix its namespace stands for."""
+	@testcase("Attribute with its type")
+	def Attribute(self) -> None:
+		"""
+		An attribute is written with its type, a builtin type with the 'xsd:' prefix.
+
+		Checks the rendered schema contains the row 'duration : xsd:float'.
+		"""
 		self.assertIn("duration : xsd:float", self._dot)
 
-	def test_Containment(self) -> None:
-		"""A complex-typed child is an edge carrying the cardinality."""
+	@testcase("Containment as an edge")
+	def Containment(self) -> None:
+		"""
+		A complex-typed child element is an edge carrying the element's name and cardinality.
+
+		Checks the rendered schema has the edge from 'testreport' to 'testsuite' labelled 'Testsuite [0..*]'.
+		"""
 		self.assertIn('"testreport" -> "testsuite" [label="Testsuite [0..*]"];', self._dot)
 
-	def test_Containment_Recursive(self) -> None:
+	@testcase("Recursive containment")
+	def Containment_Recursive(self) -> None:
+		"""
+		A type containing itself is an edge to itself.
+
+		Checks the rendered schema has the edge from 'testsuite' to 'testsuite'.
+		"""
 		self.assertIn('"testsuite" -> "testsuite" [label="Testsuite [0..*]"];', self._dot)
 
-	def test_RootElement(self) -> None:
+	@testcase("Root element")
+	def RootElement(self) -> None:
+		"""
+		A root element is a double circle pointing to its type.
+
+		Checks the rendered schema has the node '<TestReport>' with its attributes and an edge labelled 'root' to
+		'testreport'.
+		"""
 		root = '"<TestReport>" [shape="doublecircle", style="filled", fillcolor="#e8e8ff", label="TestReport"];'
 		self.assertIn(root, self._dot)
 		self.assertIn('"<TestReport>" -> "testreport" [label="root"];', self._dot)
 
-	def test_Enumeration(self) -> None:
-		"""A simple type earns a node only when it has values a type name cannot say."""
+	@testcase("Enumeration node")
+	def Enumeration(self) -> None:
+		"""
+		An enumeration is a filled record of its values, used by a dashed edge.
+
+		Checks the rendered schema has the record 'status' with its values, and the dashed, non-constraining edge from
+		'testcase' to it.
+		"""
 		self.assertIn('"status" [style="filled", fillcolor="#f0f0f0", label="{«status»|passed\\lfailed\\l', self._dot)
 		self.assertIn('"testcase" -> "status" [style="dashed", arrowhead="open", constraint=false];', self._dot)
 
-	def test_SimpleType(self) -> None:
-		"""'preservingstring' is named in the compartments and drawn nowhere - it has nothing to show."""
+	@testcase("Simple type without node")
+	def SimpleType(self) -> None:
+		"""
+		A simple type that is no enumeration is only named, not drawn.
+
+		Checks 'preservingstring' appears in a compartment row and nowhere as a node.
+		"""
 		self.assertIn("Description : preservingstring", self._dot)
 		self.assertNotIn('"preservingstring"', self._dot)
 
-	def test_Stable(self) -> None:
-		"""A rebuilt page is only comparable to the one before it when the drawing doesn't reshuffle."""
+	@testcase("Stable output")
+	def Stable(self) -> None:
+		"""
+		The same schema is always rendered to the same text.
+
+		Renders the schema a second time and compares it with the first rendering.
+		"""
 		self.assertEqual(self._dot, XSDSchemaGraph._RenderGraph(getResourceFile(Resources, "TestReport-v0.1.xsd")))
 
 
+@testsuite("XML schema details")
 class XSDSchemaGraphDetails(Testcase):
 	"""The parts of an XML schema graph that the shipped schema doesn't exercise."""
 
@@ -196,18 +279,35 @@ class XSDSchemaGraphDetails(Testcase):
 
 			return XSDSchemaGraph._RenderGraph(schema)
 
-	def test_Enumeration_Order(self) -> None:
-		"""They are collected in a set, whose iteration order varies between interpreter runs unless it is sorted."""
+	@testcase("Enumeration order")
+	def Enumeration_Order(self) -> None:
+		"""
+		Enumerations are written in the order of their names.
+
+		Renders a schema declaring 'charlie', 'alpha' and 'bravo', and checks their records appear alphabetically.
+		"""
 		dot = self._Render()
 		positions = [dot.index(f'"{name}" [style="filled"') for name in ("alpha", "bravo", "charlie")]
 
 		self.assertListEqual(sorted(positions), positions)
 
-	def test_Unbounded(self) -> None:
+	@testcase("Unbounded occurrence")
+	def Unbounded(self) -> None:
+		"""
+		An element with 'maxOccurs="unbounded"' has a '*' as upper limit.
+
+		Renders a schema with such an element and checks its row ends with '[1..*]'.
+		"""
 		self.assertIn("Two : bravo [1..*]", self._Render())
 
-	def test_TypeWithoutRecord(self) -> None:
-		"""A complex type without a record - a builtin or an anonymous one - is drawn as a plain node."""
+	@testcase("Types without a record")
+	def TypeWithoutRecord(self) -> None:
+		"""
+		A complex type without a record - a builtin or an anonymous one - is a plain node.
+
+		Renders a schema with an untyped element and an inline complex type, and checks the plain nodes 'xsd:anyType' and
+		'(anonymous)' and the edges to them.
+		"""
 		dot = self._Render()
 
 		self.assertIn('  "xsd:anyType";\n', dot)
@@ -216,6 +316,7 @@ class XSDSchemaGraphDetails(Testcase):
 		self.assertIn('"root" -> "(anonymous)" [label="Inline [1..1]"];', dot)
 
 
+@testsuite("Type names")
 class TypeNames(Testcase):
 	"""What a type is called in a record, which is not always what it is called in the schema."""
 
@@ -225,20 +326,37 @@ class TypeNames(Testcase):
 		def __init__(self, name: Nullable[str]) -> None:
 			self.name = name
 
-	def test_Builtin(self) -> None:
-		"""The namespace a builtin type is spelled with is 40 characters that say nothing in a diagram."""
+	@testcase("Builtin type")
+	def Builtin(self) -> None:
+		"""
+		A builtin type is named with the 'xsd:' prefix instead of its namespace.
+
+		Names a stand-in type in the XML Schema namespace and checks it becomes 'xsd:string'.
+		"""
 		builtin = self._Type("{http://www.w3.org/2001/XMLSchema}string")
 
 		self.assertEqual("xsd:string", XSDSchemaGraph._TypeName(builtin))
 
-	def test_Named(self) -> None:
+	@testcase("Named type")
+	def Named(self) -> None:
+		"""
+		A type declared by the schema keeps its name.
+
+		Names a stand-in type 'status' and checks the name is unchanged.
+		"""
 		self.assertEqual("status", XSDSchemaGraph._TypeName(self._Type("status")))
 
-	def test_Anonymous(self) -> None:
-		"""An inline type has no name, and an empty label would be read as a missing one."""
+	@testcase("Anonymous type")
+	def Anonymous(self) -> None:
+		"""
+		A type without a name is named '(anonymous)'.
+
+		Names a stand-in type whose name is None.
+		"""
 		self.assertEqual("(anonymous)", XSDSchemaGraph._TypeName(self._Type(None)))
 
 
+@testsuite("Cardinalities")
 class Cardinalities(Testcase):
 	"""How often an element may occur, as a record row states it."""
 
@@ -248,9 +366,20 @@ class Cardinalities(Testcase):
 		def __init__(self, lower: int, upper: Nullable[int]) -> None:
 			self.occurs = (lower, upper)
 
-	def test_Bounded(self) -> None:
+	@testcase("Bounded occurrence")
+	def Bounded(self) -> None:
+		"""
+		A bounded occurrence is written as its two numbers.
+
+		Formats a stand-in element occurring 0 to 1 times and checks '0..1'.
+		"""
 		self.assertEqual("0..1", XSDSchemaGraph._Cardinality(self._Element(0, 1)))
 
-	def test_Unbounded(self) -> None:
-		"""'None' is what 'unbounded' arrives as, and it has no number to print."""
+	@testcase("Unbounded occurrence")
+	def Unbounded(self) -> None:
+		"""
+		An unbounded occurrence has a '*' as upper limit.
+
+		Formats a stand-in element whose upper limit is None and checks '1..*'.
+		"""
 		self.assertEqual("1..*", XSDSchemaGraph._Cardinality(self._Element(1, None)))
