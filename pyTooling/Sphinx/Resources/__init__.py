@@ -29,31 +29,9 @@
 # ==================================================================================================================== #
 #
 """
-Package installer for 'More Sphinx roles, directives and domains'.
+Resources shipped for :mod:`pyTooling.Sphinx`.
+
+Stylesheets:
+
+* :file:`pyTooling.css` - the styles the roles in :mod:`~pyTooling.Sphinx.Roles` need.
 """
-from setuptools          import setup
-
-from pathlib             import Path
-from pyTooling.Packaging import DescribePythonPackageHostedOnGitHub
-
-gitHubNamespace =        "pyTooling"
-packageName =            "pyTooling.Sphinx"
-packageDirectory =       packageName.replace(".", "/")
-packageInformationFile = Path(f"{packageDirectory}/__init__.py")
-
-setup(
-	**DescribePythonPackageHostedOnGitHub(
-		packageName=packageName,
-		description="More Sphinx roles, directives and domains.",
-		gitHubNamespace=gitHubNamespace,
-		unittestRequirementsFile=Path("tests/requirements.txt"),
-		sourceFileWithVersion=packageInformationFile,
-		developmentStatus="alpha",
-		pythonVersions=("3.12", "3.13", "3.14"),
-		dataFiles={
-			packageName:                ["py.typed"],
-			f"{packageName}.Resources": ["*.css"]
-		},
-		debug=True
-	)
-)
