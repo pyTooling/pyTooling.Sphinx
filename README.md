@@ -7,6 +7,8 @@
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pyTooling.Sphinx?longCache=true&style=flat-square&logo=PyPI&logoColor=FBE072)  
 [![GitHub Workflow - Build and Test Status](https://img.shields.io/github/actions/workflow/status/pyTooling/pyTooling.Sphinx/Pipeline.yml?branch=main&longCache=true&style=flat-square&label=build%20and%20test&logo=GitHub%20Actions&logoColor=FFFFFF)](https://GitHub.com/pyTooling/pyTooling.Sphinx/actions/workflows/Pipeline.yml)
 [![Libraries.io status for latest release](https://img.shields.io/librariesio/release/pypi/pyTooling.Sphinx?longCache=true&style=flat-square&logo=Libraries.io&logoColor=fff)](https://libraries.io/github/pyTooling/pyTooling.Sphinx)
+[![Codacy - Quality](https://img.shields.io/codacy/grade/d80355705a634d59835eeb01e8536cce?longCache=true&style=flat-square&logo=Codacy)](https://app.codacy.com/gh/pyTooling/pyTooling.Sphinx/dashboard)
+[![Codacy - Coverage](https://img.shields.io/codacy/coverage/d80355705a634d59835eeb01e8536cce?longCache=true&style=flat-square&logo=Codacy)](https://app.codacy.com/gh/pyTooling/pyTooling.Sphinx/dashboard)
 [![Codecov - Branch Coverage](https://img.shields.io/codecov/c/github/pyTooling/pyTooling.Sphinx?longCache=true&style=flat-square&logo=Codecov)](https://codecov.io/gh/pyTooling/pyTooling.Sphinx)
 
 # pyTooling.Sphinx

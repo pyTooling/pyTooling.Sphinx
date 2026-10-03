@@ -173,6 +173,7 @@ extensions = [
 	"sphinx_copybutton",
 	"sphinx_autodoc_typehints",
 	"autoapi.sphinx",
+	"sphinx_reports",
 # User defined extensions
 	"pyTooling.Sphinx",
 ]
@@ -253,6 +254,44 @@ todo_link_only = True
 
 
 # ==============================================================================
+# Sphinx_Reports
+# ==============================================================================
+report_unittest_testsuites = {
+	"src": {
+		"name":        f"{pythonProject}",
+		"xml_report":  "../report/unit/unittest.xml",
+	}
+}
+report_codecov_packages = {
+	"src": {
+		"name":        f"{pythonProject}",
+		"json_report": "../report/coverage/coverage.json",
+		"fail_below":  80,
+		"levels":      "default"
+	}
+}
+report_doccov_packages = {
+	"src": {
+		"name":       f"{pythonProject}",
+		"directory":  f"../{directoryName}",
+		"fail_below": 80,
+		"levels":     "default"
+	}
+}
+
+
+# ==============================================================================
+# pyTooling.Sphinx - dependency tables
+# ==============================================================================
+pyTooling_Dependency_Requirements = {
+	"package":       {"file": "../requirements.txt"},
+	"unittest":      {"file": "../tests/unit/requirements.txt"},
+	"documentation": {"file": "requirements.txt"},
+}
+pyTooling_Dependency_PackageOverrides = "Dependency.PackageOverrides.yaml"
+
+
+# ==============================================================================
 # Sphinx_Design
 # ==============================================================================
 # sd_fontawesome_latex = True
@@ -269,9 +308,17 @@ autoapi_modules = {
 	}
 }
 
-for directory in [mod for mod in Path(f"../{project.replace('.', '/')}").iterdir() if mod.is_dir() and mod.name != "__pycache__"]:
-	print(f"Adding module rule for '{project}.{directory.name}'")
-	autoapi_modules[f"{project}.{directory.name}"] = {
+# sub-packages are directories, modules are files - both get the module template, which documents their members
+for module in Path(f"../{project.replace('.', '/')}").iterdir():
+	if module.is_dir() and module.name != "__pycache__":
+		name = module.name
+	elif module.suffix == ".py" and module.name != "__init__.py":
+		name = module.stem
+	else:
+		continue
+
+	print(f"Adding module rule for '{project}.{name}'")
+	autoapi_modules[f"{project}.{name}"] = {
 		"template": "module",
 		"output":   project,
 		"override": True
