@@ -1,10 +1,10 @@
 # ==================================================================================================================== #
-#             _____           _ _               ____                                        _        _   _             #
-#  _ __  _   |_   _|__   ___ | (_)_ __   __ _  |  _ \  ___   ___ _   _ _ __ ___   ___ _ __ | |_ __ _| |_(_) ___  _ __  #
-# | '_ \| | | || |/ _ \ / _ \| | | '_ \ / _` | | | | |/ _ \ / __| | | | '_ ` _ \ / _ \ '_ \| __/ _` | __| |/ _ \| '_ \ #
-# | |_) | |_| || | (_) | (_) | | | | | | (_| |_| |_| | (_) | (__| |_| | | | | | |  __/ | | | || (_| | |_| | (_) | | | |#
-# | .__/ \__, ||_|\___/ \___/|_|_|_| |_|\__, (_)____/ \___/ \___|\__,_|_| |_| |_|\___|_| |_|\__\__,_|\__|_|\___/|_| |_|#
-# |_|    |___/                          |___/                                                                          #
+#             _____           _ _               ____        _     _                                                    #
+#  _ __  _   |_   _|__   ___ | (_)_ __   __ _  / ___| _ __ | |__ (_)_ __ __  __                                        #
+# | '_ \| | | || |/ _ \ / _ \| | | '_ \ / _` | \___ \| '_ \| '_ \| | '_ \\ \/ /                                        #
+# | |_) | |_| || | (_) | (_) | | | | | | (_| |_ ___) | |_) | | | | | | | |>  <                                         #
+# | .__/ \__, ||_|\___/ \___/|_|_|_| |_|\__, (_)____/| .__/|_| |_|_|_| |_/_/\_\                                        #
+# |_|    |___/                          |___/        |_|                                                               #
 # ==================================================================================================================== #
 # Authors:                                                                                                             #
 #   Patrick Lehmann                                                                                                    #
@@ -92,8 +92,8 @@ if TYPE_CHECKING:  # pragma: no cover
 	from pyTooling.Dependency.Python import LicenseOverrides, Project, PythonPackageDependencyGraph
 	from pyTooling.Dependency.Python import PythonPackageIndex, Release, RequirementsFile
 
-from pyTooling.Sphinx.Directives import BaseDirective, SphinxExtensionError, strip
-from pyTooling.Sphinx.Directives import stripAndNormalize
+from pyTooling.Sphinx              import BaseDirective, SphinxExtensionError, strip
+from pyTooling.Sphinx              import stripAndNormalize
 
 
 #: URL of the package index the tables are built from, unless :file:`conf.py` names another.
@@ -784,7 +784,7 @@ class DependencyTable(BaseDirective):
 		"""
 		Read an option naming a member of an enumeration, or fall back to its default.
 
-		:attr:`~pyTooling.Sphinx.Directives.BaseDirective._ParseEnumOption` requires the option and
+		:attr:`~pyTooling.Sphinx.BaseDirective._ParseEnumOption` requires the option and
 		lower-cases what it reads; these two have a default and are written the way the members are spelled, so a
 		document says ``:version-format: MajorMinor`` rather than ``major_minor``.
 

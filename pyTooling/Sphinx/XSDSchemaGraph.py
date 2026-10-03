@@ -1,10 +1,10 @@
 # ==================================================================================================================== #
-#             _____           _ _               ____                                        _        _   _             #
-#  _ __  _   |_   _|__   ___ | (_)_ __   __ _  |  _ \  ___   ___ _   _ _ __ ___   ___ _ __ | |_ __ _| |_(_) ___  _ __  #
-# | '_ \| | | || |/ _ \ / _ \| | | '_ \ / _` | | | | |/ _ \ / __| | | | '_ ` _ \ / _ \ '_ \| __/ _` | __| |/ _ \| '_ \ #
-# | |_) | |_| || | (_) | (_) | | | | | | (_| |_| |_| | (_) | (__| |_| | | | | | |  __/ | | | || (_| | |_| | (_) | | | |#
-# | .__/ \__, ||_|\___/ \___/|_|_|_| |_|\__, (_)____/ \___/ \___|\__,_|_| |_| |_|\___|_| |_|\__\__,_|\__|_|\___/|_| |_|#
-# |_|    |___/                          |___/                                                                          #
+#             _____           _ _               ____        _     _                                                    #
+#  _ __  _   |_   _|__   ___ | (_)_ __   __ _  / ___| _ __ | |__ (_)_ __ __  __                                        #
+# | '_ \| | | || |/ _ \ / _ \| | | '_ \ / _` | \___ \| '_ \| '_ \| | '_ \\ \/ /                                        #
+# | |_) | |_| || | (_) | (_) | | | | | | (_| |_ ___) | |_) | | | | | | | |>  <                                         #
+# | .__/ \__, ||_|\___/ \___/|_|_|_| |_|\__, (_)____/| .__/|_| |_|_|_| |_/_/\_\                                        #
+# |_|    |___/                          |___/        |_|                                                               #
 # ==================================================================================================================== #
 # Authors:                                                                                                             #
 #   Patrick Lehmann                                                                                                    #
@@ -52,17 +52,17 @@ text is laid out, and it is drawn at build time from the shipped file, so it can
    :mod:`pyTooling.Sphinx.SchemaGraph`
       |rarr| The graph and the directive's base-class, shared by every schema language.
 """
-from __future__                                 import annotations
+from __future__                   import annotations
 
-from pathlib                                    import Path
-from typing                                     import TYPE_CHECKING, Generator
+from pathlib                      import Path
+from typing                       import TYPE_CHECKING, Generator
 
-from pyTooling.Decorators                       import export
-from pyTooling.Exceptions                       import MissingDependencyError
-from pyTooling.Sphinx.SchemaGraph               import DotGraph, SchemaGraph
+from pyTooling.Decorators         import export
+from pyTooling.Exceptions         import MissingDependencyError
+from pyTooling.Sphinx.SchemaGraph import DotGraph, SchemaGraph
 
 if TYPE_CHECKING:  # pragma: no cover
-	from xmlschema.validators                     import XsdElement, XsdGroup, XsdType
+	from xmlschema.validators       import XsdElement, XsdGroup, XsdType
 
 
 @export

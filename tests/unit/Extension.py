@@ -31,19 +31,19 @@
 """
 Unit tests for the Sphinx extension :mod:`pyTooling.Sphinx`, each built in a small Sphinx project.
 """
-from io                  import StringIO
-from os                  import sep
-from pathlib             import Path
-from tempfile            import TemporaryDirectory
-from typing              import Any
-from unittest.mock       import MagicMock
+from io                     import StringIO
+from os                     import sep
+from pathlib                import Path
+from tempfile               import TemporaryDirectory
+from typing                 import Any
+from unittest.mock          import MagicMock
 
-from sphinx.testing.util import SphinxTestApp
-from sphinx.util.console import strip_colors
+from sphinx.testing.util    import SphinxTestApp
+from sphinx.util.console    import strip_colors
 
-from pyTooling.Testing   import Testcase
+from pyTooling.Testing      import Testcase
 
-from pyTooling.Sphinx    import __version__, SUBSTITUTIONS, setup
+from pyTooling.Sphinx       import __version__, SUBSTITUTIONS, setup
 from pyTooling.Sphinx.Roles import BREAK_ROLES, PYTHON_CODE_ROLE, STYLE_ROLES
 
 

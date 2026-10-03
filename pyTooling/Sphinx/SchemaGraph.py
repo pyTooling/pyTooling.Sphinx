@@ -1,10 +1,10 @@
 # ==================================================================================================================== #
-#             _____           _ _               ____                                        _        _   _             #
-#  _ __  _   |_   _|__   ___ | (_)_ __   __ _  |  _ \  ___   ___ _   _ _ __ ___   ___ _ __ | |_ __ _| |_(_) ___  _ __  #
-# | '_ \| | | || |/ _ \ / _ \| | | '_ \ / _` | | | | |/ _ \ / __| | | | '_ ` _ \ / _ \ '_ \| __/ _` | __| |/ _ \| '_ \ #
-# | |_) | |_| || | (_) | (_) | | | | | | (_| |_| |_| | (_) | (__| |_| | | | | | |  __/ | | | || (_| | |_| | (_) | | | |#
-# | .__/ \__, ||_|\___/ \___/|_|_|_| |_|\__, (_)____/ \___/ \___|\__,_|_| |_| |_|\___|_| |_|\__\__,_|\__|_|\___/|_| |_|#
-# |_|    |___/                          |___/                                                                          #
+#             _____           _ _               ____        _     _                                                    #
+#  _ __  _   |_   _|__   ___ | (_)_ __   __ _  / ___| _ __ | |__ (_)_ __ __  __                                        #
+# | '_ \| | | || |/ _ \ / _ \| | | '_ \ / _` | \___ \| '_ \| '_ \| | '_ \\ \/ /                                        #
+# | |_) | |_| || | (_) | (_) | | | | | | (_| |_ ___) | |_) | | | | | | | |>  <                                         #
+# | .__/ \__, ||_|\___/ \___/|_|_|_| |_|\__, (_)____/| .__/|_| |_|_|_| |_/_/\_\                                        #
+# |_|    |___/                          |___/        |_|                                                               #
 # ==================================================================================================================== #
 # Authors:                                                                                                             #
 #   Patrick Lehmann                                                                                                    #
@@ -42,18 +42,18 @@ schema language adds a module reading its schemas into a :class:`DotGraph`, and 
    :mod:`pyTooling.Sphinx`
       |rarr| The extension this belongs to, and what else it brings.
 """
-from __future__                                import annotations
+from __future__            import annotations
 
-from pathlib                                   import Path
-from typing                                    import Any, Iterable, Sequence
+from pathlib               import Path
+from typing                import Any, Iterable, Sequence
 
-from docutils                                  import nodes
-from sphinx.ext.graphviz                       import figure_wrapper, graphviz
+from docutils              import nodes
+from sphinx.ext.graphviz   import figure_wrapper, graphviz
 
-from pyTooling.Common                          import getFullyQualifiedName
-from pyTooling.Decorators                      import export
-from pyTooling.MetaClasses                     import ExtendedType
-from pyTooling.Sphinx.Directives               import BaseDirective, strip
+from pyTooling.Common      import getFullyQualifiedName
+from pyTooling.Decorators  import export
+from pyTooling.MetaClasses import ExtendedType
+from pyTooling.Sphinx      import BaseDirective, strip
 
 
 __all__ = ["GRAPH_ATTRIBUTES"]
@@ -254,7 +254,7 @@ class SchemaGraph(BaseDirective):
 	It holds everything that isn't the schema's language: the path is resolved against the document using the
 	directive and registered as a dependency - so editing the schema rebuilds the page holding its diagram - and
 	whatever :meth:`_RenderGraph` returns is handed to :mod:`sphinx.ext.graphviz`, wrapped in a figure when a caption
-	was given. A derived class sets :attr:`~pyTooling.Sphinx.Directives.BaseDirective.directiveName` and
+	was given. A derived class sets :attr:`~pyTooling.Sphinx.BaseDirective.directiveName` and
 	overrides :meth:`_RenderGraph`.
 	"""
 

@@ -1,10 +1,10 @@
 # ==================================================================================================================== #
-#             _____           _ _               ____                                        _        _   _             #
-#  _ __  _   |_   _|__   ___ | (_)_ __   __ _  |  _ \  ___   ___ _   _ _ __ ___   ___ _ __ | |_ __ _| |_(_) ___  _ __  #
-# | '_ \| | | || |/ _ \ / _ \| | | '_ \ / _` | | | | |/ _ \ / __| | | | '_ ` _ \ / _ \ '_ \| __/ _` | __| |/ _ \| '_ \ #
-# | |_) | |_| || | (_) | (_) | | | | | | (_| |_| |_| | (_) | (__| |_| | | | | | |  __/ | | | || (_| | |_| | (_) | | | |#
-# | .__/ \__, ||_|\___/ \___/|_|_|_| |_|\__, (_)____/ \___/ \___|\__,_|_| |_| |_|\___|_| |_|\__\__,_|\__|_|\___/|_| |_|#
-# |_|    |___/                          |___/                                                                          #
+#             _____           _ _               ____        _     _                                                    #
+#  _ __  _   |_   _|__   ___ | (_)_ __   __ _  / ___| _ __ | |__ (_)_ __ __  __                                        #
+# | '_ \| | | || |/ _ \ / _ \| | | '_ \ / _` | \___ \| '_ \| '_ \| | '_ \\ \/ /                                        #
+# | |_) | |_| || | (_) | (_) | | | | | | (_| |_ ___) | |_) | | | | | | | |>  <                                         #
+# | .__/ \__, ||_|\___/ \___/|_|_|_| |_|\__, (_)____/| .__/|_| |_|_|_| |_/_/\_\                                        #
+# |_|    |___/                          |___/        |_|                                                               #
 # ==================================================================================================================== #
 # Authors:                                                                                                             #
 #   Patrick Lehmann                                                                                                    #
@@ -40,14 +40,14 @@ makes one declaration serve all of them, and puts the styling in a stylesheet in
    :mod:`pyTooling.Sphinx`
       |rarr| The extension registering these, and what else it brings.
 """
-from typing                     import Any, Optional as Nullable
+from typing                      import Any, Optional as Nullable
 
-from docutils                   import nodes
-from docutils.parsers.rst.roles import code_role
+from docutils                    import nodes
+from docutils.parsers.rst.roles  import code_role
 from docutils.parsers.rst.states import Inliner
-from docutils.utils             import unescape
+from docutils.utils              import unescape
 
-from pyTooling.Decorators       import export
+from pyTooling.Decorators        import export
 
 
 __all__ = ["STYLE_ROLES", "PYTHON_CODE_ROLE", "BREAK_ROLES"]

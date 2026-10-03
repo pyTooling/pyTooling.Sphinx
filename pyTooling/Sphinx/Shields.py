@@ -1,10 +1,10 @@
 # ==================================================================================================================== #
-#             _____           _ _               ____                                        _        _   _             #
-#  _ __  _   |_   _|__   ___ | (_)_ __   __ _  |  _ \  ___   ___ _   _ _ __ ___   ___ _ __ | |_ __ _| |_(_) ___  _ __  #
-# | '_ \| | | || |/ _ \ / _ \| | | '_ \ / _` | | | | |/ _ \ / __| | | | '_ ` _ \ / _ \ '_ \| __/ _` | __| |/ _ \| '_ \ #
-# | |_) | |_| || | (_) | (_) | | | | | | (_| |_| |_| | (_) | (__| |_| | | | | | |  __/ | | | || (_| | |_| | (_) | | | |#
-# | .__/ \__, ||_|\___/ \___/|_|_|_| |_|\__, (_)____/ \___/ \___|\__,_|_| |_| |_|\___|_| |_|\__\__,_|\__|_|\___/|_| |_|#
-# |_|    |___/                          |___/                                                                          #
+#             _____           _ _               ____        _     _                                                    #
+#  _ __  _   |_   _|__   ___ | (_)_ __   __ _  / ___| _ __ | |__ (_)_ __ __  __                                        #
+# | '_ \| | | || |/ _ \ / _ \| | | '_ \ / _` | \___ \| '_ \| '_ \| | '_ \\ \/ /                                        #
+# | |_) | |_| || | (_) | (_) | | | | | | (_| |_ ___) | |_) | | | | | | | |>  <                                         #
+# | .__/ \__, ||_|\___/ \___/|_|_|_| |_|\__, (_)____/| .__/|_| |_|_|_| |_/_/\_\                                        #
+# |_|    |___/                          |___/        |_|                                                               #
 # ==================================================================================================================== #
 # Authors:                                                                                                             #
 #   Patrick Lehmann                                                                                                    #
@@ -80,17 +80,17 @@ LaTeX the PNG from ``raster.shields.io``, because a PDF cannot embed an SVG.
    :mod:`pyTooling.Sphinx`
       |rarr| The extension this belongs to, and what else it brings.
 """
-from typing                                    import Any, Iterable, Optional as Nullable
-from urllib.parse                              import quote
+from typing                import Any, Iterable, Optional as Nullable
+from urllib.parse          import quote
 
-from docutils                                  import nodes
-from sphinx.addnodes                           import only
+from docutils              import nodes
+from sphinx.addnodes       import only
 
-from pyTooling.Common                          import getFullyQualifiedName
-from pyTooling.Decorators                      import export, readonly
-from pyTooling.Licensing                       import BaseLicense, LicenseExpression, LicenseExpressionError
-from pyTooling.MetaClasses                     import ExtendedType
-from pyTooling.Sphinx.Directives               import BaseDirective, SphinxExtensionError, strip
+from pyTooling.Common      import getFullyQualifiedName
+from pyTooling.Decorators  import export, readonly
+from pyTooling.Licensing   import BaseLicense, LicenseExpression, LicenseExpressionError
+from pyTooling.MetaClasses import ExtendedType
+from pyTooling.Sphinx      import BaseDirective, SphinxExtensionError, strip
 
 
 __all__ = ["SHIELDS_SERVICE_SVG", "SHIELDS_SERVICE_PNG", "BADGE_HEIGHT", "SHIELDS"]
