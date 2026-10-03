@@ -51,7 +51,8 @@ setup(
 		developmentStatus="alpha",
 		pythonVersions=("3.12", "3.13", "3.14"),
 		dataFiles={
-			packageName: ["py.typed"]
+			packageName:                ["py.typed"],
+			f"{packageName}.Resources": ["*.css"]
 		},
 		debug=True
 	)
