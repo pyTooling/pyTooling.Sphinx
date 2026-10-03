@@ -59,6 +59,7 @@ from typing                       import TYPE_CHECKING, Generator
 
 from pyTooling.Decorators         import export
 from pyTooling.Exceptions         import MissingDependencyError
+from pyTooling.Graph.GraphViz     import Edge, Node
 from pyTooling.Sphinx.SchemaGraph import DotGraph, SchemaGraph
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -147,6 +148,7 @@ class XSDSchemaGraph(SchemaGraph):
 
 		graph = DotGraph()
 
+		records: dict[str, Node] = {}
 		for name, xsdType in complexTypes.items():
 			attributes = [
 				f"{attribute} : {cls._TypeName(xsdType.attributes[attribute].type)}" for attribute in xsdType.attributes
@@ -155,27 +157,38 @@ class XSDSchemaGraph(SchemaGraph):
 				f"{child.name} : {cls._TypeName(child.type)} [{cls._Cardinality(child)}]"
 				for child in childElements(xsdType.content) if child.type.is_simple()
 			]
-			graph.AddRecord(name, name, (attributes, elements))
+			records[name] = graph.AddRecord(name, name, (attributes, elements))
 
-		graph.AddSeparator()
+		for name in enumerations:
+			records[name] = graph.AddRecord(
+				name,
+				name,
+				(schema.types[name].enumeration,),
+				{"style": "filled", "fillcolor": "#f0f0f0"}
+			)
+
 		for name, xsdType in complexTypes.items():
 			for child in childElements(xsdType.content):
 				if child.type.is_complex():
-					graph.AddEdge(name, cls._TypeName(child.type), label=f"{child.name} [{cls._Cardinality(child)}]")
-
-		graph.AddSeparator()
-		for name in enumerations:
-			graph.AddRecord(name, name, (schema.types[name].enumeration,), style="filled", fillcolor="#f0f0f0")
+					target = graph.GetOrAddNode(cls._TypeName(child.type))
+					graph.AddEdge(Edge(records[name], target, {"label": f"{child.name} [{cls._Cardinality(child)}]"}))
 
 		for name, xsdType in complexTypes.items():
 			used = {xsdType.attributes[attribute].type.name for attribute in xsdType.attributes}
 			used |= {child.type.name for child in childElements(xsdType.content) if child.type.is_simple()}
 			for usedType in sorted(usedType for usedType in used if usedType in enumerations):
-				graph.AddEdge(name, usedType, style="dashed", arrowhead="open", constraint="false")
+				graph.AddEdge(Edge(
+					records[name],
+					records[usedType],
+					{"style": "dashed", "arrowhead": "open", "constraint": False}
+				))
 
-		graph.AddSeparator()
 		for name, element in schema.elements.items():
-			graph.AddNode(f"<{name}>", name, shape="doublecircle", style="filled", fillcolor="#e8e8ff")
-			graph.AddEdge(f"<{name}>", cls._TypeName(element.type), label="root")
+			root = graph.AddNode(Node(
+				f"<{name}>",
+				name,
+				{"shape": "doublecircle", "style": "filled", "fillcolor": "#e8e8ff"}
+			))
+			graph.AddEdge(Edge(root, graph.GetOrAddNode(cls._TypeName(element.type)), {"label": "root"}))
 
 		return str(graph)

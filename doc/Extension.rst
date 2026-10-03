@@ -337,8 +337,10 @@ pyTooling ships.
 .. rubric:: Another schema language
 
 :class:`~pyTooling.Sphinx.SchemaGraph.SchemaGraph` is the directive's language-neutral base-class,
-and :class:`~pyTooling.Sphinx.SchemaGraph.DotGraph` assembles the graph. A directive for another schema
-language derives from the base-class, names itself, and overrides ``_RenderGraph()``:
+and :class:`~pyTooling.Sphinx.SchemaGraph.DotGraph` is the graph: a :class:`pyTooling.Graph.GraphViz.Graph` with the
+look every schema graph shares, plus ``AddRecord()`` for a titled record of compartments and ``GetOrAddNode()`` for an
+edge's target without a record of its own. A directive for another schema language derives from the base-class, names
+itself, and overrides ``_RenderGraph()``:
 
 .. code-block:: Python
 
@@ -348,6 +350,8 @@ language derives from the base-class, names itself, and overrides ``_RenderGraph
      @classmethod
      def _RenderGraph(cls, schemaFile: Path) -> str:
        graph = DotGraph()
+       person = graph.AddRecord("Person", "Person", [["name : string", "age : integer"]])
+       graph.AddEdge(Edge(person, graph.GetOrAddNode("Address"), {"label": "address [0..1]"}))
        ...
        return str(graph)
 
