@@ -1,4 +1,4 @@
-.. _DOC/Sphinx/Roles/Breaks:
+.. _ROLE/Breaks:
 
 Line break and horizontal rule
 ##############################

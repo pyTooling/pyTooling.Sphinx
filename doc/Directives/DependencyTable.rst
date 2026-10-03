@@ -1,4 +1,4 @@
-.. _DOC/Sphinx/DependencyTable:
+.. _DIR/DependencyTable:
 
 dependency-table
 ################

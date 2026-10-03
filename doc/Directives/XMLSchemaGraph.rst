@@ -1,4 +1,4 @@
-.. _DOC/Sphinx/XMLSchemaGraph:
+.. _DIR/XMLSchemaGraph:
 
 xmlschema-graph
 ###############

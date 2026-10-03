@@ -20,7 +20,7 @@ Glossary
 
    Entrypoint
      A named requirements source of a :rst:dir:`dependency-table`: a requirements file or a package as the
-     :term:`package index` publishes it, declared in :file:`conf.py`. See :ref:`DOC/Sphinx/DependencyTable`.
+     :term:`package index` publishes it, declared in :file:`conf.py`. See :ref:`DIR/DependencyTable`.
 
    Extension
      A `Sphinx extension <https://www.sphinx-doc.org/en/master/usage/extensions/index.html>`__ is a Python module

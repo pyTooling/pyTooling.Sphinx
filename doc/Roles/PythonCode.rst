@@ -1,4 +1,4 @@
-.. _DOC/Sphinx/Roles/pycode:
+.. _ROLE/PythonCode:
 
 Inline Python code
 ##################

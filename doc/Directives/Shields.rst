@@ -1,4 +1,4 @@
-.. _DOC/Sphinx/Shields:
+.. _DIR/Shields:
 
 shields
 #######
@@ -51,7 +51,7 @@ This is how the example renders:
    github-action, lib-status, codacy-quality, codacy-coverage, codecov-coverage
 
 
-.. _DOC/Sphinx/Shields/Options:
+.. _DIR/Shields/Options:
 
 Options
 *******
@@ -117,7 +117,7 @@ parsed by :meth:`LicenseExpression.Parse() <pyTooling.Licensing.LicenseExpressio
 List is written ``LicenseRef-<name>``.
 
 
-.. _DOC/Sphinx/Shields/Badges:
+.. _DIR/Shields/Badges:
 
 Badges
 ******
@@ -184,7 +184,7 @@ Badges
 A ``github:`` link, a license GitHub reports, and ``github-pages`` need :rst:dir:`shields:github` as well.
 
 
-.. _DOC/Sphinx/Shields/Output:
+.. _DIR/Shields/Output:
 
 HTML and LaTeX
 **************
@@ -193,7 +193,7 @@ The directive emits both variants, each wrapped in an :rst:dir:`only` node: HTML
 ``img.shields.io``, LaTeX the PNG from ``raster.shields.io`` - a PDF cannot embed an SVG.
 
 
-.. _DOC/Sphinx/Shields/Errors:
+.. _DIR/Shields/Errors:
 
 Errors
 ******

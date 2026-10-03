@@ -75,7 +75,7 @@ LaTeX the PNG from ``raster.shields.io``, because a PDF cannot embed an SVG.
 
 .. seealso::
 
-   :ref:`DOC/Sphinx/Shields`
+   :ref:`DIR/Shields`
       |rarr| The directive's options and badges, with a rendered example.
    :mod:`pyTooling.Sphinx`
       |rarr| The extension this belongs to, and what else it brings.

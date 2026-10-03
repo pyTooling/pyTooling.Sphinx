@@ -1,4 +1,4 @@
-.. _DOC/Sphinx/CondensedClass:
+.. _DIR/CondensedClass:
 
 condensed-class
 ###############

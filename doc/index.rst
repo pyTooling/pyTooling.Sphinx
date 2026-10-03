@@ -5,6 +5,7 @@
 .. shields::
    :github:                pyTooling/pyTooling.Sphinx
    :pypi:                  pyTooling.Sphinx
+   :codacy:                d80355705a634d59835eeb01e8536cce
    :source-license:        github:LICENSE.md
    :documentation-license: CC-BY-4.0 github:doc/Doc-License.rst
    :github-action:         Pipeline.yml@main
@@ -12,7 +13,7 @@
 
    github, src-license, ghp-doc, doc-license
    pypi-tag, pypi-status, pypi-python
-   github-action, lib-status, codecov-coverage
+   github-action, lib-status, codacy-quality, codacy-coverage, codecov-coverage
 
 --------------------------------------------------------------------------------
 
@@ -52,25 +53,25 @@ Roles and Directives
 
 .. rubric:: Roles
 
-:ref:`Style roles <DOC/Sphinx/Roles/Style>`
+:ref:`Style roles <ROLE/Style>`
   |rarr| ``:red:``, ``:underline:``, ``:deletion:`` and more: CSS classes on inline text, with the stylesheet giving
   them their meaning.
-:ref:`Inline Python code <DOC/Sphinx/Roles/pycode>`
+:ref:`Inline Python code <ROLE/PythonCode>`
   |rarr| ``:pycode:``, syntax-highlighted inline code.
-:ref:`Line break and horizontal rule <DOC/Sphinx/Roles/Breaks>`
+:ref:`Line break and horizontal rule <ROLE/Breaks>`
   |rarr| ``|br|`` and ``|hr|``, in HTML and LaTeX.
 
 .. rubric:: Directives
 
-:ref:`condensed-class <DOC/Sphinx/CondensedClass>`
+:ref:`condensed-class <DIR/CondensedClass>`
   |rarr| A class' public interface as one code block, parsed from its source.
-:ref:`dependency-table <DOC/Sphinx/DependencyTable>`
+:ref:`dependency-table <DIR/DependencyTable>`
   |rarr| A project's dependencies with versions and licenses, from its requirements files and the package index.
-:ref:`jsonschema-graph <DOC/Sphinx/JSONSchemaGraph>`
+:ref:`jsonschema-graph <DIR/JSONSchemaGraph>`
   |rarr| Planned: a JSON schema as a Graphviz graph.
-:ref:`xmlschema-graph <DOC/Sphinx/XMLSchemaGraph>`
+:ref:`xmlschema-graph <DIR/XMLSchemaGraph>`
   |rarr| An XML schema as a Graphviz graph, drawn from the schema file.
-:ref:`shields <DOC/Sphinx/Shields>`
+:ref:`shields <DIR/Shields>`
   |rarr| A project's badges from shields.io, in rows.
 
 

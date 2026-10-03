@@ -1,4 +1,4 @@
-.. _DOC/Sphinx/Roles/Style:
+.. _ROLE/Style:
 
 Style roles
 ###########

@@ -14,16 +14,11 @@ Version 0.x (2026)
 
    .. rubric:: New Features
 
-   * First release: pyTooling's Sphinx extension ``pyTooling.Documentation.Sphinx`` becomes a package of its own,
-     :mod:`pyTooling.Sphinx`.
-   * Roles: :ref:`style roles <DOC/Sphinx/Roles/Style>`, :ref:`inline Python code <DOC/Sphinx/Roles/pycode>`, and
-     :ref:`line break and horizontal rule <DOC/Sphinx/Roles/Breaks>` in HTML and LaTeX.
-   * Directives: :ref:`condensed-class <DOC/Sphinx/CondensedClass>`,
-     :ref:`dependency-table <DOC/Sphinx/DependencyTable>`, :ref:`xmlschema-graph <DOC/Sphinx/XMLSchemaGraph>` and
-     :ref:`shields <DOC/Sphinx/Shields>`.
+   * First release: pyTooling's Sphinx extension :mod:`pyTooling.Sphinx` becomes a package of its own (formerly
+     developed as part of :doc:`pyTooling <pyTool:index>` v10.0.0).
+   * Roles: :ref:`style roles <ROLE/Style>`, :ref:`inline Python code <ROLE/PythonCode>`, and
+     :ref:`line break and horizontal rule <ROLE/Breaks>` in HTML and LaTeX.
+   * Directives: :ref:`condensed-class <DIR/CondensedClass>`,
+     :ref:`dependency-table <DIR/DependencyTable>`, :ref:`xmlschema-graph <DIR/XMLSchemaGraph>` and
+     :ref:`shields <DIR/Shields>`.
    * :class:`~pyTooling.Sphinx.SchemaGraph.DotGraph` is built on :mod:`pyTooling.Graph.GraphViz`.
-
-   .. rubric:: Changes
-
-   * The directive ``xsd-graph`` is named ``xmlschema-graph``, and its class ``XSDSchemaGraph`` is
-     :class:`~pyTooling.Sphinx.XMLSchemaGraph.XMLSchemaGraph`.
