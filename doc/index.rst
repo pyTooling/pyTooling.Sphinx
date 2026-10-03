@@ -73,6 +73,7 @@ License
    :hidden:
 
    Installation
+   Extension
 
 .. raw:: latex
 
