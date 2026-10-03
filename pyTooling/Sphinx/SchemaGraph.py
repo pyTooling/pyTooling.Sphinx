@@ -31,163 +31,79 @@
 """
 The language-neutral half of drawing a schema as a Graphviz graph in a Sphinx document.
 
-:class:`DotGraph` assembles the graph in the DOT language, and :class:`SchemaGraph` is the directive's base-class: its
-argument becomes a path, the file becomes a build dependency, and the DOT is handed to :mod:`sphinx.ext.graphviz`. A
-schema language adds a module reading its schemas into a :class:`DotGraph`, and a subclass naming the directive.
+:class:`DotGraph` is a :class:`pyTooling.Graph.GraphViz.Graph` with the look every schema graph shares, and
+:class:`SchemaGraph` is the directive's base-class: its argument becomes a path, the file becomes a build dependency,
+and the DOT is handed to :mod:`sphinx.ext.graphviz`. A schema language adds a module reading its schemas into a
+:class:`DotGraph`, and a subclass naming the directive.
 
 .. seealso::
 
    :mod:`pyTooling.Sphinx.XSDSchemaGraph`
       |rarr| The ``xsd-graph`` directive, drawing an XML schema.
+   :mod:`pyTooling.Graph.GraphViz`
+      |rarr| The DOT model :class:`DotGraph` is built on.
    :mod:`pyTooling.Sphinx`
       |rarr| The extension this belongs to, and what else it brings.
 """
-from __future__            import annotations
+from __future__               import annotations
 
-from pathlib               import Path
-from typing                import Any, Iterable, Sequence
+from pathlib                  import Path
+from typing                   import Any, Mapping, Optional as Nullable, Sequence
 
-from docutils              import nodes
-from sphinx.ext.graphviz   import figure_wrapper, graphviz
+from docutils                 import nodes
+from sphinx.ext.graphviz      import figure_wrapper, graphviz
 
-from pyTooling.Common      import getFullyQualifiedName
-from pyTooling.Decorators  import export
-from pyTooling.MetaClasses import ExtendedType
-from pyTooling.Sphinx      import BaseDirective, strip
-
-
-__all__ = ["GRAPH_ATTRIBUTES"]
-
-#: Attributes every schema graph is drawn with, so two diagrams in one document look alike.
-GRAPH_ATTRIBUTES = (
-	"rankdir=LR;",
-	"nodesep=0.4;",
-	'node [shape=record, fontname="sans-serif", fontsize=10];',
-	'edge [fontname="sans-serif", fontsize=9];',
-)
+from pyTooling.Common         import getFullyQualifiedName
+from pyTooling.Decorators     import export
+from pyTooling.Graph.GraphViz import AttributeValue, Graph, Node, RecordField, RecordLabel
+from pyTooling.Sphinx         import BaseDirective, strip
 
 
 @export
-class DotGraph(metaclass=ExtendedType, slots=True):
+class DotGraph(Graph):
 	"""
-	A Graphviz graph in the DOT language, assembled statement by statement.
+	A Graphviz graph of a schema, with the look every schema graph shares.
 
-	A renderer states nodes and edges; where the graph flows, how a record is shaped and which fonts it uses are
-	:data:`GRAPH_ATTRIBUTES` and belong to every schema graph alike. Attribute values are quoted without exception,
-	which is always legal in DOT and saves a caller from deciding per value.
+	It flows from left to right, its nodes are records, and its nodes and edges use the same fonts, so two diagrams in
+	one document look alike. A renderer adds records, nodes and edges as to any :class:`~pyTooling.Graph.GraphViz.Graph`.
 	"""
 
-	_name:       str        #: Name of the graph, which Graphviz uses as the drawing's identifier.
-	_statements: list[str]  #: The statements written so far, one per line, already indented.
-
-	def __init__(self, name: str = "schema") -> None:
+	def __init__(self, identifier: str = "schema") -> None:
 		"""
 		Initialize an empty graph carrying the shared attributes.
 
-		:param name:        Optional, the graph's name.
-		:raises ValueError: If parameter 'name' is None.
-		:raises TypeError:  If parameter 'name' is not a string.
+		:param identifier:  Optional, the graph's identifier. Default: ``schema``.
+		:raises ValueError: If parameter 'identifier' is None.
+		:raises TypeError:  If parameter 'identifier' is not a string.
 		"""
-		if name is None:
-			raise ValueError("Parameter 'name' is None.")
-		elif not isinstance(name, str):
-			ex = TypeError("Parameter 'name' is not of type 'str'.")
-			ex.add_note(f"Got type '{getFullyQualifiedName(name)}'.")
-			raise ex
+		super().__init__(identifier, attributes={"rankdir": "LR", "nodesep": 0.4})
 
-		self._name = name
-		self._statements = [f"\t{attribute}" for attribute in GRAPH_ATTRIBUTES]
-		self.AddSeparator()
-
-	@staticmethod
-	def EscapeLabel(text: str) -> str:
-		"""
-		Escape the characters a Graphviz record label gives a meaning to.
-
-		:param text: The text to escape.
-		:returns:    The text, safe to put into a record label.
-		"""
-		for character in ("\\", "{", "}", "|", "<", ">", '"'):
-			text = text.replace(character, f"\\{character}")
-
-		return text
-
-	@classmethod
-	def _Compartment(cls, rows: Sequence[str]) -> str:
-		"""
-		Join the rows of one record compartment, left-aligned.
-
-		:param rows: The rows to join, unescaped.
-		:returns:    The compartment's content, or a single space when there are no rows - an empty compartment
-		             collapses, which makes the records of a graph differently shaped.
-		"""
-		if len(rows) == 0:
-			return " "
-
-		return "".join(f"{cls.EscapeLabel(row)}\\l" for row in rows)
-
-	@staticmethod
-	def _Attributes(attributes: dict[str, str]) -> str:
-		"""
-		Render an attribute list, quoting every value.
-
-		:param attributes: The attributes to render, keyed by name.
-		:returns:          The attribute list in brackets, or an empty string when there are none.
-		"""
-		if len(attributes) == 0:
-			return ""
-
-		return "[" + ", ".join(f'{name}="{value}"' for name, value in attributes.items()) + "]"
-
-	def AddSeparator(self) -> None:
-		"""Add a blank line, so the generated DOT reads in the groups it was written in."""
-		self._statements.append("")
-
-	def AddNode(self, identifier: str, label: str, **attributes: str) -> None:
-		"""
-		Add a node.
-
-		:param identifier:  Identifier of the node, which an edge names it by.
-		:param label:       The node's label, already escaped.
-		:param attributes:  Further attributes of the node.
-		:raises ValueError: If parameter 'identifier' or 'label' is None.
-		:raises TypeError:  If parameter 'identifier' or 'label' is not a string.
-		"""
 		if identifier is None:
 			raise ValueError("Parameter 'identifier' is None.")
-		elif not isinstance(identifier, str):
-			ex = TypeError("Parameter 'identifier' is not of type 'str'.")
-			ex.add_note(f"Got type '{getFullyQualifiedName(identifier)}'.")
-			raise ex
 
-		if label is None:
-			raise ValueError("Parameter 'label' is None.")
-		elif not isinstance(label, str):
-			ex = TypeError("Parameter 'label' is not of type 'str'.")
-			ex.add_note(f"Got type '{getFullyQualifiedName(label)}'.")
-			raise ex
-
-		nodeAttributes = {"label": label}
-		nodeAttributes.update(attributes)
-
-		self._statements.append(f'\t"{identifier}" {self._Attributes(nodeAttributes)};')
+		self._nodeDefaults["shape"]    = "record"
+		self._nodeDefaults["fontname"] = "sans-serif"
+		self._nodeDefaults["fontsize"] = 10
+		self._edgeDefaults["fontname"] = "sans-serif"
+		self._edgeDefaults["fontsize"] = 9
 
 	def AddRecord(
 		self,
 		identifier: str,
 		title: str,
-		compartments: Iterable[Sequence[str]] = (),
-		**attributes: str
-	) -> None:
+		compartments: Sequence[Sequence[str]] = (),
+		attributes: Nullable[Mapping[str, AttributeValue]] = None
+	) -> Node:
 		"""
-		Add a record node: a titled box divided into compartments.
+		Add a record node: a titled box divided into compartments, one below the other.
 
 		:param identifier:   Identifier of the node, which an edge names it by.
 		:param title:        The record's title, written in guillemets.
 		:param compartments: Optional, the rows of each compartment below the title.
-		:param attributes:   Further attributes of the node.
-		:raises ValueError:  If parameter 'identifier' or 'title' is None.
-		:raises TypeError:   If parameter 'identifier' or 'title' is not a string.
+		:param attributes:   Optional, further attributes of the node, by name.
+		:returns:            The added node.
+		:raises ValueError:  If parameter 'title' is None.
+		:raises TypeError:   If parameter 'title' is not a string.
 		"""
 		if title is None:
 			raise ValueError("Parameter 'title' is None.")
@@ -196,54 +112,27 @@ class DotGraph(metaclass=ExtendedType, slots=True):
 			ex.add_note(f"Got type '{getFullyQualifiedName(title)}'.")
 			raise ex
 
-		label = f"«{self.EscapeLabel(title)}»"
-		for rows in compartments:
-			label += f"|{self._Compartment(rows)}"
+		fields: list[RecordField] = [f"«{title}»"]
+		fields.extend(compartments)
 
-		self.AddNode(identifier, f"{{{label}}}", **attributes)
+		return self.AddNode(Node(identifier, RecordLabel(fields, flipped=True), attributes))
 
-	def AddEdge(self, source: str, target: str, **attributes: str) -> None:
+	def GetOrAddNode(self, identifier: str) -> Node:
 		"""
-		Add an edge between two nodes.
+		Return the node with the given identifier, adding a plain node first if there is none.
 
-		An attribute's value is quoted but not escaped - :meth:`AddRecord` is the only method escaping what it is
-		given. A label assembled from something a schema *author* wrote, rather than from a name a schema language
-		constrains, has to go through :meth:`EscapeLabel` first.
+		An edge can point to a type the renderer has no record for, like a builtin or an anonymous type. Graphviz would
+		create such a node implicitly; here it is added explicitly and drawn with the node defaults.
 
-		:param source:      Identifier of the node the edge starts at.
-		:param target:      Identifier of the node the edge points to.
-		:param attributes:  Further attributes of the edge.
-		:raises ValueError: If parameter 'source' or 'target' is None.
-		:raises TypeError:  If parameter 'source' or 'target' is not a string.
+		:param identifier:  Identifier of the node.
+		:returns:           The node with that identifier.
+		:raises ValueError: If parameter 'identifier' is None.
+		:raises TypeError:  If parameter 'identifier' is not a string.
 		"""
-		if source is None:
-			raise ValueError("Parameter 'source' is None.")
-		elif not isinstance(source, str):
-			ex = TypeError("Parameter 'source' is not of type 'str'.")
-			ex.add_note(f"Got type '{getFullyQualifiedName(source)}'.")
-			raise ex
+		if self.HasNode(identifier):
+			return self.GetNode(identifier)
 
-		if target is None:
-			raise ValueError("Parameter 'target' is None.")
-		elif not isinstance(target, str):
-			ex = TypeError("Parameter 'target' is not of type 'str'.")
-			ex.add_note(f"Got type '{getFullyQualifiedName(target)}'.")
-			raise ex
-
-		if len(attributes) == 0:
-			self._statements.append(f'\t"{source}" -> "{target}";')
-		else:
-			self._statements.append(f'\t"{source}" -> "{target}" {self._Attributes(attributes)};')
-
-	def __str__(self) -> str:
-		"""
-		Render the graph.
-
-		:returns: The graph in the DOT language.
-		"""
-		statements = "\n".join(self._statements)
-
-		return f"digraph {self._name} {{\n{statements}\n}}"
+		return self.AddNode(Node(identifier))
 
 
 @export
