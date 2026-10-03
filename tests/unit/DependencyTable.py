@@ -275,9 +275,9 @@ class Entrypoints(Testcase):
 		Declares the misspelt field 'fiel' and checks the error names it as unknown.
 		"""
 		with self.assertRaises(SphinxExtensionError) as exceptionCapture:
-			readEntrypoints({"unittest": {"files": "requirements.txt"}}, Path("."))
+			readEntrypoints({"unittest": {"fiel": "requirements.txt"}}, Path("."))
 
-		self.assertIn("files", str(exceptionCapture.exception))
+		self.assertIn("Unknown field(s): fiel.", str(exceptionCapture.exception))
 
 	@testcase("Declaration not a dictionary")
 	def Declaration_NoDictionary(self) -> None:
