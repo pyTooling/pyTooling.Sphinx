@@ -104,7 +104,7 @@ License
 .. toctree::
    :hidden:
 
-   Used as a layer of pyTooling ➚ <https://pyTooling.github.io/pyTooling/>
+   Subnamespace of pyTooling ➚ <https://pyTooling.github.io/pyTooling/>
 
 .. toctree::
    :caption: Introduction
