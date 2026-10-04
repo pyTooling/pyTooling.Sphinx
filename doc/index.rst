@@ -24,9 +24,8 @@ The pyTooling.Sphinx Documentation
 line breaks working in HTML and LaTeX, condensed class interfaces, dependency tables generated from requirements files
 and the package index, badges, and schema graphs.
 
-Other packages extend it with plugins: `pyTooling.GitHub <https://GitHub.com/pyTooling/pyTooling.GitHub>`__
-contributes the domain ``gha`` for GitHub Actions workflows, which is registered automatically when that package is
-installed.
+Other packages build on it: `pyTooling.GitHub <https://GitHub.com/pyTooling/pyTooling.GitHub>`__ contributes the
+domain ``gha`` for GitHub Actions workflows, enabled as the extension ``pyTooling.GitHub.Sphinx``.
 
 .. attention::
 
@@ -73,6 +72,19 @@ Roles and Directives
   |rarr| An XML schema as a Graphviz graph, drawn from the schema file.
 :ref:`shields <DIR/Shields>`
   |rarr| A project's badges from shields.io, in rows.
+
+
+.. _CONSUMERS:
+
+Consumers
+*********
+
+This layer is used by:
+
+* `pyTooling.GitHub <https://GitHub.com/pyTooling/pyTooling.GitHub>`__ - its Sphinx domain ``gha`` builds on this
+  extension, and its documentation uses it.
+* 🚧 `pyTooling <https://GitHub.com/pyTooling/pyTooling>`__ - its documentation, which still uses pyTooling's own copy
+  of this extension.
 
 
 .. _CONTRIBUTORS:
