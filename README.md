@@ -18,7 +18,7 @@ breaks working in HTML and LaTeX, condensed class interfaces, dependency tables 
 the package index, badges, and schema graphs.
 
 Other packages build on it: [pyTooling.GitHub](https://GitHub.com/pyTooling/pyTooling.GitHub) contributes the domain
-`gha` for GitHub Actions workflows, enabled as the extension `pyTooling.GitHub.Sphinx`.
+`ghactions` for GitHub Actions workflows, enabled as the extension `pyTooling.GitHub.Sphinx`.
 
 > [!IMPORTANT]
 > pyTooling.Sphinx requires **Python 3.12 or newer**, because it requires Sphinx 9.1 and Sphinx 9.1 does.
@@ -69,7 +69,7 @@ It links its stylesheet into every HTML page, appends its substitutions to `rst_
 
 This layer is used by:
 
-* [pyTooling.GitHub](https://GitHub.com/pyTooling/pyTooling.GitHub) - its Sphinx domain `gha` builds on this
+* [pyTooling.GitHub](https://GitHub.com/pyTooling/pyTooling.GitHub) - its Sphinx domain `ghactions` builds on this
   extension, and its documentation uses it.
 * 🚧 [pyTooling](https://GitHub.com/pyTooling/pyTooling) - its documentation, which still uses pyTooling's own copy of
   this extension.
