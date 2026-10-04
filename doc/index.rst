@@ -24,9 +24,8 @@ The pyTooling.Sphinx Documentation
 line breaks working in HTML and LaTeX, condensed class interfaces, dependency tables generated from requirements files
 and the package index, badges, and schema graphs.
 
-Other packages extend it with plugins: `pyTooling.GitHub <https://GitHub.com/pyTooling/pyTooling.GitHub>`__
-contributes the domain ``gha`` for GitHub Actions workflows, which is registered automatically when that package is
-installed.
+Other packages build on it: `pyTooling.GitHub <https://GitHub.com/pyTooling/pyTooling.GitHub>`__ contributes the
+domain ``gha`` for GitHub Actions workflows, enabled as the extension ``pyTooling.GitHub.Sphinx``.
 
 .. attention::
 

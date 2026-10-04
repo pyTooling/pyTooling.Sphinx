@@ -13,11 +13,56 @@
 
 # pyTooling.Sphinx
 
-**pyTooling.Sphinx** adds roles, directives and domains to [Sphinx](https://www.sphinx-doc.org/), e.g. condensed
-class documentation, dependency tables generated from requirements files and PyPI, shields and schema graphs.
+**pyTooling.Sphinx** adds roles and directives to [Sphinx](https://www.sphinx-doc.org/): styled inline text and line
+breaks working in HTML and LaTeX, condensed class interfaces, dependency tables generated from requirements files and
+the package index, badges, and schema graphs.
 
-Other packages extend it with plugins: [pyTooling.GitHub](https://GitHub.com/pyTooling/pyTooling.GitHub) contributes
-the domain `gha` for GitHub Actions workflows, which is registered automatically when that package is installed.
+Other packages build on it: [pyTooling.GitHub](https://GitHub.com/pyTooling/pyTooling.GitHub) contributes the domain
+`gha` for GitHub Actions workflows, enabled as the extension `pyTooling.GitHub.Sphinx`.
+
+> [!IMPORTANT]
+> pyTooling.Sphinx requires **Python 3.12 or newer**, because it requires Sphinx 9.1 and Sphinx 9.1 does.
+
+The extension is enabled in `conf.py`:
+
+```python
+# doc/conf.py
+extensions = [
+  ...,
+  "pyTooling.Sphinx",
+]
+```
+
+It links its stylesheet into every HTML page, appends its substitutions to `rst_prolog`, and sets up
+`sphinx.ext.graphviz` for the schema graphs.
+
+
+## Roles and Directives
+
+### Roles
+
+* [Style roles][Roles/Style] - `:red:`, `:underline:`, `:deletion:` and more: CSS classes on inline text, with the
+  stylesheet giving them their meaning.
+* [Inline Python code][Roles/PythonCode] - `:pycode:`, syntax-highlighted inline code.
+* [Line break and horizontal rule][Roles/Breaks] - `|br|` and `|hr|`, in HTML and LaTeX.
+
+### Directives
+
+* [condensed-class][Directives/CondensedClass] - A class' public interface as one code block, parsed from its source.
+* [dependency-table][Directives/DependencyTable] - A project's dependencies with versions and licenses, from its
+  requirements files and the package index.
+* [jsonschema-graph][Directives/JSONSchemaGraph] - Planned: a JSON schema as a Graphviz graph.
+* [xmlschema-graph][Directives/XMLSchemaGraph] - An XML schema as a Graphviz graph, drawn from the schema file.
+* [shields][Directives/Shields] - A project's badges from shields.io, in rows.
+
+[Roles/Style]: https://pyTooling.github.io/pyTooling.Sphinx/Roles/Style.html
+[Roles/PythonCode]: https://pyTooling.github.io/pyTooling.Sphinx/Roles/PythonCode.html
+[Roles/Breaks]: https://pyTooling.github.io/pyTooling.Sphinx/Roles/Breaks.html
+[Directives/CondensedClass]: https://pyTooling.github.io/pyTooling.Sphinx/Directives/CondensedClass.html
+[Directives/DependencyTable]: https://pyTooling.github.io/pyTooling.Sphinx/Directives/DependencyTable.html
+[Directives/JSONSchemaGraph]: https://pyTooling.github.io/pyTooling.Sphinx/Directives/JSONSchemaGraph.html
+[Directives/XMLSchemaGraph]: https://pyTooling.github.io/pyTooling.Sphinx/Directives/XMLSchemaGraph.html
+[Directives/Shields]: https://pyTooling.github.io/pyTooling.Sphinx/Directives/Shields.html
 
 
 ## Contributors
