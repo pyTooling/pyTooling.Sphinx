@@ -129,7 +129,7 @@ class DotGraph(Graph):
 		:raises ValueError: If parameter 'identifier' is None.
 		:raises TypeError:  If parameter 'identifier' is not a string.
 		"""
-		if self.HasNode(identifier):
+		if self.ContainsNode(identifier):
 			return self.GetNode(identifier)
 
 		return self.AddNode(Node(identifier))
