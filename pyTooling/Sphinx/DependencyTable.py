@@ -433,7 +433,7 @@ class DependencyCollector(metaclass=ExtendedType, slots=True):
 		package's name: ``License :: OSI Approved :: BSD License`` names three licenses and is never guessed at, and
 		a ``license`` field holding a license's title instead of its SPDX identifier doesn't parse.
 
-		:returns: Names of the packages needing a license override, mapped to what the index published for them.
+		:returns: Canonical names of the packages needing a license override, mapped to what the index published for them.
 		"""
 		return self._unresolved
 
@@ -483,7 +483,8 @@ class DependencyCollector(metaclass=ExtendedType, slots=True):
 		:raises MissingDependencyError: If the 'pypi' extra isn't installed.
 		"""
 		try:
-			from requests import RequestException
+			from packaging.utils import canonicalize_name
+			from requests        import RequestException
 		except ImportError as ex:  # pragma: no cover
 			raise MissingDependencyError(dependency="requests", extra="pypi") from ex
 
@@ -504,8 +505,9 @@ class DependencyCollector(metaclass=ExtendedType, slots=True):
 
 		for warning in warnings:
 			if isinstance(warning, UnknownLicenseWarning):
-				# the warning's notes are what the index published, which is the reason an override is needed
-				self._unresolved[release.Package.Name] = warning.Notes
+				# the warning's notes are what the index published, which is the reason an override is needed; keyed by the
+				# canonical name, which is the override file's spelling, so two spellings of one package are one entry
+				self._unresolved[canonicalize_name(release.Package.Name)] = warning.Notes
 
 		return None if key in self._undescribed else release
 
