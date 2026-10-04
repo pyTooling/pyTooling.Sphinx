@@ -24,7 +24,7 @@ The pyTooling.Sphinx Documentation
 line breaks working in HTML and LaTeX, condensed class interfaces, dependency tables generated from requirements files
 and the package index, badges, and schema graphs.
 
-Other packages build on it: `pyTooling.GitHub <https://GitHub.com/pyTooling/pyTooling.GitHub>`__ contributes the
+Other packages build on it: :gh:`pyTooling.GitHub <pyTooling/pyTooling.GitHub>` contributes the
 domain ``ghactions`` for GitHub Actions workflows, enabled as the extension ``pyTooling.GitHub.Sphinx``.
 
 .. attention::
@@ -81,9 +81,9 @@ Consumers
 
 This layer is used by:
 
-* `pyTooling.GitHub <https://GitHub.com/pyTooling/pyTooling.GitHub>`__ - its Sphinx domain ``ghactions`` builds on this
+* :gh:`pyTooling.GitHub <pyTooling/pyTooling.GitHub>` - its Sphinx domain ``ghactions`` builds on this
   extension, and its documentation uses it.
-* 🚧 `pyTooling <https://GitHub.com/pyTooling/pyTooling>`__ - its documentation, which still uses pyTooling's own copy
+* 🚧 :gh:`pyTooling <pyTooling/pyTooling>` - its documentation, which still uses pyTooling's own copy
   of this extension.
 
 
@@ -93,7 +93,7 @@ Contributors
 ************
 
 * :gh:`Patrick Lehmann <Paebbels>` (Maintainer)
-* `and more... <https://GitHub.com/pyTooling/pyTooling.Sphinx/graphs/contributors>`__
+* :gh:`and more... <pyTooling/pyTooling.Sphinx/graphs/contributors>`
 
 
 .. _LICENSE:
