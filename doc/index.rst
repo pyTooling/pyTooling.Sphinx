@@ -45,7 +45,7 @@ It links its stylesheet into every HTML page, appends its substitutions to ``rst
 :mod:`sphinx.ext.graphviz` for the schema graphs.
 
 
-.. _HIGHLIGHTS:
+.. _FEATURES:
 
 Roles and Directives
 ********************
