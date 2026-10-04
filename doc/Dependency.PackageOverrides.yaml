@@ -43,12 +43,13 @@ packages:
     license:    BSD-3-Clause
     licenseURL: https://GitHub.com/tartley/colorama/blob/master/LICENSE.txt
 
-  # Three License classifiers at once (BSD, GPL, Public Domain) and no 'license' field. COPYING.txt says the
-  # majority of files are public domain, several are BSD-2-Clause, and the eLyXer-derived 'math2html.py' plus
-  # 'math.css' are GPL-3.0-or-later. Those ship in the wheel, so the distribution carries both; the public-domain
-  # majority imposes nothing and needs no identifier.
+  # Three License classifiers at once (BSD, GPL, Public Domain) and no 'license' field. COPYING.txt of 0.21.2, 0.22.4
+  # and 0.23 says the majority of files are public domain and several are BSD-2-Clause; the eLyXer-derived
+  # 'math2html.py' and 'math.css' were GPL-3.0-or-later, but their author relicensed them as BSD-2-Clause.
+  # 'smartquotes.py' carries SmartyPants' BSD-3-Clause license. The one GPL file left, 'tools/editors/emacs/rst.el',
+  # isn't in the wheel. The public-domain majority imposes nothing and needs no identifier.
   docutils:
-    license:    BSD-2-Clause AND GPL-3.0-or-later
+    license:    BSD-2-Clause AND BSD-3-Clause
     licenseURL: https://docutils.sourceforge.io/COPYING.html
 
   # Only the ambiguous BSD classifier. LICENSE.txt carries the third "Neither the name" clause.
