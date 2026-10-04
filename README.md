@@ -65,6 +65,16 @@ It links its stylesheet into every HTML page, appends its substitutions to `rst_
 [Directives/Shields]: https://pyTooling.github.io/pyTooling.Sphinx/Directives/Shields.html
 
 
+## Consumers
+
+This layer is used by:
+
+* [pyTooling.GitHub](https://GitHub.com/pyTooling/pyTooling.GitHub) - its Sphinx domain `gha` builds on this
+  extension, and its documentation uses it.
+* 🚧 [pyTooling](https://GitHub.com/pyTooling/pyTooling) - its documentation, which still uses pyTooling's own copy of
+  this extension.
+
+
 ## Contributors
 
 * [Patrick Lehmann](https://GitHub.com/Paebbels) (Maintainer)
