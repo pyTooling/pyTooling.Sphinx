@@ -29,74 +29,49 @@
 # ==================================================================================================================== #
 #
 """
-The docutils nodes pyTooling.Sphinx adds, and what registering one with Sphinx takes.
+Visitors writing pyTooling.Sphinx's nodes in LaTeX.
 
-A node is a class here; the functions writing it are in a module per output format - :mod:`~pyTooling.Sphinx.HTML`
-and :mod:`~pyTooling.Sphinx.LaTeX` - and :data:`~pyTooling.Sphinx.NODES` pairs both for :func:`~pyTooling.Sphinx.setup`.
-A node without visitors for a format is written by the visitors of its base-class there.
+Each node has a ``visit_*`` and a ``depart_*`` function and a ``translate*`` pair of both, which
+:data:`~pyTooling.Sphinx.NODES` registers. A node without visitors here is written by the visitors of its base-class.
 """
-from typing               import Any, Callable, NotRequired, TypedDict
+from textwrap              import dedent
 
-from docutils             import nodes
+from sphinx.writers.latex  import LaTeXTranslator
 
-from pyTooling.Decorators import export
+from pyTooling.Decorators  import export
+from pyTooling.Sphinx.Node import Landscape, visitFunc, departFunc
 
 
-__all__ = ["visitFunc", "departFunc"]
-
-type visitFunc =  Callable[[Any, Any], Any]
-"""A function writing the start of a node: called with the translator and the node."""
-
-type departFunc = Callable[[Any, Any], Any]
-"""A function writing the end of a node: called with the translator and the node."""
+__all__ = ["translateLandscape"]
 
 
 @export
-class RegisteredNode(TypedDict):
-	"""An entry of :data:`~pyTooling.Sphinx.NODES`: a node class, and its visitors per output format."""
+def visit_Landscape(translator: LaTeXTranslator, node: Landscape) -> None:
+	"""
+	Open a landscape container in LaTeX: a ``landscape`` environment, which starts a new page in landscape orientation.
 
-	name:  str                                        #: Name of the node.
-	node:  type[nodes.Element]                        #: The node class to register.
-	html:  tuple[visitFunc, departFunc]               #: Visit and depart function writing the node in HTML.
-	latex: NotRequired[tuple[visitFunc, departFunc]]  #: Visit and depart function writing the node in LaTeX, if any.
+	:param translator: The LaTeX translator writing the document.
+	:param node:       The landscape container.
+	"""
+	translator.body.append(dedent("""
+		\\begin{landscape}
+		""")
+	)
 
 
 @export
-class TreeItem(nodes.list_item):
+def depart_Landscape(translator: LaTeXTranslator, node: Landscape) -> None:
 	"""
-	An entry of a tree: a list item, which HTML draws around a ``<details>`` element if the entry has children.
+	Close a landscape container in LaTeX: the end of the ``landscape`` environment, which returns to portrait pages.
 
-	Attribute ``expanded`` states whether the entry is expanded initially, and is ``None`` if it has no children.
+	:param translator: The LaTeX translator writing the document.
+	:param node:       The landscape container.
 	"""
+	translator.body.append(dedent("""
+		\\end{landscape}
+		""")
+	)
 
 
-@export
-class TreeLabel(nodes.paragraph):
-	"""
-	An entry's text: a paragraph, which HTML draws as the ``<summary>`` of the entry's ``<details>`` element.
-
-	Attribute ``icon`` holds the icon of the entry's kind, ``expandedIcon`` and ``collapsedIcon`` the icons showing
-	whether the entry is expanded. Both are ``None`` if the entry has no children.
-	"""
-
-
-@export
-class Abbreviation(nodes.abbreviation):
-	"""
-	A reference to an abbreviation in its short form, which HTML draws with a box explaining it on hover.
-
-	Attributes ``short`` and ``long`` hold the abbreviation's forms, even if the node's text is a title the role was
-	written with; ``summary`` holds the summary of its description the box shows, or an empty string. The attribute
-	``explanation`` of the base-class is left unset: LaTeX and text would append it in parentheses, and an abbreviation
-	is written in the form its role asks for.
-	"""
-
-
-@export
-class Landscape(nodes.container):
-	"""
-	A container whose content LaTeX puts on landscape pages, e.g. a wide table; HTML writes the content only.
-
-	LaTeX's ``landscape`` environment needs package ``pdflscape``, which the extension :mod:`pyTooling.Sphinx.Report`
-	requests - its tables are what this node holds.
-	"""
+translateLandscape: tuple[visitFunc, departFunc] = (visit_Landscape, depart_Landscape)
+"""Visit and depart function writing a :class:`~pyTooling.Sphinx.Node.Landscape` in LaTeX."""

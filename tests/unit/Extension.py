@@ -44,7 +44,9 @@ from sphinx.util.console           import strip_colors
 from pyTooling.Testing             import Testcase, testsuite, testcase
 
 from pyTooling.Sphinx              import __version__, NODES, SUBSTITUTIONS, setup
+from pyTooling.Sphinx              import HTML, LaTeX
 from pyTooling.Sphinx.Abbreviation import ROLES as ABBREVIATION_ROLES, AbbreviationDomain
+from pyTooling.Sphinx.Node         import Landscape
 from pyTooling.Sphinx.Roles        import BREAK_ROLES, PYTHON_CODE_ROLE, STYLE_ROLES
 
 
@@ -177,13 +179,29 @@ class Registration(Project):
 		"""
 		The extension's setup() registers every node in NODES with its visitors.
 
-		Calls setup() with a mocked application and compares the arguments passed to 'add_node' with NODES.
+		Calls setup() with a mocked application and compares the arguments passed to 'add_node' with NODES: HTML visitors
+		for every node, LaTeX visitors where NODES has them.
 		"""
 		app = MagicMock()
 		setup(app)
 
 		registered = [(call.args[0], call.kwargs) for call in app.add_node.call_args_list]
-		self.assertEqual([(entry["node"], {"html": entry["html"]}) for entry in NODES], registered)
+		expected = [(entry["node"], {key: entry[key] for key in ("html", "latex") if key in entry}) for entry in NODES]
+		self.assertEqual(expected, registered)
+
+	@testcase("Landscape node")
+	def Landscape(self) -> None:
+		"""
+		The 'Landscape' node is registered with visitors for HTML and LaTeX.
+
+		Looks up 'Landscape' in NODES and checks it carries the visitors of 'pyTooling.Sphinx.HTML' and
+		'pyTooling.Sphinx.LaTeX'.
+		"""
+		entry = next(entry for entry in NODES if entry["name"] == "Landscape")
+
+		self.assertIs(Landscape, entry["node"])
+		self.assertEqual((HTML.visit_Landscape, HTML.depart_Landscape), entry["html"])
+		self.assertEqual((LaTeX.visit_Landscape, LaTeX.depart_Landscape), entry.get("latex"))
 
 	@testcase("Substitutions in the prolog")
 	def Substitutions(self) -> None:

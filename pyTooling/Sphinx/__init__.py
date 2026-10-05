@@ -118,8 +118,10 @@ from pyTooling.Decorators    import export
 from pyTooling.Documentation import DocumentationError
 
 from pyTooling.Sphinx        import Resources as SphinxResources
+from pyTooling.Sphinx.HTML   import translateLandscape as translateLandscapeAsHTML
 from pyTooling.Sphinx.HTML   import translateAbbreviation, translateTreeItem, translateTreeLabel
-from pyTooling.Sphinx.Node   import Abbreviation, RegisteredNode, TreeItem, TreeLabel
+from pyTooling.Sphinx.LaTeX  import translateLandscape as translateLandscapeAsLaTeX
+from pyTooling.Sphinx.Node   import Abbreviation, Landscape, RegisteredNode, TreeItem, TreeLabel
 
 
 __all__ = ["STYLESHEET", "SUBSTITUTIONS", "NODES"]
@@ -142,12 +144,13 @@ SUBSTITUTIONS = """
 
 #: The nodes the extension registers, each with its visitors per output format.
 #:
-#: A format without visitors of its own - every one but HTML, so far - writes a node with the visitors of its
+#: A format without visitors of its own - e.g. LaTeX for the tree's nodes - writes a node with the visitors of its
 #: base-class.
 NODES: tuple[RegisteredNode, ...] = (
 	{"name": "TreeItem",     "node": TreeItem,     "html": translateTreeItem},
 	{"name": "TreeLabel",    "node": TreeLabel,    "html": translateTreeLabel},
 	{"name": "Abbreviation", "node": Abbreviation, "html": translateAbbreviation},
+	{"name": "Landscape",    "node": Landscape,    "html": translateLandscapeAsHTML, "latex": translateLandscapeAsLaTeX},
 )
 
 
