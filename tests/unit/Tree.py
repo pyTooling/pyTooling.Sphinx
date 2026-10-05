@@ -32,7 +32,7 @@
 Unit tests for :mod:`pyTooling.Sphinx.Tree`: reading the directive's content, and its icon options.
 """
 from pyTooling.Sphinx      import SphinxExtensionError
-from pyTooling.Sphinx.Tree import Tree, icon
+from pyTooling.Sphinx.Tree import Tree, icon, markerIcons
 from pyTooling.Testing     import Testcase, testsuite, testcase
 
 
@@ -98,17 +98,29 @@ class TreeContent(Testcase):
 		self.assertEqual(0, roots[0]["index"])
 		self.assertEqual(2, next(roots[0].GetChildren())["index"])
 
-	@testcase("Trailing colon")
+	@testcase("Markers")
+	def Markers(self) -> None:
+		"""
+		An entry starts with one of the given markers, which it remembers.
+
+		Parses a root marked '-' with children marked '>' and '*', and checks each entry's marker.
+		"""
+		roots = Tree._ParseEntries(["- root", "  > directory", "  * file"], ("-", ">", "*"))
+
+		self.assertEqual("-", roots[0]["marker"])
+		self.assertEqual(
+			[(">", "directory"), ("*", "file")],
+			[(child["marker"], child.Value) for child in roots[0].GetChildren()]
+		)
+
+	@testcase("Text ending in a colon")
 	def Colon(self) -> None:
 		"""
-		A trailing colon marks a node and isn't part of the text; an escaped colon is.
+		A colon at the end of an entry's text is part of the text.
 
-		Parses an entry with a trailing colon, one with a role and a colon, and one with an escaped colon.
+		Parses an entry ending in a colon and checks its value.
 		"""
-		roots = Tree._ParseEntries(["- empty :", "- :file:`doc`:", "- Note\\:"])
-
-		self.assertEqual(["empty", ":file:`doc`", "Note\\:"], [root.Value for root in roots])
-		self.assertEqual([True, True, False], [root["colon"] for root in roots])
+		self.assertEqual("Note:", Tree._ParseEntries(["- Note:"])[0].Value)
 
 	@testcase("Empty content")
 	def Empty(self) -> None:
@@ -127,26 +139,27 @@ class TreeContent(Testcase):
 		"""
 		A line not starting with '- ' is rejected.
 
-		Parses a line without a dash and one with a dash but no space, and checks the message.
+		Parses a line without a dash, one with a dash but no space, and one with an undeclared marker, and checks the
+		message names the declared markers.
 		"""
-		for line in ("pyTooling", "-pyTooling"):
+		for line in ("pyTooling", "-pyTooling", "* pyTooling"):
 			with self.subTest(line=line), self.assertRaises(SphinxExtensionError) as context:
-				Tree._ParseEntries([line])
+				Tree._ParseEntries([line], ("-", ">"))
 
-			self.assertEqual(f"'{line}' is not an entry, which starts with '- '.", str(context.exception))
+			self.assertEqual(f"'{line}' is not an entry, which starts with '- ', '> '.", str(context.exception))
 
 	@testcase("Entry without text")
 	def NoText(self) -> None:
 		"""
 		An entry needs a text; a trailing colon alone isn't one.
 
-		Parses a dash alone and a dash with a colon, and checks the message.
+		Parses a dash alone and a dash followed by spaces, and checks the message.
 		"""
-		for line in ("-", "- :"):
+		for line in ("-", "-   "):
 			with self.subTest(line=line), self.assertRaises(SphinxExtensionError) as context:
 				Tree._ParseEntries([line])
 
-			self.assertEqual(f"'{line}' is an entry without text.", str(context.exception))
+			self.assertEqual(f"'{line.rstrip()}' is an entry without text.", str(context.exception))
 
 	@testcase("Mismatching indentation")
 	def Indentation_Mismatch(self) -> None:
@@ -207,3 +220,48 @@ class TreeIcons(Testcase):
 			icon("U+110000")
 
 		self.assertEqual("'U+110000' is beyond the last code point U+10FFFF.", str(context.exception))
+
+
+@testsuite("Tree markers")
+class TreeMarkers(Testcase):
+	"""Option ':icons:': the markers an entry may start with, each with its icon."""
+
+	@testcase("Markers and icons")
+	def MarkerIcons(self) -> None:
+		"""
+		Each item is a marker and its icon; items are separated by commas, also across lines.
+
+		Converts three items, the last on its own line and as a code point, and checks the mapping.
+		"""
+		self.assertEqual(
+			{"*": "\U0001f4e6", "-": "\U0001f4c1", ">": "\U0001f4c4"},
+			markerIcons("* \U0001f4e6, - \U0001f4c1,\n> U+1F4C4")
+		)
+
+	@testcase("No value")
+	def NoValue(self) -> None:
+		"""
+		An option without a value declares no marker.
+
+		Converts None and checks the empty mapping.
+		"""
+		self.assertEqual({}, markerIcons(None))
+
+	@testcase("Invalid items")
+	def Invalid(self) -> None:
+		"""
+		An item is a marker, a space and an icon; a marker isn't a letter or a digit, and is declared once.
+
+		Converts an item without a space, one without an icon, one with a letter, and a marker declared twice, and checks
+		each message.
+		"""
+		for option, message in (
+			("*\U0001f4e6",  "'*\U0001f4e6' is not a marker followed by a space and an icon."),
+			("* ",           "'*' is not a marker followed by a space and an icon."),
+			("a \U0001f4e6", "Marker 'a' is a letter or a digit."),
+			("* a, * b",     "Marker '*' is declared twice."),
+		):
+			with self.subTest(option=option), self.assertRaises(ValueError) as context:
+				markerIcons(option)
+
+			self.assertEqual(message, str(context.exception))

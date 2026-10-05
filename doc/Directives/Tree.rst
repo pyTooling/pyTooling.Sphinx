@@ -14,8 +14,8 @@ tree
       The **content** is the hierarchy, written as an indented list in the style of a YAML block sequence. An entry's
       text is inline ReST, so a role such as ``:class:`` or ``:ref:`` links to what the entry names.
 
-      The **options** choose an icon per kind of entry, and how many levels are expanded initially. In HTML, every
-      entry with children folds and unfolds on a click.
+      The **options** choose an icon per kind of entry or per marker, and how many levels are expanded initially. In
+      HTML, every entry with children folds and unfolds on a click.
 
    .. grid-item::
       :columns: 6
@@ -23,12 +23,13 @@ tree
       .. code-block:: ReST
 
          .. tree::
-            :root-icon: U+1F4E6
-            :node-icon: U+1F4C1
-            :leaf-icon: U+1F4C4
+            :root-icon: 📦
+            :node-icon: 📁
+            :leaf-icon: 📄
+            :icons:     > 📁
 
             - pyTooling.Sphinx
-              - :file:`doc`:
+              > :file:`doc`
               - :file:`pyTooling`
                 - :file:`Sphinx`
                   - :mod:`~pyTooling.Sphinx.Tree`
@@ -38,12 +39,13 @@ tree
 This is how the example renders:
 
 .. tree::
-   :root-icon: U+1F4E6
-   :node-icon: U+1F4C1
-   :leaf-icon: U+1F4C4
+   :root-icon: 📦
+   :node-icon: 📁
+   :leaf-icon: 📄
+   :icons:     > 📁
 
    - pyTooling.Sphinx
-     - :file:`doc`:
+     > :file:`doc`
      - :file:`pyTooling`
        - :file:`Sphinx`
          - :mod:`~pyTooling.Sphinx.Tree`
@@ -90,24 +92,25 @@ A class hierarchy, without icons and with only the first level expanded:
 Content
 *******
 
-* An entry is a line starting with ``-`` and a space. Blank lines are ignored.
+* An entry is a line starting with a marker and a space. Blank lines are ignored.
 * An entry indented deeper than the entry above it is that entry's child. Siblings are indented alike; how deep a
   child is indented doesn't matter.
 * An entry without a parent is a **root**, an entry with children is a **node**, and every other entry is a
   **leaf**. A content may hold several roots.
-* A trailing colon makes an entry a node without children, e.g. an empty directory. It isn't shown. A text that
-  really ends in a colon escapes it: ``\:``.
+* The marker ``-`` gives an entry the icon of its kind. Every other marker is declared by :rst:dir:`tree:icons`, with
+  its own icon, whatever the entry's kind is - e.g. a folder for an empty directory, which is a leaf.
 * An entry's text is inline ReST: roles, emphasis, literals and links.
 
 .. code-block:: ReST
 
    .. tree::
+      :icons: > 📁, * ⭐
 
       - root
         - node
           - leaf
-        - empty node:
-        - Note\:
+        > empty directory
+        * a leaf with a star
 
 
 .. _DIR/Tree/Options:
@@ -139,6 +142,12 @@ Options
 
       The icon in front of a collapsed entry with children. Default: ``▸``.
 
+   .. rst:directive:option:: icons: <marker> <icon>[, <marker> <icon> ...]
+
+      More markers an entry may start with, each with the icon an entry marked so gets. A marker is one character,
+      neither a letter nor a digit. Declaring ``-`` replaces the icon of every kind. The list may continue on the
+      next lines.
+
    .. rst:directive:option:: expanded-levels: <levels>
 
       How many levels are expanded initially: ``0`` collapses every entry, ``1`` expands the roots only. Default:
@@ -150,9 +159,8 @@ Options
 
 .. rubric:: Icons
 
-An icon is written as characters, e.g. ``📁``, or as a Unicode code point, e.g. ``U+1F4C1`` - which keeps a
-document readable in an editor whose font lacks the glyph. Several words form one icon. An option without a value
-draws no icon.
+An icon is written as characters, e.g. ``📁``, or as a Unicode code point, e.g. ``U+1F4C1``. Several words form one
+icon. An option without a value draws no icon.
 
 
 .. _DIR/Tree/Styling:
@@ -220,6 +228,7 @@ A mistake in the content is reported on the page, where the tree would be, and i
 
    tree: The directive's content holds no entry.
    tree: 'pyTooling' is not an entry, which starts with '- '.
+   tree: '+ pyTooling' is not an entry, which starts with '- ', '> '.
    tree: '-' is an entry without text.
    tree: '- c' is indented less than the entry above, but not as deep as one of its ancestors.
 

@@ -212,12 +212,13 @@ class TreeRendering(Project):
 		".. tree::\n"
 		"   :root-icon: U+1F4E6\n"
 		"   :leaf-icon: U+1F4C4\n"
+		"   :icons:     > U+1F4C1\n"
 		"{options}"
 		"\n"
 		"   - root\n"
 		"     - node\n"
 		"       - see :ref:`target`\n"
-		"     - empty:\n"
+		"     > empty\n"
 	)
 
 	@testcase("HTML")
@@ -225,7 +226,8 @@ class TreeRendering(Project):
 		"""
 		An entry with children is a 'details' element with both expander icons; every entry has its kind's class.
 
-		Builds a tree with a root, a node, a leaf linking to a label and an empty node, and checks the page.
+		Builds a tree with a root, a node, a leaf linking to a label and a leaf with a declared marker, and checks the
+		page.
 		"""
 		self._build(self._document.format(options=""))
 
@@ -241,8 +243,8 @@ class TreeRendering(Project):
 		self.assertIn('<li class="tree-node tree-expandable"><details open>', html)
 		self.assertIn('<a class="reference internal" href="#target">', html)
 		self.assertIn(
-			'<li class="tree-node"><span class="tree-expander" aria-hidden="true"></span>'
-			'<span class="tree-text">empty</span></li>',
+			'<li class="tree-leaf"><span class="tree-expander" aria-hidden="true"></span>'
+			'<span class="tree-icon" aria-hidden="true">\U0001f4c1</span><span class="tree-text">empty</span></li>',
 			html
 		)
 

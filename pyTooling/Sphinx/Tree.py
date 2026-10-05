@@ -28,7 +28,7 @@
 # SPDX-License-Identifier: Apache-2.0                                                                                  #
 # ==================================================================================================================== #
 #
-r"""
+"""
 A Sphinx directive drawing a hierarchy as a tree: a directory, a class hierarchy, the structure of a testsuite.
 
 Written as text in a code block, a hierarchy needs its lines drawn by hand, can't link to what it shows, and can't
@@ -38,24 +38,25 @@ draws the lines itself:
 .. code-block:: ReST
 
    .. tree::
-      :root-icon: U+1F4E6
-      :node-icon: U+1F4C1
-      :leaf-icon: U+1F4C4
+      :root-icon: 📦
+      :node-icon: 📁
+      :leaf-icon: 📄
+      :icons:     > 📁
 
       - pyTooling
         - Tree
           - :class:`~pyTooling.Tree.Node`
-        - Graph:
+        > Graph
         - README.md
 
-**An entry is a line starting with** ``-``, and an entry indented deeper than the one above it is that entry's child.
-An entry's text is inline ReST, so a role such as ``:class:`` or ``:ref:`` links to what the entry names.
+**An entry is a line starting with a marker** and a space, and an entry indented deeper than the one above it is that
+entry's child. An entry's text is inline ReST, so a role such as ``:class:`` or ``:ref:`` links to what the entry names.
 
 .. rubric:: Roots, nodes and leaves
 
-An entry without a parent is a root, an entry with children is a node, and every other entry is a leaf. Each kind
-has its own icon. A trailing colon makes an entry a node without children - e.g. an empty directory. A text that
-really ends in a colon escapes it: ``\:``.
+An entry without a parent is a root, an entry with children is a node, and every other entry is a leaf. An entry
+marked ``-`` gets the icon of its kind. Option ``:icons:`` declares more markers, each with its own icon, whatever the
+entry's kind is - e.g. a folder for an empty directory, which is a leaf.
 
 .. rubric:: HTML and other formats
 
@@ -83,7 +84,10 @@ from pyTooling.Tree       import Node
 from pyTooling.Sphinx     import BaseDirective, SphinxExtensionError, strip
 
 
-__all__ = ["DEFAULT_ICONS", "CODE_POINT_PATTERN"]
+__all__ = ["DEFAULT_MARKER", "DEFAULT_ICONS", "CODE_POINT_PATTERN"]
+
+#: The marker of an entry whose icon is the one of its kind.
+DEFAULT_MARKER = "-"
 
 #: The icons drawn when the directive's options don't state one, keyed by the option's name.
 #:
@@ -101,7 +105,7 @@ DEFAULT_ICONS = {
 CODE_POINT_PATTERN = re_compile(r"U\+([0-9A-Fa-f]{1,6})")
 
 _Entry = Node[None, str, str, Any]
-"""An entry of the content: its text as the value, the index of its line and its trailing colon as key-value pairs."""
+"""An entry of the content: its text as the value, the index of its line and its marker as key-value pairs."""
 
 
 @export
@@ -128,6 +132,41 @@ def icon(option: Nullable[str]) -> str:
 			characters.append(chr(codePoint))
 
 	return "".join(characters)
+
+
+@export
+def markerIcons(option: Nullable[str]) -> dict[str, str]:
+	"""
+	Option converter reading the markers an entry may start with, each with its icon: ``<marker> <icon>``, separated by
+	commas.
+
+	A marker is one character, neither a letter, a digit, a comma nor a space. An icon is read by :func:`icon`.
+
+	:param option:      The option's value as it was written; ``None`` if the option has no value.
+	:returns:           The icons, keyed by their marker.
+	:raises ValueError: If an item isn't a marker followed by a space and an icon.
+	:raises ValueError: If a marker is a letter, a digit or a comma.
+	:raises ValueError: If a marker is declared twice.
+	"""
+	if option is None:
+		return {}
+
+	icons: dict[str, str] = {}
+	for item in option.split(","):
+		if (item := item.strip()) == "":
+			continue
+
+		marker, separator, value = item[0], item[1:2], item[2:]
+		if separator.strip() != "" or value.strip() == "":
+			raise ValueError(f"'{item}' is not a marker followed by a space and an icon.")
+		elif marker.isalnum():
+			raise ValueError(f"Marker '{marker}' is a letter or a digit.")
+		elif marker in icons:
+			raise ValueError(f"Marker '{marker}' is declared twice.")
+
+		icons[marker] = icon(value)
+
+	return icons
 
 
 @export
@@ -240,6 +279,7 @@ class Tree(BaseDirective):
 		"leaf-icon":       icon,
 		"expanded-icon":   icon,
 		"collapsed-icon":  icon,
+		"icons":           markerIcons,
 		"expanded-levels": directives.nonnegative_int,
 		"class":           strip,
 	}
@@ -251,11 +291,13 @@ class Tree(BaseDirective):
 		:returns: The tree as a bullet list, or the message of whatever the content got wrong.
 		"""
 		try:
-			roots = self._ParseEntries(self.content)
+			markers = self.options.get("icons", {})
+			roots = self._ParseEntries(self.content, (DEFAULT_MARKER, *markers))
 		except SphinxExtensionError as ex:
 			return [self.state.document.reporter.error(f"{self.directiveName}: {ex}", line=self.lineno)]
 
 		icons = {name: self.options.get(name, default) for name, default in DEFAULT_ICONS.items()}
+		icons.update(markers)
 		expandedLevels = self.options.get("expanded-levels", None)
 
 		tree = nodes.bullet_list(classes=["pytooling-tree"] + self.options.get("class", "").split())
@@ -265,18 +307,18 @@ class Tree(BaseDirective):
 		return [tree]
 
 	@staticmethod
-	def _ParseEntries(content: Iterable[str]) -> list[_Entry]:
-		r"""
+	def _ParseEntries(content: Iterable[str], markers: Iterable[str] = (DEFAULT_MARKER, )) -> list[_Entry]:
+		"""
 		Read the content into trees: an entry per line, and an entry indented deeper than the one above is its child.
 
 		An entry's text is the node's value. Key ``index`` holds the index of the entry's line in the content, and key
-		``colon`` whether the text ended in a colon - which isn't part of the value. A colon escaped as ``\:`` stays in
-		the value, for the inline markup to unescape.
+		``marker`` the marker the line starts with.
 
 		:param content:               The directive's content, line by line.
+		:param markers:               Optional, the markers an entry may start with. Default: ``-``.
 		:returns:                     The root of each tree, in the order written.
 		:raises SphinxExtensionError: If the content holds no entry.
-		:raises SphinxExtensionError: If a line doesn't start with ``-``.
+		:raises SphinxExtensionError: If a line doesn't start with a marker and a space.
 		:raises SphinxExtensionError: If an entry has no text.
 		:raises SphinxExtensionError: If an entry is indented less than the entry above, but not as deep as one of its
 		                              ancestors.
@@ -288,15 +330,12 @@ class Tree(BaseDirective):
 				continue
 
 			indentation = len(line) - len(text)
-			if text.rstrip() != "-" and not text.startswith("- "):
-				raise SphinxExtensionError(f"'{text.rstrip()}' is not an entry, which starts with '- '.")
+			marker = text[0]
+			if marker not in markers or text[1:2].strip() != "":
+				accepted = ", ".join(f"'{marker} '" for marker in markers)
+				raise SphinxExtensionError(f"'{text.rstrip()}' is not an entry, which starts with {accepted}.")
 
-			value = text[1:].strip()
-			colon = value.endswith(":") and not value.endswith("\\:")
-			if colon:
-				value = value[:-1].rstrip()
-
-			if value == "":
+			if (value := text[1:].strip()) == "":
 				raise SphinxExtensionError(f"'{text.rstrip()}' is an entry without text.")
 
 			closed = False
@@ -312,7 +351,7 @@ class Tree(BaseDirective):
 				)
 
 			parent = ancestors[-1][1] if len(ancestors) > 0 else None
-			entry: _Entry = Node(value=value, keyValuePairs={"index": index, "colon": colon}, parent=parent)
+			entry: _Entry = Node(value=value, keyValuePairs={"index": index, "marker": marker}, parent=parent)
 			if parent is None:
 				roots.append(entry)
 
@@ -331,7 +370,7 @@ class Tree(BaseDirective):
 		to that line. Such messages follow the entry's text in the list item.
 
 		:param entry:          The entry, as :meth:`_ParseEntries` read it.
-		:param icons:          The icons, keyed by the option naming them.
+		:param icons:          The icons, keyed by the option naming them, or by their marker.
 		:param expandedLevels: How many levels are expanded initially; ``None`` expands all.
 		:returns:              The entry as a list item, holding its text and a bullet list of its children.
 		"""
@@ -339,13 +378,15 @@ class Tree(BaseDirective):
 
 		if entry.IsRoot:
 			kind = "root"
-		elif entry.HasChildren or entry["colon"]:
+		elif entry.HasChildren:
 			kind = "node"
 		else:
 			kind = "leaf"
 
+		entryIcon = icons[entry["marker"]] if entry["marker"] in icons else icons[f"{kind}-icon"]
+
 		item = TreeItem("", classes=[f"tree-{kind}"] + (["tree-expandable"] if entry.HasChildren else []))
-		item += (label := TreeLabel(entry.Value, "", *textNodes, icon=icons[f"{kind}-icon"]))
+		item += (label := TreeLabel(entry.Value, "", *textNodes, icon=entryIcon))
 		item += messages
 
 		if not entry.HasChildren:
