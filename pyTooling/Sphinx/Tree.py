@@ -324,7 +324,7 @@ class Tree(BaseDirective):
 		                              ancestors.
 		"""
 		roots: list[_Entry] = []
-		ancestors: list[tuple[int, _Entry]] = []  # the entries the next one can be a child or a sibling of, with indentation
+		ancestors: list[tuple[int, _Entry]] = []  # entries the next one can be a child or a sibling of, with indentation
 		for index, line in enumerate(content):
 			if (text := line.lstrip(" ")).strip() == "":
 				continue
