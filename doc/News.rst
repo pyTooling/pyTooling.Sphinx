@@ -3,14 +3,14 @@
 News
 ####
 
-See `pyTooling.Sphinx Release Pages <https://github.com/pyTooling/pyTooling.Sphinx/releases>`__ for detail release
+See :gh:`pyTooling.Sphinx Release Pages <pyTooling/pyTooling.Sphinx/releases>` for detail release
 notes on every release.
 
 
 Version 0.x (2026)
 ******************
 
-.. topic:: `v0.1.0 - unreleased <https://github.com/pyTooling/pyTooling.Sphinx/releases/v0.1.0>`__
+.. topic:: :gh:`v0.1.0 - unreleased <pyTooling/pyTooling.Sphinx/releases/v0.1.0>`
 
    .. rubric:: New Features
 
