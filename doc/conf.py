@@ -338,8 +338,6 @@ for module in Path(f"../{project.replace('.', '/')}").iterdir():
 # ==============================================================================
 # Sphinx.Ext.AutoDoc - skipped members
 # ==============================================================================
-# The tree's node classes derive from docutils' nodes, whose methods are documented in docutils' own format - and
-# ':inherited-members:' in the module template would render each of them, with an error per malformed reference.
 def skipDocutilsNodeMembers(
 	app: Sphinx,
 	what: str,
@@ -350,6 +348,10 @@ def skipDocutilsNodeMembers(
 ) -> Nullable[bool]:
 	"""
 	Skip a member inherited from :mod:`docutils.nodes`.
+
+	The node classes in :mod:`pyTooling.Sphinx.Node` derive from docutils' nodes, whose methods are documented in
+	docutils' own format. ``:inherited-members:`` in the module template would render each of them, with an error per
+	malformed reference.
 
 	:param app:     The Sphinx application.
 	:param what:    Kind of the object the member belongs to, e.g. ``class``.
