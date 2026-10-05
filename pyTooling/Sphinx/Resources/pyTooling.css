@@ -124,6 +124,14 @@ ul.pytooling-tree li {
   line-height: var(--pyTooling-tree-row-height) !important;
 }
 
+/* A theme may space the blocks in a list item - sphinx_rtd_theme puts 12px above and below each. Below an entry's
+   '<details>', that space ends up between the entry and its next sibling, outside both of their lines: a gap in the
+   vertical line. Only vertical margins are reset, as an icon keeps its gap to the text. */
+ul.pytooling-tree li > * {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
 /* A level's lines start below the centre of its parent's expander. */
 ul.pytooling-tree ul {
   margin-left: calc(var(--pyTooling-tree-expander-width) / 2) !important;
