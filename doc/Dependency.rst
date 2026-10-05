@@ -36,6 +36,47 @@ PyPI (see :ref:`INSTALL`).
    :depth: 1
 
 
+.. _DEP/reports:
+
+Report Domain (Optional)
+************************
+
+The extension ``pyTooling.Sphinx.Report`` - the domain ``report`` - reads unit test reports and analyzes the
+documentation coverage with these packages. They are installed with the extra ``reports``:
+
+.. tab-set::
+
+   .. tab-item:: Linux/macOS
+      :sync: Linux
+
+      .. code-block:: bash
+
+         pip3 install -U pyTooling.Sphinx[reports]
+
+   .. tab-item:: Windows
+      :sync: Windows
+
+      .. code-block:: powershell
+
+         pip install -U pyTooling.Sphinx[reports]
+
+.. rubric:: Dependency List
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 20 50
+
+   * - Package
+     - Version
+     - Used for
+   * - :pypi:`pyEDAA.Reports`
+     - ``dev`` branch
+     - reading unit test reports in Any JUnit XML format
+   * - :pypi:`docstr_coverage`
+     - ``~= 2.3``
+     - analyzing the documentation coverage
+
+
 .. _DEP/testing:
 
 Unit Testing / Coverage (Optional)

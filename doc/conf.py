@@ -183,9 +183,9 @@ extensions = [
 	"sphinx_copybutton",
 	"sphinx_autodoc_typehints",
 	"autoapi.sphinx",
-	"sphinx_reports",
 # User defined extensions
 	"pyTooling.Sphinx",
+	"pyTooling.Sphinx.Report",
 ]
 
 
@@ -264,23 +264,33 @@ todo_link_only = True
 
 
 # ==============================================================================
-# Sphinx_Reports
+# pyTooling.Sphinx.Report - reports
 # ==============================================================================
-report_unittest_testsuites = {
+# The examples come first: a report file that doesn't exist stops reading the entries after it, and the project's
+# own reports exist only after the tests ran.
+pyTooling_Unittest_Testsuites = {
+	"example": {
+		"xml_report":  "../tests/data/Report/unittest.xml",
+	},
 	"src": {
-		"name":        f"{pythonProject}",
 		"xml_report":  "../report/unit/unittest.xml",
-	}
+	},
 }
-report_codecov_packages = {
+pyTooling_CodeCoverage_Packages = {
+	"example": {
+		"name":        "myPackage",
+		"json_report": "../tests/data/Report/coverage.json",
+		"fail_below":  80,
+		"levels":      "default"
+	},
 	"src": {
 		"name":        f"{pythonProject}",
 		"json_report": "../report/coverage/coverage.json",
 		"fail_below":  80,
 		"levels":      "default"
-	}
+	},
 }
-report_doccov_packages = {
+pyTooling_DocCoverage_Packages = {
 	"src": {
 		"name":       f"{pythonProject}",
 		"directory":  f"../{directoryName}",

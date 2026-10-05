@@ -22,7 +22,7 @@ The pyTooling.Sphinx Documentation
 
 **pyTooling.Sphinx** adds roles and directives to `Sphinx <https://www.sphinx-doc.org/>`__: styled inline text and
 line breaks working in HTML and LaTeX, condensed class interfaces, dependency tables generated from requirements files
-and the package index, badges, schema graphs, trees, and lists of abbreviations.
+and the package index, badges, schema graphs, trees, lists of abbreviations, and unit test and coverage reports.
 
 Other packages build on it: :gh:`pyTooling.GitHub <pyTooling/pyTooling.GitHub>` contributes the
 domain ``ghactions`` for GitHub Actions workflows, enabled as the extension ``pyTooling.GitHub.Sphinx``.
@@ -43,6 +43,19 @@ The extension is enabled in :file:`conf.py`:
 
 It links its stylesheet into every HTML page, appends its substitutions to ``rst_prolog``, and sets up
 :mod:`sphinx.ext.graphviz` for the schema graphs.
+
+The domain ``report`` - unit test, code coverage and documentation coverage reports as tables - reads the reports with
+:gh:`pyEDAA.Reports <edaa-org/pyEDAA.Reports>`, so it is an extension of its own, installed with the extra ``reports``
+and enabled as ``pyTooling.Sphinx.Report``:
+
+.. code-block:: Python
+
+   # pip install pyTooling.Sphinx[reports]
+   # doc/conf.py
+   extensions = [
+     ...,
+     "pyTooling.Sphinx.Report",
+   ]
 
 
 .. _FEATURES:
@@ -77,6 +90,15 @@ Roles and Directives
 :ref:`abbreviations <DIR/Abbreviations>`
   |rarr| A list of abbreviations, referred to by ``:acs:``, ``:acl:``, ``:acf:`` and their plurals; in HTML, a
   short form explains itself on hover.
+
+.. rubric:: Directives of domain ``report`` (extension ``pyTooling.Sphinx.Report``)
+
+:ref:`report:unittest-summary <DIR/UnittestSummary>`
+  |rarr| A unit test report in Any JUnit XML format, per testsuite and testcase.
+:ref:`report:code-coverage <DIR/CodeCoverage>`
+  |rarr| A Coverage.py report, per package and module, and a legend of its coverage levels.
+:ref:`report:doc-coverage <DIR/DocCoverage>`
+  |rarr| A package's documentation coverage, per package and module, and a legend of its coverage levels.
 
 
 .. _CONSUMERS:
@@ -155,6 +177,14 @@ License
    Directives/Shields
    Directives/Tree
    Directives/Abbreviations
+
+.. toctree::
+   :caption: Reports
+   :hidden:
+
+   Directives/UnittestSummary
+   Directives/CodeCoverage
+   Directives/DocCoverage
 
 .. raw:: latex
 

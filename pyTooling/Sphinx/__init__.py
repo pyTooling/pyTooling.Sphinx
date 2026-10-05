@@ -76,6 +76,17 @@ document of every project. This extension declares them once:
 
 * the **nodes** the directives emit, listed in :data:`NODES` with their visitors per output format.
 
+The domain ``report`` - unit test, code coverage and documentation coverage reports as tables - is the extension
+:mod:`pyTooling.Sphinx.Report`, enabled separately as ``"pyTooling.Sphinx.Report"``, because it needs the extra
+``reports``. It sets up this extension itself, and adds the configuration values ``pyTooling_Unittest_Testsuites``,
+``pyTooling_CodeCoverage_Packages`` and ``pyTooling_DocCoverage_Packages``:
+
+* :rst:dir:`report:unittest-summary` - a unit test report, per testsuite and testcase;
+* :rst:dir:`report:code-coverage` and :rst:dir:`report:code-coverage-legend` - a code coverage report and its
+  coverage levels;
+* :rst:dir:`report:doc-coverage` and :rst:dir:`report:doc-coverage-legend` - a package's documentation coverage and
+  its coverage levels.
+
 Two classes aren't registered, because they are base-classes for a project's own directives:
 :class:`~pyTooling.Sphinx.BaseDirective` offers typed option access and table construction
 over the untyped mapping and the hand-assembled node trees docutils presents, and
