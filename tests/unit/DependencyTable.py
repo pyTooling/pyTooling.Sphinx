@@ -41,10 +41,12 @@ from typing                           import Optional as Nullable
 from packaging.specifiers             import SpecifierSet
 from pytest                           import mark
 
+from pyTooling.Dependency             import UnknownLicenseWarning
 from pyTooling.Sphinx                 import SphinxExtensionError
 from pyTooling.Sphinx.DependencyTable import DependencyFormat, DependencyTable, VersionFormat, formatUnresolvedLicenses
-from pyTooling.Sphinx.DependencyTable import readEntrypoints
+from pyTooling.Sphinx.DependencyTable import DependencyCollector, readEntrypoints
 from pyTooling.Testing                import Testcase, testsuite, testcase
+from pyTooling.Warning                import WarningCollector
 
 
 if __name__ == "__main__":  # pragma: no cover
@@ -478,6 +480,46 @@ class DependencyFormats(Testcase):
 
 
 @testsuite("Unresolved license report")
+class _Package:
+	"""A package as a release names it: only its name."""
+
+	def __init__(self, name: str) -> None:
+		self.Name = name
+
+
+class _Release:
+	"""A release whose details name a license the index can't answer for."""
+
+	def __init__(self, name: str) -> None:
+		self.Package = _Package(name)
+		self.Version = "1.0"
+
+	def DownloadDetails(self) -> None:
+		warning = UnknownLicenseWarning(f"License of '{self.Package.Name}' is unknown.")
+		warning.add_note("license: BSD")
+		WarningCollector.Raise(warning)
+
+
+@testsuite("Collecting unresolved licenses")
+class UnresolvedLicenseCollection(Testcase):
+	"""A package whose license the index couldn't answer for is recorded once, by the override file's spelling."""
+
+	@testcase("Two spellings, one entry")
+	def TwoSpellings(self) -> None:
+		"""
+		A package required under two spellings is recorded once, by its canonical name.
+
+		Details two releases named 'Sphinx_RTD_Theme' and 'sphinx-rtd-theme', each warning about an unknown license,
+		and checks that one entry remains, keyed 'sphinx-rtd-theme'.
+		"""
+		collector = DependencyCollector({}, "https://pypi.org", "https://pypi.org/pypi", None)
+
+		collector.Details(_Release("Sphinx_RTD_Theme"))
+		collector.Details(_Release("sphinx-rtd-theme"))
+
+		self.assertEqual({"sphinx-rtd-theme": ("license: BSD",)}, collector.UnresolvedLicenses)
+
+
 class UnresolvedLicenseReport(Testcase):
 	"""A package needing a license override is reported with what the index published, because that is the reason."""
 
