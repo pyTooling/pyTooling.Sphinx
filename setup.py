@@ -50,6 +50,12 @@ setup(
 		sourceFileWithVersion=packageInformationFile,
 		developmentStatus="alpha",
 		pythonVersions=("3.12", "3.13", "3.14"),
+		additionalRequirements={
+			"reports": [
+				"pyEDAA.Reports @ git+https://github.com/edaa-org/pyEDAA.Reports.git@dev",
+				"docstr_coverage ~= 2.3",
+			],
+		},
 		dataFiles={
 			packageName:                ["py.typed"],
 			f"{packageName}.Resources": ["*.css"]

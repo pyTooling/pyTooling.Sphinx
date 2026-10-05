@@ -11,7 +11,7 @@
 #                                                                                                                      #
 # License:                                                                                                             #
 # ==================================================================================================================== #
-# Copyright 2026-2026 Patrick Lehmann - Bötzingen, Germany                                                             #
+# Copyright 2023-2026 Patrick Lehmann - Bötzingen, Germany                                                             #
 #                                                                                                                      #
 # Licensed under the Apache License, Version 2.0 (the "License");                                                      #
 # you may not use this file except in compliance with the License.                                                     #
@@ -29,10 +29,45 @@
 # ==================================================================================================================== #
 #
 """
-Resources shipped for :mod:`pyTooling.Sphinx`.
-
-Stylesheets:
-
-* :file:`pyTooling.css` - the styles the roles in :mod:`~pyTooling.Sphinx.Roles`, the dependency tables, the
-  trees and the report tables of :mod:`pyTooling.Sphinx.Report` need.
+Workarounds for Sphinx and docutils problems.
 """
+from typing                            import Any
+
+from docutils.nodes                    import table
+from sphinx.transforms.post_transforms import SphinxPostTransform
+from sphinx.util.logging               import getLogger
+
+from pyTooling.Decorators              import export
+
+
+@export
+class FixLatexTableWidths(SphinxPostTransform):
+	"""
+	A post-transform giving the report tables in LaTeX the column widths their directives state.
+
+	Without class ``colwidths-given``, Sphinx' LaTeX writer computes the widths itself and ignores the ones the table's
+	column specifications state, which squeezes a wide table - such as a unit test or code coverage report - into the
+	page.
+	"""
+
+	default_priority = 500                                                    #: Priority among the post-transforms.
+	formats =          ("latex", )                                            #: Output formats the transform runs for.
+	tableClasses =     ("report-unittest-table", "report-codecov-table")  #: CSS classes of the tables it fixes.
+
+	def run(self, **kwargs: Any) -> None:
+		"""
+		Add class ``colwidths-given`` to every report table that hasn't it yet.
+
+		:param kwargs: Keyword arguments Sphinx passes to a post-transform; none is used.
+		"""
+		for tableNode in self.document.findall(table):
+			if (cssClasses := tableNode.get("classes", None)) is None:
+				continue
+
+			if any(tableClass in cssClasses for tableClass in self.tableClasses):
+				if "colwidths-given" not in cssClasses:
+					cssClasses.append("colwidths-given")
+
+					getLogger(__name__).info(
+						"Applied 'colwidths-given' to a table via FixLatexTableWidths transform.", location=tableNode
+					)

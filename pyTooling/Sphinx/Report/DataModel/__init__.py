@@ -11,7 +11,7 @@
 #                                                                                                                      #
 # License:                                                                                                             #
 # ==================================================================================================================== #
-# Copyright 2026-2026 Patrick Lehmann - Bötzingen, Germany                                                             #
+# Copyright 2023-2026 Patrick Lehmann - Bötzingen, Germany                                                             #
 #                                                                                                                      #
 # Licensed under the Apache License, Version 2.0 (the "License");                                                      #
 # you may not use this file except in compliance with the License.                                                     #
@@ -29,10 +29,5 @@
 # ==================================================================================================================== #
 #
 """
-Resources shipped for :mod:`pyTooling.Sphinx`.
-
-Stylesheets:
-
-* :file:`pyTooling.css` - the styles the roles in :mod:`~pyTooling.Sphinx.Roles`, the dependency tables, the
-  trees and the report tables of :mod:`pyTooling.Sphinx.Report` need.
+Abstract data models of reports, filled by the adapters in :mod:`pyTooling.Sphinx.Report.Adapter`.
 """

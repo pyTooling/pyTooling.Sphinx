@@ -1,0 +1,165 @@
+# ==================================================================================================================== #
+#             _____           _ _               ____        _     _                                                    #
+#  _ __  _   |_   _|__   ___ | (_)_ __   __ _  / ___| _ __ | |__ (_)_ __ __  __                                        #
+# | '_ \| | | || |/ _ \ / _ \| | | '_ \ / _` | \___ \| '_ \| '_ \| | '_ \\ \/ /                                        #
+# | |_) | |_| || | (_) | (_) | | | | | | (_| |_ ___) | |_) | | | | | | | |>  <                                         #
+# | .__/ \__, ||_|\___/ \___/|_|_|_| |_|\__, (_)____/| .__/|_| |_|_|_| |_/_/\_\                                        #
+# |_|    |___/                          |___/        |_|                                                               #
+# ==================================================================================================================== #
+# Authors:                                                                                                             #
+#   Patrick Lehmann                                                                                                    #
+#                                                                                                                      #
+# License:                                                                                                             #
+# ==================================================================================================================== #
+# Copyright 2023-2026 Patrick Lehmann - Bötzingen, Germany                                                             #
+#                                                                                                                      #
+# Licensed under the Apache License, Version 2.0 (the "License");                                                      #
+# you may not use this file except in compliance with the License.                                                     #
+# You may obtain a copy of the License at                                                                              #
+#                                                                                                                      #
+#   http://www.apache.org/licenses/LICENSE-2.0                                                                         #
+#                                                                                                                      #
+# Unless required by applicable law or agreed to in writing, software                                                  #
+# distributed under the License is distributed on an "AS IS" BASIS,                                                    #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.                                             #
+# See the License for the specific language governing permissions and                                                  #
+# limitations under the License.                                                                                       #
+#                                                                                                                      #
+# SPDX-License-Identifier: Apache-2.0                                                                                  #
+# ==================================================================================================================== #
+#
+"""
+Adapter reading a code coverage report in Coverage.py's JSON format into the data model.
+
+.. seealso::
+
+   :mod:`pyTooling.Sphinx.Report.DataModel.CodeCoverage`
+      |rarr| The data model the report is converted to.
+"""
+from pathlib                                        import Path
+
+from pyTooling.Configuration.JSON                   import Configuration
+from pyTooling.Decorators                           import export, readonly
+from pyTooling.MetaClasses                          import ExtendedType
+
+from pyTooling.Sphinx.Report                        import ReportExtensionError
+from pyTooling.Sphinx.Report.DataModel.CodeCoverage import Coverage, ModuleCoverage, PackageCoverage
+
+
+@export
+class CodeCoverageError(ReportExtensionError):
+	"""
+	The exception raised when a code coverage report can't be read.
+	"""
+
+
+@export
+class Analyzer(metaclass=ExtendedType, slots=True):
+	"""
+	An analyzer reading code coverage data from JSON format and converting it to the generic data model.
+
+	Coverage.py writes the statement and branch coverage it collected as JSON (``coverage json``), which is converted to
+	a :class:`~pyTooling.Sphinx.Report.DataModel.CodeCoverage.PackageCoverage` hierarchy.
+	"""
+
+	_packageName:    str            #: Name of the analyzed Python package.
+	_coverageReport: Configuration  #: The parsed JSON report.
+
+	def __init__(self, packageName: str, jsonCoverageFile: Path) -> None:
+		"""
+		Read a JSON file containing code coverage metrics generated by Coverage.py.
+
+		:param packageName:        Name of the Python package that was analyzed.
+		:param jsonCoverageFile:   JSON file containing statement and/or branch coverage.
+		:raises CodeCoverageError: If the JSON file doesn't exist.
+		"""
+		if not jsonCoverageFile.exists():
+			raise CodeCoverageError(
+				f"JSON coverage report '{jsonCoverageFile}' not found."
+			) from FileNotFoundError(jsonCoverageFile)
+
+		self._packageName = packageName
+		self._coverageReport = Configuration(jsonCoverageFile)
+
+	@readonly
+	def PackageName(self) -> str:
+		"""
+		Read-only property to access the analyzed package's name (:attr:`_packageName`).
+
+		:returns: Name of the analyzed package.
+		"""
+		return self._packageName
+
+	@readonly
+	def JSONCoverageFile(self) -> Path:
+		"""
+		Read-only property to access the parsed JSON file (property
+		:attr:`~pyTooling.Configuration.Configuration.ConfigFile` of :attr:`_coverageReport`).
+
+		:returns: Path to the parsed JSON file.
+		"""
+		return self._coverageReport.ConfigFile
+
+	@readonly
+	def CoverageReport(self) -> Configuration:
+		"""
+		Read-only property to access the parsed JSON report (:attr:`_coverageReport`).
+
+		:returns: The parsed JSON report.
+		"""
+		return self._coverageReport
+
+	def Convert(self) -> PackageCoverage:
+		"""
+		Convert the report to the data model.
+
+		:returns:                  The analyzed package's coverage, holding its sub-packages and modules.
+		:raises CodeCoverageError: If the report's format version isn't ``3``.
+		"""
+		meta = self._coverageReport["meta"]
+		if (version := meta["format"]) == "3":
+			return self._ConvertV3()
+		else:
+			raise CodeCoverageError(f"Unsupported coverage format version '{version}'")
+
+	def _ConvertV3(self) -> PackageCoverage:
+		"""
+		Convert a report in format version 3 to the data model.
+
+		A file's path, without its first directory, names the packages it is in: ``myPackage/sub/module.py`` is module
+		``module`` in sub-package ``sub``. An :file:`__init__.py` sets the counts of its package.
+
+		:returns: The analyzed package's coverage, holding its sub-packages and modules.
+		"""
+		rootPackageCoverage = PackageCoverage(self._packageName, Path("__init__.py"))
+
+		for fileRecord in self._coverageReport["files"]:
+			moduleFile = Path(fileRecord.Key)
+			coverageSummary = fileRecord["summary"]
+
+			moduleName = moduleFile.stem
+			modulePath = moduleFile.parent.parts[1:]
+
+			currentCoverageObject: Coverage = rootPackageCoverage
+			for packageName in modulePath:
+				try:
+					currentCoverageObject = currentCoverageObject[packageName]
+				except KeyError:
+					currentCoverageObject = PackageCoverage(packageName, moduleFile, currentCoverageObject)
+
+			if moduleName != "__init__":
+				currentCoverageObject = ModuleCoverage(moduleName, moduleFile, currentCoverageObject)
+
+			currentCoverageObject._totalStatements =    int(coverageSummary["num_statements"])
+			currentCoverageObject._excludedStatements = int(coverageSummary["excluded_lines"])
+			currentCoverageObject._coveredStatements =  int(coverageSummary["covered_lines"])
+			currentCoverageObject._missingStatements =  int(coverageSummary["missing_lines"])
+
+			currentCoverageObject._totalBranches =   int(coverageSummary["num_branches"])
+			currentCoverageObject._coveredBranches = int(coverageSummary["covered_branches"])
+			currentCoverageObject._partialBranches = int(coverageSummary["num_partial_branches"])
+			currentCoverageObject._missingBranches = int(coverageSummary["missing_branches"])
+
+			currentCoverageObject._coverage = float(coverageSummary["percent_covered"]) / 100.0
+
+		return rootPackageCoverage
