@@ -31,20 +31,21 @@
 """
 Unit tests for the Sphinx extension :mod:`pyTooling.Sphinx`, each built in a small Sphinx project.
 """
-from io                     import StringIO
-from os                     import sep
-from pathlib                import Path
-from tempfile               import TemporaryDirectory
-from typing                 import Any
-from unittest.mock          import MagicMock
+from io                            import StringIO
+from os                            import sep
+from pathlib                       import Path
+from tempfile                      import TemporaryDirectory
+from typing                        import Any, Optional as Nullable
+from unittest.mock                 import MagicMock
 
-from sphinx.testing.util    import SphinxTestApp
-from sphinx.util.console    import strip_colors
+from sphinx.testing.util           import SphinxTestApp
+from sphinx.util.console           import strip_colors
 
-from pyTooling.Testing      import Testcase, testsuite, testcase
+from pyTooling.Testing             import Testcase, testsuite, testcase
 
-from pyTooling.Sphinx       import __version__, NODES, SUBSTITUTIONS, setup
-from pyTooling.Sphinx.Roles import BREAK_ROLES, PYTHON_CODE_ROLE, STYLE_ROLES
+from pyTooling.Sphinx              import __version__, NODES, SUBSTITUTIONS, setup
+from pyTooling.Sphinx.Abbreviation import ROLES as ABBREVIATION_ROLES, AbbreviationDomain
+from pyTooling.Sphinx.Roles        import BREAK_ROLES, PYTHON_CODE_ROLE, STYLE_ROLES
 
 
 if __name__ == "__main__":  # pragma: no cover
@@ -68,17 +69,29 @@ class Project(Testcase):
 	def tearDown(self) -> None:
 		self._directory.cleanup()
 
-	def _build(self, index: str, builder: str = "html", **config: Any) -> "SphinxTestApp":
+	def _build(
+		self,
+		index: str,
+		builder: str = "html",
+		documents: Nullable[dict[str, str]] = None,
+		**config: Any
+	) -> "SphinxTestApp":
 		"""
-		Write the document and build the project.
+		Write the documents and build the project.
 
-		:param index:   Content of the document ``index``.
-		:param builder: Optional, name of the builder. Default: ``"html"``.
-		:param config:  Configuration values overriding the defaults.
-		:returns:       The Sphinx application after the build.
+		:param index:     Content of the document ``index``.
+		:param builder:   Optional, name of the builder. Default: ``"html"``.
+		:param documents: Optional, more documents, keyed by name; ``index`` lists them in a hidden toctree.
+		:param config:    Configuration values overriding the defaults.
+		:returns:         The Sphinx application after the build.
 		"""
 		source = self._path / "src"
 		(source / "conf.py").write_text('extensions = ["pyTooling.Sphinx"]\n', encoding="utf-8")
+		if documents is not None:
+			index += "\n.. toctree::\n   :hidden:\n\n" + "".join(f"   {name}\n" for name in documents)
+			for name, content in documents.items():
+				(source / f"{name}.rst").write_text(content, encoding="utf-8")
+
 		(source / "index.rst").write_text(index, encoding="utf-8")
 
 		self._warnings = StringIO()
@@ -144,15 +157,19 @@ class Registration(Project):
 		The extension's setup() registers every role and directive it brings.
 
 		Calls setup() with a mocked application and compares the names passed to 'add_role' and 'add_directive' with the
-		style, break and code roles and the five directives.
+		style, break, code and abbreviation roles and the six directives, and checks the abbreviation domain is added.
 		"""
 		app = MagicMock()
 		metadata = setup(app)
 
 		roles = {call.args[0] for call in app.add_role.call_args_list}
 		directives = {call.args[0] for call in app.add_directive.call_args_list}
-		self.assertEqual(set(STYLE_ROLES) | set(BREAK_ROLES) | {PYTHON_CODE_ROLE}, roles)
-		self.assertEqual({"condensed-class", "dependency-table", "xmlschema-graph", "shields", "tree"}, directives)
+		self.assertEqual(set(STYLE_ROLES) | set(BREAK_ROLES) | {PYTHON_CODE_ROLE} | set(ABBREVIATION_ROLES), roles)
+		self.assertEqual(
+			{"condensed-class", "dependency-table", "xmlschema-graph", "shields", "tree", "abbreviations"},
+			directives
+		)
+		app.add_domain.assert_called_once_with(AbbreviationDomain)
 		self.assertEqual(__version__, metadata["version"])
 
 	@testcase("Registered nodes")
@@ -318,3 +335,182 @@ class TreeRendering(Project):
 			['src/index.rst:7: ERROR: Unknown interpreted text role "unknown". [docutils]'],
 			self._warningLines()
 		)
+
+
+@testsuite("Abbreviations in a document")
+class AbbreviationRendering(Project):
+	"""What the 'abbreviations' directive and the abbreviation roles put into a built page."""
+
+	_list = (
+		".. abbreviations::\n\n"
+		"   FSM\n"
+		"      :long:        finite-state machine\n"
+		"      :long-plural: finite-state machines\n\n"
+		"      A machine in one of a finite number of states, see :acs:`HDL`.\n\n"
+		"   HDL\n"
+		"      :long: hardware description language\n"
+	)
+
+	def _abbr(self, short: str, long: str, text: Nullable[str] = None) -> str:
+		"""
+		Return the HTML of a short form with its box.
+
+		:param short: The short form the box shows.
+		:param long:  The long form the box shows.
+		:param text:  Optional, the text shown; the short form by default.
+		:returns:     The ``<abbr>`` element.
+		"""
+		return (
+			f'<abbr class="pytooling-abbreviation">{short if text is None else text}<span class="pytooling-abbreviation-box" '
+			f'role="tooltip"><strong>{short}</strong> {long}</span></abbr>'
+		)
+
+	@testcase("List")
+	def List(self) -> None:
+		"""
+		The list is a definition list; each abbreviation is a target, its long form opens its definition.
+
+		Builds a list of two abbreviations, one with a description, and checks the terms and definitions.
+		"""
+		self._build(f"Index\n#####\n\n{self._list}")
+
+		self.assertEqual([], self._warningLines())
+		html = self._html("index")
+		self.assertIn('<dl class="pytooling-abbreviations">', html)
+		self.assertIn('<dt id="abbreviation-FSM">FSM</dt><dd><p class="abbreviation-long">finite-state machine</p>', html)
+		self.assertIn("A machine in one of a finite number of states, see", html)
+		self.assertIn('<dt id="abbreviation-HDL">HDL</dt>', html)
+
+	@testcase("Roles")
+	def Roles(self) -> None:
+		"""
+		Each role writes the form it names, linked to the abbreviation; a short form carries the box.
+
+		Builds a paragraph using every role and checks each one's output.
+		"""
+		roles = ", ".join(f":{role}:`FSM`" for role in ("ac", "acs", "acl", "acf", "acp", "acsp", "aclp", "acfp"))
+		self._build(f"Index\n#####\n\n{roles}\n\n{self._list}")
+
+		self.assertEqual([], self._warningLines())
+		html = self._html("index")
+		singular = self._abbr("FSM", "finite-state machine")
+		plural = self._abbr("FSMs", "finite-state machines")
+		for role, content in (
+			("ac",   singular),
+			("acs",  singular),
+			("acl",  "finite-state machine"),
+			("acf",  f"finite-state machine ({singular})"),
+			("acp",  plural),
+			("acsp", plural),
+			("aclp", "finite-state machines"),
+			("acfp", f"finite-state machines ({plural})"),
+		):
+			with self.subTest(role=role):
+				self.assertIn(
+					f'<a class="reference internal" href="#abbreviation-FSM"><span class="xref abbreviation abbreviation-{role}">'
+					f'{content}</span></a>',
+					html
+				)
+
+	@testcase("Title and domain prefix")
+	def Title(self) -> None:
+		"""
+		A title replaces the form, the box still explains the abbreviation; the roles also exist in their domain.
+
+		Builds a reference with a title and one written ':abbreviation:acl:', and checks both.
+		"""
+		self._build(f"Index\n#####\n\n:acs:`FSM-based <FSM>` and :abbreviation:acl:`HDL`\n\n{self._list}")
+
+		self.assertEqual([], self._warningLines())
+		html = self._html("index")
+		self.assertIn(self._abbr("FSM", "finite-state machine", "FSM-based"), html)
+		self.assertIn('abbreviation-acl">hardware description language</span></a>', html)
+
+	@testcase("Default plurals")
+	def DefaultPlurals(self) -> None:
+		"""
+		Without ':plural:' and ':long-plural:', a plural appends an 's'.
+
+		Builds ':aclp:' and ':acsp:' of an abbreviation stating neither plural, and checks both.
+		"""
+		self._build(f"Index\n#####\n\n:aclp:`HDL`, :acsp:`HDL`\n\n{self._list}")
+
+		html = self._html("index")
+		self.assertIn("hardware description languages</span></a>", html)
+		self.assertIn(self._abbr("HDLs", "hardware description languages"), html)
+
+	@testcase("Another document")
+	def OtherDocument(self) -> None:
+		"""
+		A role refers to an abbreviation listed in another document.
+
+		Builds the list in one document and a reference in another, and checks the link points to the list's page.
+		"""
+		listing = f"Abbreviations\n#############\n\n{self._list}"
+		self._build("Index\n#####\n\n:acf:`HDL`\n", documents={"abbreviations": listing})
+
+		self.assertEqual([], self._warningLines())
+		self.assertIn('href="abbreviations.html#abbreviation-HDL"', self._html("index"))
+
+	@testcase("LaTeX")
+	def LaTeX(self) -> None:
+		"""
+		LaTeX writes the form as an abbreviation with a hyperlink, without the box.
+
+		Builds a short form as LaTeX and checks the hyperlink, and that the long form isn't written beside it.
+		"""
+		self._build(f"Index\n#####\n\n:acs:`FSM`\n\n{self._list}", "latex")
+
+		self.assertEqual([], self._warningLines())
+		latex = next((self._path / "build" / "latex").glob("*.tex")).read_text(encoding="utf-8")
+		self.assertIn("\\hyperref[\\detokenize{index:abbreviation-FSM}]", latex)
+		self.assertIn("{\\sphinxstyleabbreviation{FSM}}", latex)
+		self.assertEqual(1, latex.count("finite\\sphinxhyphen{}state machine"), "Only the list writes the long form.")
+
+	@testcase("Unknown abbreviation")
+	def Unknown(self) -> None:
+		"""
+		A reference to an abbreviation that isn't in a list is reported at its line.
+
+		Builds a reference to 'XYZ' and checks the warning.
+		"""
+		self._build("Index\n#####\n\n:acs:`XYZ`\n")
+
+		self.assertEqual(
+			["src/index.rst:4: WARNING: abbreviation 'XYZ' isn't in a list of abbreviations [ref.acs]"],
+			self._warningLines()
+		)
+
+	@testcase("Listed twice")
+	def Duplicate(self) -> None:
+		"""
+		An abbreviation listed in two documents is reported at the second.
+
+		Builds two documents listing 'HDL' and checks the warning names the first one.
+		"""
+		second = "Second\n######\n\n.. abbreviations::\n\n   HDL\n      :long: hardware description language\n"
+		self._build(f"Index\n#####\n\n{self._list}", documents={"second": second})
+
+		self.assertEqual(
+			["src/second.rst:6: WARNING: abbreviation 'HDL' is in the list of document 'index' already"],
+			self._warningLines()
+		)
+
+	@testcase("Content errors")
+	def ContentErrors(self) -> None:
+		"""
+		A list that isn't a definition list of abbreviations with their fields is reported at the directive's line.
+
+		Builds a paragraph instead of a list, an abbreviation without ':long:', one with an unknown field, and one
+		without fields, and checks each message.
+		"""
+		for content, message in (
+			("   FSM is a machine.\n", "The directive's content isn't a definition list of abbreviations."),
+			("   FSM\n      :plural: FSMs\n", "Abbreviation 'FSM' has no field ':long:'."),
+			("   FSM\n      :long: m\n      :short: F\n", "Abbreviation 'FSM' has an unknown field ':short:'."),
+			("   FSM\n      finite-state machine\n", "Abbreviation 'FSM' doesn't start with a field list, e.g. ':long:'."),
+		):
+			with self.subTest(content=content):
+				self._build(f"Index\n#####\n\n.. abbreviations::\n\n{content}")
+
+				self.assertEqual([f"src/index.rst:4: ERROR: abbreviations: {message} [docutils]"], self._warningLines())

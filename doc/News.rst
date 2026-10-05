@@ -20,5 +20,6 @@ Version 0.x (2026)
      :ref:`line break and horizontal rule <ROLE/Breaks>` in HTML and LaTeX.
    * Directives: :ref:`condensed-class <DIR/CondensedClass>`,
      :ref:`dependency-table <DIR/DependencyTable>`, :ref:`xmlschema-graph <DIR/XMLSchemaGraph>`,
-     :ref:`shields <DIR/Shields>` and :ref:`tree <DIR/Tree>`.
+     :ref:`shields <DIR/Shields>`, :ref:`tree <DIR/Tree>` and :ref:`abbreviations <DIR/Abbreviations>` with the
+     abbreviation roles ``:acs:``, ``:acl:``, ``:acf:`` and their plurals.
    * :class:`~pyTooling.Sphinx.SchemaGraph.DotGraph` is built on :mod:`pyTooling.Graph.GraphViz`.

@@ -57,6 +57,11 @@ document of every project. This extension declares them once:
 
   * ``:pycode:`` - highlights inline Python.
 
+* the **abbreviation roles**, named as in LaTeX' ``acro`` package:
+
+  * ``:acs:``, ``:acl:`` and ``:acf:`` - an abbreviation, its long form, or both;
+  * ``:acsp:``, ``:aclp:`` and ``:acfp:`` - their plurals.
+
 * the **directives**:
 
   * :rst:dir:`condensed-class` - renders a class' public interface from its source;
@@ -67,6 +72,7 @@ document of every project. This extension declares them once:
   * :rst:dir:`shields` - renders a project's badges from shields.io, in rows, from the coordinates its options
     state: the GitHub repository, the PyPI package, the licenses, the workflow and the documentation's URL.
   * :rst:dir:`tree` - draws a hierarchy written as an indented list as a tree, each node foldable in HTML.
+  * :rst:dir:`abbreviations` - lists abbreviations, which the abbreviation roles refer to.
 
 * the **nodes** the directives emit, listed in :data:`NODES` with their visitors per output format.
 
@@ -112,8 +118,8 @@ from pyTooling.Decorators    import export
 from pyTooling.Documentation import DocumentationError
 
 from pyTooling.Sphinx        import Resources as SphinxResources
-from pyTooling.Sphinx.HTML   import translateTreeItem, translateTreeLabel
-from pyTooling.Sphinx.Node   import RegisteredNode, TreeItem, TreeLabel
+from pyTooling.Sphinx.HTML   import translateAbbreviation, translateTreeItem, translateTreeLabel
+from pyTooling.Sphinx.Node   import Abbreviation, RegisteredNode, TreeItem, TreeLabel
 
 
 __all__ = ["STYLESHEET", "SUBSTITUTIONS", "NODES"]
@@ -139,8 +145,9 @@ SUBSTITUTIONS = """
 #: A format without visitors of its own - every one but HTML, so far - writes a node with the visitors of its
 #: base-class.
 NODES: tuple[RegisteredNode, ...] = (
-	{"name": "TreeItem",  "node": TreeItem,  "html": translateTreeItem},
-	{"name": "TreeLabel", "node": TreeLabel, "html": translateTreeLabel},
+	{"name": "TreeItem",     "node": TreeItem,     "html": translateTreeItem},
+	{"name": "TreeLabel",    "node": TreeLabel,    "html": translateTreeLabel},
+	{"name": "Abbreviation", "node": Abbreviation, "html": translateAbbreviation},
 )
 
 
@@ -498,6 +505,8 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	:param sphinx: The Sphinx application to register with.
 	:returns:      The extension's metadata.
 	"""
+	from pyTooling.Sphinx.Abbreviation    import ROLES as ABBREVIATION_ROLES, AbbreviationDomain, AbbreviationRole
+	from pyTooling.Sphinx.Abbreviation    import Abbreviations
 	from pyTooling.Sphinx.CondensedClass  import CondensedClass
 	from pyTooling.Sphinx.DependencyTable import CONFIG_PREFIX, DependencyTable, prepareEntrypoints, reportBuildTime
 	from pyTooling.Sphinx.Roles           import BREAK_ROLES, PYTHON_CODE_ROLE, STYLE_ROLES
@@ -514,11 +523,17 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 
 	sphinx.add_role(PYTHON_CODE_ROLE, pythonCodeRole)
 
+	# the abbreviation roles outside their domain too, as LaTeX' 'acro' names them: ':acs:', not ':abbreviation:acs:'
+	sphinx.add_domain(AbbreviationDomain)
+	for roleName in ABBREVIATION_ROLES:
+		sphinx.add_role(roleName, AbbreviationRole(innernodeclass=nodes.inline, warn_dangling=True))
+
 	sphinx.add_directive("condensed-class", CondensedClass)
 	sphinx.add_directive("dependency-table", DependencyTable)
 	sphinx.add_directive("xmlschema-graph", XMLSchemaGraph)
 	sphinx.add_directive("shields", Shields)
 	sphinx.add_directive("tree", Tree)
+	sphinx.add_directive("abbreviations", Abbreviations)
 
 	for registeredNode in NODES:
 		if "latex" in registeredNode:

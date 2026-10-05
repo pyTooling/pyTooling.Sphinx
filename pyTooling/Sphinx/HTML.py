@@ -37,10 +37,10 @@ Each node has a ``visit_*`` and a ``depart_*`` function and a ``translate*`` pai
 from sphinx.writers.html5  import HTML5Translator
 
 from pyTooling.Decorators  import export
-from pyTooling.Sphinx.Node import TreeItem, TreeLabel, visitFunc, departFunc
+from pyTooling.Sphinx.Node import Abbreviation, TreeItem, TreeLabel, visitFunc, departFunc
 
 
-__all__ = ["translateTreeItem", "translateTreeLabel"]
+__all__ = ["translateTreeItem", "translateTreeLabel", "translateAbbreviation"]
 
 
 @export
@@ -114,3 +114,33 @@ translateTreeItem: tuple[visitFunc, departFunc] = (visit_TreeItem, depart_TreeIt
 
 translateTreeLabel: tuple[visitFunc, departFunc] = (visit_TreeLabel, depart_TreeLabel)
 """Visit and depart function writing a :class:`~pyTooling.Sphinx.Node.TreeLabel` in HTML."""
+
+
+@export
+def visit_Abbreviation(translator: HTML5Translator, node: Abbreviation) -> None:
+	"""
+	Open an abbreviation in HTML: an ``<abbr>`` element.
+
+	:param translator: The HTML translator writing the page.
+	:param node:       The abbreviation.
+	"""
+	translator.body.append(translator.starttag(node, "abbr", "", CLASS="pytooling-abbreviation"))
+
+
+@export
+def depart_Abbreviation(translator: HTML5Translator, node: Abbreviation) -> None:
+	"""
+	Close an abbreviation in HTML, behind the box the stylesheet shows on hover: the short and the long form.
+
+	:param translator: The HTML translator writing the page.
+	:param node:       The abbreviation.
+	"""
+	short = translator.encode(node["short"])
+	long = translator.encode(node["long"])
+	translator.body.append(
+		f'<span class="pytooling-abbreviation-box" role="tooltip"><strong>{short}</strong> {long}</span></abbr>'
+	)
+
+
+translateAbbreviation: tuple[visitFunc, departFunc] = (visit_Abbreviation, depart_Abbreviation)
+"""Visit and depart function writing an :class:`~pyTooling.Sphinx.Node.Abbreviation` in HTML."""
