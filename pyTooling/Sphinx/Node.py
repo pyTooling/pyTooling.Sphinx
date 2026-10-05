@@ -29,10 +29,52 @@
 # ==================================================================================================================== #
 #
 """
-Resources shipped for :mod:`pyTooling.Sphinx`.
+The docutils nodes pyTooling.Sphinx adds, and what registering one with Sphinx takes.
 
-Stylesheets:
-
-* :file:`pyTooling.css` - the styles the roles in :mod:`~pyTooling.Sphinx.Roles`, the dependency tables and the
-  trees need.
+A node is a class here; the functions writing it are in a module per output format - :mod:`~pyTooling.Sphinx.HTML` -
+and :data:`~pyTooling.Sphinx.NODES` pairs both for :func:`~pyTooling.Sphinx.setup`. A node without visitors for a
+format is written by the visitors of its base-class there.
 """
+from typing               import Any, Callable, NotRequired, TypedDict
+
+from docutils             import nodes
+
+from pyTooling.Decorators import export
+
+
+__all__ = ["visitFunc", "departFunc"]
+
+type visitFunc =  Callable[[Any, Any], Any]
+"""A function writing the start of a node: called with the translator and the node."""
+
+type departFunc = Callable[[Any, Any], Any]
+"""A function writing the end of a node: called with the translator and the node."""
+
+
+@export
+class RegisteredNode(TypedDict):
+	"""An entry of :data:`~pyTooling.Sphinx.NODES`: a node class, and its visitors per output format."""
+
+	name:  str                                        #: Name of the node.
+	node:  type[nodes.Element]                        #: The node class to register.
+	html:  tuple[visitFunc, departFunc]               #: Visit and depart function writing the node in HTML.
+	latex: NotRequired[tuple[visitFunc, departFunc]]  #: Visit and depart function writing the node in LaTeX, if any.
+
+
+@export
+class TreeItem(nodes.list_item):
+	"""
+	An entry of a tree: a list item, which HTML draws around a ``<details>`` element if the entry has children.
+
+	Attribute ``expanded`` states whether the entry is expanded initially, and is ``None`` if it has no children.
+	"""
+
+
+@export
+class TreeLabel(nodes.paragraph):
+	"""
+	An entry's text: a paragraph, which HTML draws as the ``<summary>`` of the entry's ``<details>`` element.
+
+	Attribute ``icon`` holds the icon of the entry's kind, ``expandedIcon`` and ``collapsedIcon`` the icons showing
+	whether the entry is expanded. Both are ``None`` if the entry has no children.
+	"""

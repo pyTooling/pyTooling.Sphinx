@@ -43,7 +43,7 @@ from sphinx.util.console    import strip_colors
 
 from pyTooling.Testing      import Testcase, testsuite, testcase
 
-from pyTooling.Sphinx       import __version__, SUBSTITUTIONS, setup
+from pyTooling.Sphinx       import __version__, NODES, SUBSTITUTIONS, setup
 from pyTooling.Sphinx.Roles import BREAK_ROLES, PYTHON_CODE_ROLE, STYLE_ROLES
 
 
@@ -68,13 +68,14 @@ class Project(Testcase):
 	def tearDown(self) -> None:
 		self._directory.cleanup()
 
-	def _build(self, index: str, **config: Any) -> "SphinxTestApp":
+	def _build(self, index: str, builder: str = "html", **config: Any) -> "SphinxTestApp":
 		"""
-		Write the document and build the project as HTML.
+		Write the document and build the project.
 
-		:param index:  Content of the document ``index``.
-		:param config: Configuration values overriding the defaults.
-		:returns:      The Sphinx application after the build.
+		:param index:   Content of the document ``index``.
+		:param builder: Optional, name of the builder. Default: ``"html"``.
+		:param config:  Configuration values overriding the defaults.
+		:returns:       The Sphinx application after the build.
 		"""
 		source = self._path / "src"
 		(source / "conf.py").write_text('extensions = ["pyTooling.Sphinx"]\n', encoding="utf-8")
@@ -82,7 +83,7 @@ class Project(Testcase):
 
 		self._warnings = StringIO()
 		app = SphinxTestApp(
-			"html", source, self._path / "build", freshenv=True, confoverrides=config, status=StringIO(),
+			builder, source, self._path / "build", freshenv=True, confoverrides=config, status=StringIO(),
 			warning=self._warnings
 		)
 		try:
@@ -143,7 +144,7 @@ class Registration(Project):
 		The extension's setup() registers every role and directive it brings.
 
 		Calls setup() with a mocked application and compares the names passed to 'add_role' and 'add_directive' with the
-		style, break and code roles and the four directives.
+		style, break and code roles and the five directives.
 		"""
 		app = MagicMock()
 		metadata = setup(app)
@@ -151,8 +152,21 @@ class Registration(Project):
 		roles = {call.args[0] for call in app.add_role.call_args_list}
 		directives = {call.args[0] for call in app.add_directive.call_args_list}
 		self.assertEqual(set(STYLE_ROLES) | set(BREAK_ROLES) | {PYTHON_CODE_ROLE}, roles)
-		self.assertEqual({"condensed-class", "dependency-table", "xmlschema-graph", "shields"}, directives)
+		self.assertEqual({"condensed-class", "dependency-table", "xmlschema-graph", "shields", "tree"}, directives)
 		self.assertEqual(__version__, metadata["version"])
+
+	@testcase("Registered nodes")
+	def Nodes(self) -> None:
+		"""
+		The extension's setup() registers every node in NODES with its visitors.
+
+		Calls setup() with a mocked application and compares the arguments passed to 'add_node' with NODES.
+		"""
+		app = MagicMock()
+		setup(app)
+
+		registered = [(call.args[0], call.kwargs) for call in app.add_node.call_args_list]
+		self.assertEqual([(entry["node"], {"html": entry["html"]}) for entry in NODES], registered)
 
 	@testcase("Substitutions in the prolog")
 	def Substitutions(self) -> None:
@@ -198,3 +212,109 @@ class Rendering(Project):
 
 		html = self._html("index")
 		self.assertRegex(html, r'_static/pyTooling\.[0-9a-f]{32}\.css')
+
+
+@testsuite("Trees in a document")
+class TreeRendering(Project):
+	"""What the 'tree' directive puts into a built page, in HTML and in LaTeX."""
+
+	_document = (
+		"Index\n#####\n\n"
+		".. _target:\n\n"
+		"Target\n******\n\n"
+		".. tree::\n"
+		"   :root-icon: U+1F4E6\n"
+		"   :leaf-icon: U+1F4C4\n"
+		"   :icons:     > U+1F4C1\n"
+		"{options}"
+		"\n"
+		"   - root\n"
+		"     - node\n"
+		"       - see :ref:`target`\n"
+		"     > empty\n"
+	)
+
+	@testcase("HTML")
+	def HTML(self) -> None:
+		"""
+		An entry with children is a 'details' element with both expander icons; every entry has its kind's class.
+
+		Builds a tree with a root, a node, a leaf linking to a label and a leaf with a declared marker, and checks the
+		page.
+		"""
+		self._build(self._document.format(options=""))
+
+		self.assertEqual([], self._warningLines())
+		html = self._html("index")
+		self.assertIn('<ul class="pytooling-tree">', html)
+		self.assertIn('<li class="tree-root tree-expandable"><details open><summary>', html)
+		self.assertIn('<span class="tree-expander tree-expanded" aria-hidden="true">\u25be</span>', html)
+		self.assertIn('<span class="tree-expander tree-collapsed" aria-hidden="true">\u25b8</span>', html)
+		self.assertIn(
+			'<span class="tree-icon" aria-hidden="true">\U0001f4e6</span><span class="tree-text">root</span>', html
+		)
+		self.assertIn('<li class="tree-node tree-expandable"><details open>', html)
+		self.assertIn('<a class="reference internal" href="#target">', html)
+		self.assertIn(
+			'<li class="tree-leaf"><span class="tree-expander" aria-hidden="true"></span>'
+			'<span class="tree-icon" aria-hidden="true">\U0001f4c1</span><span class="tree-text">empty</span></li>',
+			html
+		)
+
+	@testcase("Expanded levels")
+	def ExpandedLevels(self) -> None:
+		"""
+		':expanded-levels:' expands that many levels and collapses the rest.
+
+		Builds the tree with one expanded level and checks the root is open and the node isn't.
+		"""
+		self._build(self._document.format(options="   :expanded-levels: 1\n"))
+
+		self.assertEqual([], self._warningLines())
+
+		html = self._html("index")
+		self.assertIn('<li class="tree-root tree-expandable"><details open>', html)
+		self.assertIn('<li class="tree-node tree-expandable"><details><summary>', html)
+
+	@testcase("LaTeX")
+	def LaTeX(self) -> None:
+		"""
+		LaTeX renders the tree as nested bullet lists, without icons.
+
+		Builds the tree as LaTeX and checks the three nested 'itemize' environments and that no icon is written.
+		"""
+		self._build(self._document.format(options=""), "latex")
+
+		self.assertEqual([], self._warningLines())
+		latex = next((self._path / "build" / "latex").glob("*.tex")).read_text(encoding="utf-8")
+		self.assertEqual(3, latex.count("\\begin{itemize}"))
+		self.assertNotIn("\U0001f4e6", latex)
+		self.assertNotIn("\u25be", latex)
+
+	@testcase("Content error")
+	def ContentError(self) -> None:
+		"""
+		A mistake in the content is reported at the directive's line.
+
+		Builds a tree whose content isn't an entry, and checks the warning.
+		"""
+		self._build("Index\n#####\n\n.. tree::\n\n   root\n")
+
+		self.assertEqual(
+			["src/index.rst:4: ERROR: tree: 'root' is not an entry, which starts with '- '. [docutils]"],
+			self._warningLines()
+		)
+
+	@testcase("Error in an entry")
+	def EntryError(self) -> None:
+		"""
+		A mistake in an entry's text is reported at the entry's line.
+
+		Builds a tree whose second entry uses an unknown role, and checks the warning names line 7.
+		"""
+		self._build("Index\n#####\n\n.. tree::\n\n   - root\n     - :unknown:`x`\n")
+
+		self.assertEqual(
+			['src/index.rst:7: ERROR: Unknown interpreted text role "unknown". [docutils]'],
+			self._warningLines()
+		)
