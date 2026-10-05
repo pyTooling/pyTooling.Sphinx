@@ -66,6 +66,7 @@ document of every project. This extension declares them once:
     itself, and needs :mod:`xmlschema` only in a project that uses it.
   * :rst:dir:`shields` - renders a project's badges from shields.io, in rows, from the coordinates its options
     state: the GitHub repository, the PyPI package, the licenses, the workflow and the documentation's URL.
+  * :rst:dir:`tree` - draws a hierarchy written as an indented list as a tree, each node foldable in HTML.
 
 Two classes aren't registered, because they are base-classes for a project's own directives:
 :class:`~pyTooling.Sphinx.BaseDirective` offers typed option access and table construction
@@ -479,7 +480,7 @@ def extendProlog(sphinx: Sphinx, config: Any) -> None:
 @export
 def setup(sphinx: Sphinx) -> dict[str, Any]:
 	"""
-	Register the roles, the node and the directives with Sphinx.
+	Register the roles, the nodes and the directives with Sphinx.
 
 	:param sphinx: The Sphinx application to register with.
 	:returns:      The extension's metadata.
@@ -489,6 +490,8 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	from pyTooling.Sphinx.Roles           import BREAK_ROLES, PYTHON_CODE_ROLE, STYLE_ROLES
 	from pyTooling.Sphinx.Roles           import breakRole, pythonCodeRole, styleRole
 	from pyTooling.Sphinx.Shields         import Shields
+	from pyTooling.Sphinx.Tree            import Tree, TreeItem, TreeLabel
+	from pyTooling.Sphinx.Tree            import departTreeItem, departTreeLabel, visitTreeItem, visitTreeLabel
 	from pyTooling.Sphinx.XMLSchemaGraph  import XMLSchemaGraph
 
 	for roleName in STYLE_ROLES:
@@ -503,6 +506,11 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	sphinx.add_directive("dependency-table", DependencyTable)
 	sphinx.add_directive("xmlschema-graph", XMLSchemaGraph)
 	sphinx.add_directive("shields", Shields)
+	sphinx.add_directive("tree", Tree)
+
+	# HTML only: every other builder falls back to the visitors of 'list_item' and 'paragraph', the base-classes
+	sphinx.add_node(TreeItem, html=(visitTreeItem, departTreeItem))
+	sphinx.add_node(TreeLabel, html=(visitTreeLabel, departTreeLabel))
 
 	sphinx.setup_extension("sphinx.ext.graphviz")
 

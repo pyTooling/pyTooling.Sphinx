@@ -22,6 +22,13 @@
   --pyTooling-table-cell-vertical-align: top;
   --pyTooling-table-list-margin:         0;
   --pyTooling-table-min-width:           50%;
+
+  --pyTooling-tree-row-height:     1.6em;
+  --pyTooling-tree-indentation:    1.4em;
+  --pyTooling-tree-expander-width: 1em;
+  --pyTooling-tree-icon-gap:       0.3em;
+  --pyTooling-tree-line:           1px solid #999;
+  --pyTooling-tree-margin-bottom:  24px;
 }
 
 span.bolditalic {
@@ -91,4 +98,96 @@ table.dependency-table td > p {
    four-level tree sit beside each other at wildly different widths and the page reads as ragged. */
 table.dependency-table {
   min-width: var(--pyTooling-table-min-width);
+}
+
+
+/* Styles for the trees drawn by the 'tree' directive.
+
+   A tree is a nested bullet list, so a theme's list styles - bullets, margins, paddings - reach it too. They are
+   reset here with '!important', for the reason given at the tables above. */
+ul.pytooling-tree,
+ul.pytooling-tree ul,
+ul.pytooling-tree li {
+  list-style: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+ul.pytooling-tree {
+  margin-bottom: var(--pyTooling-tree-margin-bottom) !important;
+}
+
+/* The lines are drawn at half a row's height, so the row's height has to be the one they are computed from. */
+ul.pytooling-tree,
+ul.pytooling-tree ul,
+ul.pytooling-tree li {
+  line-height: var(--pyTooling-tree-row-height) !important;
+}
+
+/* A level's lines start below the centre of its parent's expander. */
+ul.pytooling-tree ul {
+  margin-left: calc(var(--pyTooling-tree-expander-width) / 2) !important;
+}
+
+ul.pytooling-tree ul > li {
+  position: relative;
+  padding-left: var(--pyTooling-tree-indentation) !important;
+}
+
+/* The line from the parent down to this entry, and across to its text: '└'. */
+ul.pytooling-tree ul > li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: calc(var(--pyTooling-tree-indentation) - 0.2em);
+  height: calc(var(--pyTooling-tree-row-height) / 2);
+  border-left: var(--pyTooling-tree-line);
+  border-bottom: var(--pyTooling-tree-line);
+}
+
+/* An entry without children has an empty expander, which the line crosses: '└── text'. */
+ul.pytooling-tree ul > li:not(.tree-expandable)::before {
+  width: calc(var(--pyTooling-tree-indentation) + var(--pyTooling-tree-expander-width) - 0.2em);
+}
+
+/* The line on to the next sibling, past this entry's children; with the one above, it makes '├'. */
+ul.pytooling-tree ul > li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-left: var(--pyTooling-tree-line);
+}
+
+/* The expander icons replace the browser's disclosure triangle. */
+ul.pytooling-tree summary {
+  display: block;
+  list-style: none;
+  cursor: pointer;
+}
+
+ul.pytooling-tree summary::-webkit-details-marker {
+  display: none;
+}
+
+ul.pytooling-tree span.tree-expander {
+  display: inline-block;
+  width: var(--pyTooling-tree-expander-width);
+  text-align: center;
+}
+
+ul.pytooling-tree span.tree-icon {
+  margin-right: var(--pyTooling-tree-icon-gap);
+}
+
+/* Both expander icons are written; which one shows depends on whether the entry is expanded. */
+ul.pytooling-tree details > summary > span.tree-collapsed,
+ul.pytooling-tree details:not([open]) > summary > span.tree-expanded {
+  display: none;
+}
+
+ul.pytooling-tree details:not([open]) > summary > span.tree-collapsed {
+  display: inline-block;
 }

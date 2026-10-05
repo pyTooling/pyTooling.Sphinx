@@ -330,3 +330,21 @@ for module in Path(f"../{project.replace('.', '/')}").iterdir():
 		"output":   project,
 		"override": True
 	}
+
+
+# ==============================================================================
+# Sphinx.Ext.AutoDoc - skipped members
+# ==============================================================================
+# The tree's node classes derive from docutils' nodes, whose methods are documented in docutils' own format - and
+# ':inherited-members:' in the module template would render each of them, with an error per malformed reference.
+def skipDocutilsNodeMembers(app, what, name, obj, skip, options):
+	"""Skip a member inherited from :mod:`docutils.nodes`."""
+	if getattr(obj, "__module__", None) == "docutils.nodes":
+		return True
+
+	return None
+
+
+def setup(app):
+	"""Connect the handlers above."""
+	app.connect("autodoc-skip-member", skipDocutilsNodeMembers)

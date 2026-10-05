@@ -19,6 +19,6 @@ Version 0.x (2026)
    * Roles: :ref:`style roles <ROLE/Style>`, :ref:`inline Python code <ROLE/PythonCode>`, and
      :ref:`line break and horizontal rule <ROLE/Breaks>` in HTML and LaTeX.
    * Directives: :ref:`condensed-class <DIR/CondensedClass>`,
-     :ref:`dependency-table <DIR/DependencyTable>`, :ref:`xmlschema-graph <DIR/XMLSchemaGraph>` and
-     :ref:`shields <DIR/Shields>`.
+     :ref:`dependency-table <DIR/DependencyTable>`, :ref:`xmlschema-graph <DIR/XMLSchemaGraph>`,
+     :ref:`shields <DIR/Shields>` and :ref:`tree <DIR/Tree>`.
    * :class:`~pyTooling.Sphinx.SchemaGraph.DotGraph` is built on :mod:`pyTooling.Graph.GraphViz`.
