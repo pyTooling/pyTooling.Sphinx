@@ -1,11 +1,14 @@
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-from sys      import path as sys_path
-from os       import environ
-from os.path  import abspath
-from pathlib  import Path
-from textwrap import dedent
+from sys                 import path as sys_path
+from os                  import environ
+from os.path             import abspath
+from pathlib             import Path
+from textwrap            import dedent
+from typing              import Any, Optional as Nullable
+
+from sphinx.application  import Sphinx
 
 from pyTooling.Packaging import extractVersionInformation
 
@@ -337,14 +340,35 @@ for module in Path(f"../{project.replace('.', '/')}").iterdir():
 # ==============================================================================
 # The tree's node classes derive from docutils' nodes, whose methods are documented in docutils' own format - and
 # ':inherited-members:' in the module template would render each of them, with an error per malformed reference.
-def skipDocutilsNodeMembers(app, what, name, obj, skip, options):
-	"""Skip a member inherited from :mod:`docutils.nodes`."""
+def skipDocutilsNodeMembers(
+	app: Sphinx,
+	what: str,
+	name: str,
+	obj: Any,
+	skip: bool,
+	options: Any
+) -> Nullable[bool]:
+	"""
+	Skip a member inherited from :mod:`docutils.nodes`.
+
+	:param app:     The Sphinx application.
+	:param what:    Kind of the object the member belongs to, e.g. ``class``.
+	:param name:    Name of the member.
+	:param obj:     The member.
+	:param skip:    Whether autodoc skips the member already.
+	:param options: The options of the autodoc directive.
+	:returns:       ``True`` to skip the member, ``None`` to leave the decision to autodoc.
+	"""
 	if getattr(obj, "__module__", None) == "docutils.nodes":
 		return True
 
 	return None
 
 
-def setup(app):
-	"""Connect the handlers above."""
+def setup(app: Sphinx) -> None:
+	"""
+	Connect the handlers above.
+
+	:param app: The Sphinx application.
+	"""
 	app.connect("autodoc-skip-member", skipDocutilsNodeMembers)
