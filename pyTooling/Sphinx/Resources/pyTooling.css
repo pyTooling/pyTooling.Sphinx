@@ -252,6 +252,7 @@ abbr.pytooling-abbreviation span.pytooling-abbreviation-summary {
 /* The long form opens an abbreviation's definition in the list, like a glossary's first line. */
 dl.pytooling-abbreviations p.abbreviation-long {
   font-style: italic;
+}
 
 /* Styles for the report tables of the extension pyTooling.Sphinx.Report.
 
