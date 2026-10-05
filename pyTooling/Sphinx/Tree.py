@@ -62,8 +62,8 @@ entry's kind is - e.g. a folder for an empty directory, which is a leaf.
 
 HTML draws an entry with children as a ``<details>`` element, so a reader folds and unfolds it without JavaScript;
 the stylesheet draws the lines and shows the expanded or the collapsed icon. Every other format - e.g. LaTeX - finds
-no visitor for :class:`TreeItem` and :class:`TreeLabel` and renders their base-classes instead: a nested bullet list
-without icons.
+no visitor for :class:`~pyTooling.Sphinx.Node.TreeItem` and :class:`~pyTooling.Sphinx.Node.TreeLabel` and renders
+their base-classes instead: a nested bullet list without icons.
 
 .. seealso::
 
@@ -72,16 +72,16 @@ without icons.
    :mod:`pyTooling.Sphinx`
       |rarr| The extension this belongs to, and what else it brings.
 """
-from re                   import compile as re_compile
-from typing               import Any, Iterable, Optional as Nullable
+from re                    import compile as re_compile
+from typing                import Any, Iterable, Optional as Nullable
 
-from docutils             import nodes
-from docutils.parsers.rst import directives
-from sphinx.writers.html5 import HTML5Translator
+from docutils              import nodes
+from docutils.parsers.rst  import directives
 
-from pyTooling.Decorators import export
-from pyTooling.Tree       import Node
-from pyTooling.Sphinx     import BaseDirective, SphinxExtensionError, strip
+from pyTooling.Decorators  import export
+from pyTooling.Tree        import Node
+from pyTooling.Sphinx      import BaseDirective, SphinxExtensionError, strip
+from pyTooling.Sphinx.Node import TreeItem, TreeLabel
 
 
 __all__ = ["DEFAULT_MARKER", "DEFAULT_ICONS", "CODE_POINT_PATTERN"]
@@ -170,98 +170,14 @@ def markerIcons(option: Nullable[str]) -> dict[str, str]:
 
 
 @export
-class TreeItem(nodes.list_item):
-	"""
-	An entry of a tree: a list item, which HTML draws around a ``<details>`` element if the entry has children.
-
-	Attribute ``expanded`` states whether the entry is expanded initially, and is ``None`` if it has no children.
-	"""
-
-
-@export
-class TreeLabel(nodes.paragraph):
-	"""
-	An entry's text: a paragraph, which HTML draws as the ``<summary>`` of the entry's ``<details>`` element.
-
-	Attribute ``icon`` holds the icon of the entry's kind, ``expandedIcon`` and ``collapsedIcon`` the icons showing
-	whether the entry is expanded. Both are ``None`` if the entry has no children.
-	"""
-
-
-@export
-def visitTreeItem(translator: HTML5Translator, node: TreeItem) -> None:
-	"""
-	Open an entry in HTML: a list item, and a ``<details>`` element if the entry has children.
-
-	:param translator: The HTML translator writing the page.
-	:param node:       The entry.
-	"""
-	translator.body.append(translator.starttag(node, "li", ""))
-	if node["expanded"] is not None:
-		translator.body.append("<details open>" if node["expanded"] else "<details>")
-
-
-@export
-def departTreeItem(translator: HTML5Translator, node: TreeItem) -> None:
-	"""
-	Close an entry in HTML.
-
-	:param translator: The HTML translator writing the page.
-	:param node:       The entry.
-	"""
-	if node["expanded"] is not None:
-		translator.body.append("</details>")
-	translator.body.append("</li>\n")
-
-
-@export
-def visitTreeLabel(translator: HTML5Translator, node: TreeLabel) -> None:
-	"""
-	Open an entry's text in HTML, behind its icons.
-
-	An entry with children opens a ``<summary>`` and writes both expander icons, the stylesheet showing one of them.
-	Any other entry writes an empty expander instead, so its text is aligned with its siblings'. Icons are hidden from
-	a screen reader.
-
-	:param translator: The HTML translator writing the page.
-	:param node:       The entry's text.
-	"""
-	if node["expandedIcon"] is None:
-		translator.body.append('<span class="tree-expander" aria-hidden="true"></span>')
-	else:
-		translator.body.append("<summary>")
-		for state, stateIcon in (("expanded", node["expandedIcon"]), ("collapsed", node["collapsedIcon"])):
-			translator.body.append(
-				f'<span class="tree-expander tree-{state}" aria-hidden="true">{translator.encode(stateIcon)}</span>'
-			)
-
-	if node["icon"] != "":
-		translator.body.append(f'<span class="tree-icon" aria-hidden="true">{translator.encode(node["icon"])}</span>')
-
-	translator.body.append('<span class="tree-text">')
-
-
-@export
-def departTreeLabel(translator: HTML5Translator, node: TreeLabel) -> None:
-	"""
-	Close an entry's text in HTML, and its ``<summary>`` if the entry has children.
-
-	:param translator: The HTML translator writing the page.
-	:param node:       The entry's text.
-	"""
-	translator.body.append("</span>")
-	if node["expandedIcon"] is not None:
-		translator.body.append("</summary>")
-
-
-@export
 class Tree(BaseDirective):
 	"""
 	The ``tree`` directive: a hierarchy, written as an indented list, drawn as a tree.
 
 	:meth:`_ParseEntries` reads the content into :class:`~pyTooling.Tree.Node` instances, one tree per root, and
-	:meth:`_BuildItem` turns them into nested bullet lists of :class:`TreeItem` and :class:`TreeLabel`. The options
-	choose the icons and how many levels are expanded initially; ``:class:`` puts additional CSS classes on the tree.
+	:meth:`_BuildItem` turns them into nested bullet lists of :class:`~pyTooling.Sphinx.Node.TreeItem` and
+	:class:`~pyTooling.Sphinx.Node.TreeLabel`. The options choose the icons and how many levels are expanded initially;
+	``:class:`` puts additional CSS classes on the tree.
 	"""
 
 	directiveName: str = "tree"  #: Name the directive is invoked by.

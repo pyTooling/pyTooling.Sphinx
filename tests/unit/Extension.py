@@ -43,7 +43,7 @@ from sphinx.util.console    import strip_colors
 
 from pyTooling.Testing      import Testcase, testsuite, testcase
 
-from pyTooling.Sphinx       import __version__, SUBSTITUTIONS, setup
+from pyTooling.Sphinx       import __version__, NODES, SUBSTITUTIONS, setup
 from pyTooling.Sphinx.Roles import BREAK_ROLES, PYTHON_CODE_ROLE, STYLE_ROLES
 
 
@@ -154,6 +154,19 @@ class Registration(Project):
 		self.assertEqual(set(STYLE_ROLES) | set(BREAK_ROLES) | {PYTHON_CODE_ROLE}, roles)
 		self.assertEqual({"condensed-class", "dependency-table", "xmlschema-graph", "shields", "tree"}, directives)
 		self.assertEqual(__version__, metadata["version"])
+
+	@testcase("Registered nodes")
+	def Nodes(self) -> None:
+		"""
+		The extension's setup() registers every node in NODES with its visitors.
+
+		Calls setup() with a mocked application and compares the arguments passed to 'add_node' with NODES.
+		"""
+		app = MagicMock()
+		setup(app)
+
+		registered = [(call.args[0], call.kwargs) for call in app.add_node.call_args_list]
+		self.assertEqual([(entry["node"], {"html": entry["html"]}) for entry in NODES], registered)
 
 	@testcase("Substitutions in the prolog")
 	def Substitutions(self) -> None:

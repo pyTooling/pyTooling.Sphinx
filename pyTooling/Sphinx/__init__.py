@@ -68,6 +68,8 @@ document of every project. This extension declares them once:
     state: the GitHub repository, the PyPI package, the licenses, the workflow and the documentation's URL.
   * :rst:dir:`tree` - draws a hierarchy written as an indented list as a tree, each node foldable in HTML.
 
+* the **nodes** the directives emit, listed in :data:`NODES` with their visitors per output format.
+
 Two classes aren't registered, because they are base-classes for a project's own directives:
 :class:`~pyTooling.Sphinx.BaseDirective` offers typed option access and table construction
 over the untyped mapping and the hand-assembled node trees docutils presents, and
@@ -110,9 +112,11 @@ from pyTooling.Decorators    import export
 from pyTooling.Documentation import DocumentationError
 
 from pyTooling.Sphinx        import Resources as SphinxResources
+from pyTooling.Sphinx.HTML   import translateTreeItem, translateTreeLabel
+from pyTooling.Sphinx.Node   import RegisteredNode, TreeItem, TreeLabel
 
 
-__all__ = ["STYLESHEET", "SUBSTITUTIONS"]
+__all__ = ["STYLESHEET", "SUBSTITUTIONS", "NODES"]
 
 #: Name of the stylesheet, in :mod:`pyTooling.Sphinx.Resources`.
 STYLESHEET = "pyTooling.css"
@@ -129,6 +133,15 @@ SUBSTITUTIONS = """
 
 .. |hr| replace:: :hr:`.`
 """
+
+#: The nodes the extension registers, each with its visitors per output format.
+#:
+#: A format without visitors of its own - every one but HTML, so far - writes a node with the visitors of its
+#: base-class.
+NODES: tuple[RegisteredNode, ...] = (
+	{"name": "TreeItem",  "node": TreeItem,  "html": translateTreeItem},
+	{"name": "TreeLabel", "node": TreeLabel, "html": translateTreeLabel},
+)
 
 
 _EnumType = TypeVar("_EnumType", bound=Enum)
@@ -490,8 +503,7 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	from pyTooling.Sphinx.Roles           import BREAK_ROLES, PYTHON_CODE_ROLE, STYLE_ROLES
 	from pyTooling.Sphinx.Roles           import breakRole, pythonCodeRole, styleRole
 	from pyTooling.Sphinx.Shields         import Shields
-	from pyTooling.Sphinx.Tree            import Tree, TreeItem, TreeLabel
-	from pyTooling.Sphinx.Tree            import departTreeItem, departTreeLabel, visitTreeItem, visitTreeLabel
+	from pyTooling.Sphinx.Tree            import Tree
 	from pyTooling.Sphinx.XMLSchemaGraph  import XMLSchemaGraph
 
 	for roleName in STYLE_ROLES:
@@ -508,9 +520,11 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	sphinx.add_directive("shields", Shields)
 	sphinx.add_directive("tree", Tree)
 
-	# HTML only: every other builder falls back to the visitors of 'list_item' and 'paragraph', the base-classes
-	sphinx.add_node(TreeItem, html=(visitTreeItem, departTreeItem))
-	sphinx.add_node(TreeLabel, html=(visitTreeLabel, departTreeLabel))
+	for registeredNode in NODES:
+		if "latex" in registeredNode:
+			sphinx.add_node(registeredNode["node"], html=registeredNode["html"], latex=registeredNode["latex"])
+		else:
+			sphinx.add_node(registeredNode["node"], html=registeredNode["html"])
 
 	sphinx.setup_extension("sphinx.ext.graphviz")
 
