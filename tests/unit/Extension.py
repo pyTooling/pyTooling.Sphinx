@@ -38,6 +38,7 @@ from tempfile                      import TemporaryDirectory
 from typing                        import Any, Optional as Nullable
 from unittest.mock                 import MagicMock
 
+from sphinx.ext.graphviz           import graphviz
 from sphinx.testing.util           import SphinxTestApp
 from sphinx.util.console           import strip_colors
 
@@ -610,12 +611,19 @@ class SchemaGraphRendering(Project):
 		"""
 		With ':package:', the argument names a resource file of that package.
 
-		Builds a document drawing 'TestReport-v0.1.xsd' of 'pyTooling.Resources', and checks the page holds its diagram.
+		Builds a document drawing 'TestReport-v0.1.xsd' of 'pyTooling.Resources' - with the 'dummy' builder, so Graphviz
+		needn't be installed - and checks the document holds the schema's graph.
 		"""
-		self._build("Index\n#####\n\n.. xmlschema-graph:: TestReport-v0.1.xsd\n   :package: pyTooling.Resources\n")
+		app = self._build(
+			"Index\n#####\n\n.. xmlschema-graph:: TestReport-v0.1.xsd\n   :package: pyTooling.Resources\n",
+			builder="dummy"
+		)
 
 		self.assertEqual([], self._warningLines())
-		self.assertIn("Diagram of TestReport-v0.1.xsd", self._html("index"))
+		graphs = list(app.env.get_doctree("index").findall(graphviz))
+		self.assertEqual(1, len(graphs))
+		self.assertEqual("Diagram of TestReport-v0.1.xsd", graphs[0]["alt"])
+		self.assertIn("testsuite", graphs[0]["code"])
 
 	@testcase("Schema missing in a package")
 	def Package_Missing(self) -> None:
@@ -624,7 +632,7 @@ class SchemaGraphRendering(Project):
 
 		Builds a document naming 'Missing.xsd' of 'pyTooling.Resources', and checks the error names file and package.
 		"""
-		self._build("Index\n#####\n\n.. xmlschema-graph:: Missing.xsd\n   :package: pyTooling.Resources\n")
+		self._build("Index\n#####\n\n.. xmlschema-graph:: Missing.xsd\n   :package: pyTooling.Resources\n", builder="dummy")
 
 		self.assertIn(
 			"xmlschema-graph: Couldn't find schema 'Missing.xsd' in package 'pyTooling.Resources'.",
@@ -638,7 +646,7 @@ class SchemaGraphRendering(Project):
 
 		Builds a document naming the package 'pyTooling.NoSuchPackage', and checks the error names it.
 		"""
-		self._build("Index\n#####\n\n.. xmlschema-graph:: TestReport-v0.1.xsd\n   :package: pyTooling.NoSuchPackage\n")
+		self._build("Index\n#####\n\n.. xmlschema-graph:: TestReport-v0.1.xsd\n   :package: pyTooling.NoSuchPackage\n", builder="dummy")
 
 		self.assertIn(
 			"xmlschema-graph: Couldn't find schema 'TestReport-v0.1.xsd' in package 'pyTooling.NoSuchPackage'.",
