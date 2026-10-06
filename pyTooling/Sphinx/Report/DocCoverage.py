@@ -56,20 +56,26 @@ The coverage levels - limits, descriptions and CSS classes - are declared under 
    :ref:`DIR/DocCoverage`
       |rarr| The directives' options and configuration, with examples.
 """
+from __future__                                  import annotations
+
 from pathlib                                     import Path
-from typing                                      import Any, ClassVar, Generator, Mapping, TypedDict, Union
+from typing                                      import TYPE_CHECKING, Any, ClassVar, Generator, Mapping, TypedDict
+from typing                                      import Union
 
 from docutils                                    import nodes
 from sphinx.application                          import Sphinx
 from sphinx.config                               import Config
 
-from pyEDAA.Reports.DocumentationCoverage.Python import AggregatedCoverage, PackageCoverage
-from pyEDAA.Reports.DocumentationCoverage.Python import DocStrCoverage as DocStrCovAnalyzer
 from pyTooling.Common                            import getFullyQualifiedName
 from pyTooling.Decorators                        import export
 
 from pyTooling.Sphinx                            import BaseDirective, SphinxExtensionError, strip, stripAndNormalize
 from pyTooling.Sphinx.Report                     import INDENTATION, LegendStyle, ReportExtensionError
+from pyTooling.Sphinx.Report                     import ReportsPackageMissingError
+
+if TYPE_CHECKING:  # pragma: no cover
+	# pyEDAA.Reports is an optional dependency (extra 'reports'), imported where the coverage is computed.
+	from pyEDAA.Reports.DocumentationCoverage.Python import AggregatedCoverage, PackageCoverage
 
 
 __all__ = ["CONFIG_PREFIX"]
@@ -460,6 +466,16 @@ class DocStrCoverage(DocCoverage):
 			self._CheckOptions()
 		except SphinxExtensionError as ex:
 			message = f"Caught {ex.__class__.__name__} when checking options for directive '{self.directiveName}'."
+			return self._internalError(container, __name__, message, ex)
+
+		try:
+			from pyEDAA.Reports.DocumentationCoverage.Python import DocStrCoverage as DocStrCovAnalyzer
+		except ImportError as cause:
+			ex = ReportsPackageMissingError(
+				"Analyzing the documentation coverage", "'pyEDAA.Reports' and 'docstr_coverage'"
+			)
+			ex.__cause__ = cause
+			message = f"Caught {ex.__class__.__name__} when analyzing package '{self._packageName}'."
 			return self._internalError(container, __name__, message, ex)
 
 		# Assemble a list of Python source files

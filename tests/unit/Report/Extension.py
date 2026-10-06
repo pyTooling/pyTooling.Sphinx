@@ -163,6 +163,70 @@ class Registration(ReportProject):
 
 		self.assertEqual(0, result.returncode, result.stderr)
 
+	@testcase("Reports without pyEDAA.Reports")
+	def WithoutReportsPackage(self) -> None:
+		"""
+		Without pyEDAA.Reports, the extension sets up and the configuration is checked; a report directive says the
+		report needs pyEDAA.Reports, and how to install it.
+
+		Runs a Python process in which pyEDAA.Reports can't be imported, builds a unit test summary and a documentation
+		coverage table, and checks the messages and 'sys.modules'.
+		"""
+		package = self._path / "myPackage"
+		package.mkdir()
+		(package / "__init__.py").write_text('"""A documented package."""\n', encoding="utf-8")
+		source = self._path / "src"
+		(source / "conf.py").write_text(dedent(f"""\
+			extensions = ["pyTooling.Sphinx.Report"]
+			pyTooling_Unittest_Testsuites = {{"ut": {{"xml_report": {str(DATA / "unittest.xml")!r}}}}}
+			pyTooling_DocCoverage_Packages = {{
+				"doc": {{"name": "myPackage", "directory": {str(package)!r}, "fail_below": 80, "levels": "default"}}
+			}}
+		"""), encoding="utf-8")
+		(source / "index.rst").write_text(
+			"Index\n#####\n\n.. report:unittest-summary::\n   :reportid: ut\n\n.. report:doc-coverage::\n   :reportid: doc\n",
+			encoding="utf-8"
+		)
+		script = dedent("""\
+			import sys
+			from io import StringIO
+			from pathlib import Path
+
+			sys.modules["pyEDAA.Reports"] = None
+
+			from sphinx.testing.util import SphinxTestApp
+
+			warnings = StringIO()
+			app = SphinxTestApp(
+				"html", Path(sys.argv[1]), Path(sys.argv[2]), freshenv=True, status=StringIO(), warning=warnings
+			)
+			try:
+				app.build()
+			finally:
+				app.cleanup()
+
+			print(warnings.getvalue())
+			assert not any(name.startswith("pyEDAA.Reports.") for name in sys.modules), "pyEDAA.Reports was imported"
+		""")
+		root = Path(__file__).parent.parent.parent.parent
+		result = subprocess_run(
+			[executable, "-c", script, str(source), str(self._path / "build")],
+			cwd=root, env=environ.copy(), capture_output=True, text=True, check=False
+		)
+
+		self.assertEqual(0, result.returncode, result.stderr)
+		self.assertIn(
+			"ReportsPackageMissingError: Reading a unit test report needs 'pyEDAA.Reports', which isn't installed.",
+			result.stdout
+		)
+		self.assertIn(
+			"ReportsPackageMissingError: Analyzing the documentation coverage needs 'pyEDAA.Reports' and 'docstr_coverage', "
+			"which isn't installed.",
+			result.stdout
+		)
+		self.assertIn("Install it with: pip install pyTooling.Sphinx[reports]", result.stdout)
+		self.assertNotIn("checking configuration variables", result.stdout)
+
 	@testcase("Missing report file")
 	def MissingReport(self) -> None:
 		"""

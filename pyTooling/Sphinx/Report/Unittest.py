@@ -49,10 +49,13 @@ the reports of pytest or OSVVM. The report files are declared in :file:`conf.py`
    :ref:`DIR/UnittestSummary`
       |rarr| The directive's options and configuration, with examples.
 """
+from __future__                        import annotations
+
 from datetime                          import timedelta
 from enum                              import Flag
 from pathlib                           import Path
-from typing                            import Any, ClassVar, Generator, Mapping, Optional as Nullable, TypedDict
+from typing                            import TYPE_CHECKING, Any, ClassVar, Generator, Mapping, Optional as Nullable
+from typing                            import TypedDict
 
 from docutils                          import nodes
 from docutils.parsers.rst.directives   import flag
@@ -60,13 +63,16 @@ from sphinx.application                import Sphinx
 from sphinx.config                     import Config
 from sphinx.util.logging               import getLogger
 
-from pyEDAA.Reports.Unittesting        import TestcaseStatus, TestsuiteStatus
-from pyEDAA.Reports.Unittesting.JUnit  import Document, Testcase, Testsuite, TestsuiteSummary
 from pyTooling.Decorators              import export
 
 from pyTooling.Sphinx                  import BaseDirective, SphinxExtensionError, strip, stripAndNormalize
 from pyTooling.Sphinx.Node             import Landscape
-from pyTooling.Sphinx.Report           import INDENTATION, ReportExtensionError
+from pyTooling.Sphinx.Report           import INDENTATION, ReportExtensionError, ReportsPackageMissingError
+
+if TYPE_CHECKING:  # pragma: no cover
+	# pyEDAA.Reports is an optional dependency (extra 'reports'), imported where a report is read.
+	from pyEDAA.Reports.Unittesting       import TestcaseStatus, TestsuiteStatus
+	from pyEDAA.Reports.Unittesting.JUnit import Testcase, Testsuite, TestsuiteSummary
 
 
 __all__ = ["CONFIG_PREFIX"]
@@ -107,6 +113,8 @@ class ShowTestcases(Flag):
 		:param other: A testcase status.
 		:returns:     ``True`` if ``other`` is a :class:`~pyEDAA.Reports.Unittesting.TestcaseStatus` this member includes.
 		"""
+		from pyEDAA.Reports.Unittesting import TestcaseStatus
+
 		if isinstance(other, TestcaseStatus):
 			if other is TestcaseStatus.Passed:
 				return ShowTestcases.passed in self
@@ -257,6 +265,8 @@ class UnittestSummary(BaseDirective):
 		:param status: The testcase's status.
 		:returns:      An emoji, e.g. ✅ for a passed testcase.
 		"""
+		from pyEDAA.Reports.Unittesting import TestcaseStatus
+
 		if status is TestcaseStatus.Passed:
 			return "✅"
 		elif status is TestcaseStatus.Failed:
@@ -283,6 +293,8 @@ class UnittestSummary(BaseDirective):
 		:param status: The testsuite's status.
 		:returns:      An emoji, e.g. ✅ for a passed testsuite.
 		"""
+		from pyEDAA.Reports.Unittesting import TestsuiteStatus
+
 		if status is TestsuiteStatus.Passed:
 			return "✅"
 		elif status is TestsuiteStatus.Failed:
@@ -489,6 +501,14 @@ class UnittestSummary(BaseDirective):
 			self._CheckOptions()
 		except SphinxExtensionError as ex:
 			message = f"Caught {ex.__class__.__name__} when checking options for directive '{self.directiveName}'."
+			return self._internalError(container, __name__, message, ex)
+
+		try:
+			from pyEDAA.Reports.Unittesting.JUnit import Document
+		except ImportError as cause:
+			ex = ReportsPackageMissingError("Reading a unit test report")
+			ex.__cause__ = cause
+			message = f"Caught {ex.__class__.__name__} when reading '{self._xmlReport}'."
 			return self._internalError(container, __name__, message, ex)
 
 		try:

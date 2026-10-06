@@ -448,7 +448,8 @@ class BaseDirective(ObjectDescription[str]):
 		Report an exception a directive couldn't recover from, in the log **and** on the page.
 
 		A directive that fails silently leaves a hole in the documentation that nobody notices. This puts the message
-		where a reader sees it and the traceback where a maintainer does.
+		where a reader sees it and the traceback where a maintainer does. The exception's notes - e.g. how to install a
+		missing package - are logged below it.
 
 		:param container: The container the message is put into.
 		:param location:  Name of the logger, which is what the log line is attributed to.
@@ -459,6 +460,9 @@ class BaseDirective(ObjectDescription[str]):
 		logger = getLogger(location)
 		logger.error(f"{message}")
 		logger.error(f"  {exception.__class__.__name__}: {exception}")
+		for note in getattr(exception, "__notes__", ()):
+			logger.error(f"    {note}")
+
 		if exception.__cause__ is not None:
 			logger.error(f"    {exception.__cause__.__class__.__name__}: {exception.__cause__}")
 		logger.exception(exception)

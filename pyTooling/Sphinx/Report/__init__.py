@@ -108,6 +108,25 @@ class ReportExtensionError(SphinxExtensionError):
 
 
 @export
+class ReportsPackageMissingError(ReportExtensionError):
+	"""
+	The exception raised when a report is read, but the optional packages of the extra ``reports`` aren't installed.
+
+	The message names what was attempted and the packages it needs; a note says how to install them.
+	"""
+
+	def __init__(self, task: str, packages: str = "'pyEDAA.Reports'") -> None:
+		"""
+		Initialize the exception with what was attempted and the packages it needs.
+
+		:param task:     What needs the packages, e.g. ``Reading a unit test report``.
+		:param packages: Optional, the packages needed, quoted. Default: ``'pyEDAA.Reports'``.
+		"""
+		super().__init__(f"{task} needs {packages}, which isn't installed.")
+		self.add_note("Install it with: pip install pyTooling.Sphinx[reports]")
+
+
+@export
 class LegendStyle(Flag):
 	"""
 	How a legend directive lays out the coverage levels; a document writes the members' names with dashes.
