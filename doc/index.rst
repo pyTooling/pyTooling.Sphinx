@@ -89,7 +89,9 @@ Roles and Directives
 .. rubric:: Directives of domain ``report`` (extra ``reports``)
 
 :ref:`report:unittest-summary <DIR/UnittestSummary>`
-  |rarr| A unit test report in Any JUnit XML format, per testsuite and testcase.
+  |rarr| A unit test report in JUnit XML or pyTooling's XML format, per testsuite and testcase; optionally with a
+  :ref:`page per testsuite and testcase <DIR/UnittestSummary/Pages>`, referred to by the roles
+  :ref:`:ts: and :tc: <DIR/UnittestSummary/Roles>`.
 :ref:`report:code-coverage <DIR/CodeCoverage>`
   |rarr| A Coverage.py report, per package and module, and a legend of its coverage levels.
 :ref:`report:doc-coverage <DIR/DocCoverage>`

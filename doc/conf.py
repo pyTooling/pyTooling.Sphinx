@@ -280,6 +280,11 @@ todo_link_only = True
 pyTooling_Unittest_Testsuites = {
 	"example": {
 		"xml_report":  "../tests/data/Report/unittest.xml",
+		"pages":       "unittests/example",
+	},
+	"pytooling": {
+		"xml_report":  "../tests/data/Report/TestReport.xml",
+		"pages":       "unittests/pytooling",
 	},
 	"src": {
 		"xml_report":  "../report/unit/unittest.xml",

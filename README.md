@@ -68,8 +68,8 @@ pip install pyTooling.Sphinx[reports]
 
 ### Directives of domain `report` (extra `reports`)
 
-* [report:unittest-summary][Directives/UnittestSummary] - A unit test report in Any JUnit XML format, per testsuite and
-  testcase.
+* [report:unittest-summary][Directives/UnittestSummary] - A unit test report in JUnit XML or pyTooling's XML format, per
+  testsuite and testcase; optionally with a page per testsuite and testcase, referred to by the roles `:ts:` and `:tc:`.
 * [report:code-coverage][Directives/CodeCoverage] - A Coverage.py report, per package and module, and a legend of its
   coverage levels.
 * [report:doc-coverage][Directives/DocCoverage] - A package's documentation coverage, per package and module, and a
