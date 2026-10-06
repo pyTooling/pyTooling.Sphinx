@@ -135,9 +135,9 @@ class Pages(PagesProject):
 		)
 		self.assertIn("AssertionError: ZeroDivisionError not raised", body)
 		self.assertIn("Traceback (most recent call last): ...", body)
-		self.assertIn("<h2>Output", body)
+		self.assertIn("<h2>Standard Output", body)
 		self.assertIn("dividing 1 by 0", body)
-		self.assertIn("<h2>Error Output", body)
+		self.assertIn("<h2>Standard Error", body)
 		self.assertIn("warning: division by zero", body)
 		self.assertNotIn("Assertions", body)
 
@@ -153,8 +153,8 @@ class Pages(PagesProject):
 		body = self._body(f"{JUNIT_PAGES}/Addition/test_Negative")
 		self.assertIn("✅ Passed", body)
 		self.assertNotIn("<h2>Message", body)
-		self.assertNotIn("<h2>Output", body)
-		self.assertNotIn("<h2>Error Output", body)
+		self.assertNotIn("<h2>Standard Output", body)
+		self.assertNotIn("<h2>Standard Error", body)
 
 	@testcase("Testsuite page")
 	def TestsuitePage(self) -> None:

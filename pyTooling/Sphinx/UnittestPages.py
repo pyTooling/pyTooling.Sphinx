@@ -423,9 +423,9 @@ class UnittestReportPages(metaclass=ExtendedType, slots=True):
 		self._Field(fieldList, "Testsuite", self._Reference("ts", testcase._parent, docName))
 
 		for identifier, title, texts in (
-			("message",      "Message",      (testcase._message, testcase._details)),
-			("output",       "Output",       (testcase._standardOutput, )),
-			("error-output", "Error Output", (testcase._errorOutput, )),
+			("message",         "Message",         (testcase._message, testcase._details)),
+			("standard-output", "Standard Output", (testcase._standardOutput, )),
+			("standard-error",  "Standard Error",  (testcase._standardError, )),
 		):
 			if all(text is None for text in texts):
 				continue

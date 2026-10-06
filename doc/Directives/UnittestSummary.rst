@@ -139,7 +139,7 @@ testcase - are replaced by ``_``. A name colliding with a sibling's, also when d
 ``-2``, ``-3``, and so on.
 
 A **testcase's page** shows its status, duration, number of assertions (if the report has it) and its testsuite,
-linked; then the message and details of a failure, error or skip, the captured output and the captured error output.
+linked; then the message and details of a failure, error or skip, and the captured standard output and standard error.
 
 A **testsuite's page** shows its status, the number of testcases per status, the duration, the number of assertions
 (if the report has it) and its parent testsuite; then a table of its testsuites and a table of its testcases, each
