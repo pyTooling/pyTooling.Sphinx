@@ -29,5 +29,5 @@
 # ==================================================================================================================== #
 #
 """
-Abstract data models of reports, filled by the adapters in :mod:`pyTooling.Sphinx.Report.Adapter`.
+Abstract data models of reports, filled by the adapters in :mod:`pyTooling.Sphinx.Adapter`.
 """

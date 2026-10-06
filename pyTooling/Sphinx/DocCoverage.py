@@ -56,22 +56,22 @@ The coverage levels - limits, descriptions and CSS classes - are declared under 
    :ref:`DIR/DocCoverage`
       |rarr| The directives' options and configuration, with examples.
 """
-from __future__                                  import annotations
+from __future__                                    import annotations
 
-from pathlib                                     import Path
-from typing                                      import TYPE_CHECKING, Any, ClassVar, Generator, Mapping, TypedDict
-from typing                                      import Union
+from pathlib                                       import Path
+from typing                                        import TYPE_CHECKING, Any, ClassVar, Generator, Mapping, TypedDict
+from typing                                        import Union
 
-from docutils                                    import nodes
-from sphinx.application                          import Sphinx
-from sphinx.config                               import Config
+from docutils                                      import nodes
+from sphinx.application                            import Sphinx
+from sphinx.config                                 import Config
 
-from pyTooling.Common                            import getFullyQualifiedName
-from pyTooling.Decorators                        import export
+from pyTooling.Common                              import getFullyQualifiedName
+from pyTooling.Decorators                          import export
 
-from pyTooling.Sphinx                            import BaseDirective, SphinxExtensionError, strip, stripAndNormalize
-from pyTooling.Sphinx.Report                     import INDENTATION, LegendStyle, ReportExtensionError
-from pyTooling.Sphinx.Report                     import ReportsPackageMissingError
+from pyTooling.Sphinx                              import INDENTATION, BaseDirective, LegendStyle, ReportExtensionError
+from pyTooling.Sphinx                              import ReportsPackageMissingError, SphinxExtensionError, strip
+from pyTooling.Sphinx                              import stripAndNormalize
 
 if TYPE_CHECKING:  # pragma: no cover
 	# pyEDAA.Reports is an optional dependency (extra 'reports'), imported where the coverage is computed.
@@ -511,7 +511,7 @@ class DocCoverageLegend(DocCoverageBase):
 		"""
 		Parse all directive options or use default values.
 
-		:raises SphinxExtensionError: If option ``:style:`` names no :class:`~pyTooling.Sphinx.Report.LegendStyle`.
+		:raises SphinxExtensionError: If option ``:style:`` names no :class:`~pyTooling.Sphinx.LegendStyle`.
 		:raises KeyError:             If ``pyTooling_DocCoverage_Packages`` has no entry for the report ID.
 		"""
 		super()._CheckOptions()

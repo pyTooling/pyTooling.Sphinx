@@ -29,13 +29,13 @@
 # ==================================================================================================================== #
 #
 """
-Unit tests for :mod:`pyTooling.Sphinx.Report.Unittest`: which testcases are listed, and how a runtime is written.
+Unit tests for :mod:`pyTooling.Sphinx.Unittest`: which testcases are listed, and how a runtime is written.
 """
-from datetime                         import timedelta
+from datetime                  import timedelta
 
-from pyEDAA.Reports                   import Unittesting
-from pyTooling.Sphinx.Report.Unittest import CONFIG_PREFIX, ShowTestcases, UnittestSummary
-from pyTooling.Testing                import Testcase, testsuite, testcase
+from pyEDAA.Reports            import Unittesting
+from pyTooling.Sphinx.Unittest import CONFIG_PREFIX, ShowTestcases, UnittestSummary
+from pyTooling.Testing         import Testcase, testsuite, testcase
 
 
 if __name__ == "__main__":  # pragma: no cover

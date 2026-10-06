@@ -29,7 +29,7 @@
 # ==================================================================================================================== #
 #
 """
-Unit tests for the Sphinx extension :mod:`pyTooling.Sphinx.Report`, each built in a small Sphinx project.
+Unit tests for the domain ``report`` of :mod:`pyTooling.Sphinx`, each built in a small Sphinx project.
 """
 from os                      import environ
 from pathlib                 import Path
@@ -38,11 +38,11 @@ from sys                     import executable
 from textwrap                import dedent
 from unittest.mock           import MagicMock
 
-from pyTooling.Sphinx        import __version__
-from pyTooling.Sphinx.Report import ReportDomain, setup
-from pyTooling.Testing       import testsuite, testcase
+from pyTooling.Sphinx           import ReportDomain, setup
+from pyTooling.Sphinx.Workaround import FixLatexTableWidths
+from pyTooling.Testing          import testsuite, testcase
 
-from tests.unit.Extension    import Project
+from tests.unit.Extension       import Project
 
 
 if __name__ == "__main__":  # pragma: no cover
@@ -51,7 +51,7 @@ if __name__ == "__main__":  # pragma: no cover
 	exit(1)
 
 
-DATA = Path(__file__).parent.parent.parent / "data" / "Report"
+DATA = Path(__file__).parent.parent / "data" / "Report"
 """Directory of the report files the testcases read."""
 
 DIRECTIVES = {
@@ -63,11 +63,11 @@ CONFIG_VALUES = {
 	"pyTooling_CodeCoverage_Packages", "pyTooling_CodeCoverage_Levels", "pyTooling_DocCoverage_Packages",
 	"pyTooling_DocCoverage_Levels", "pyTooling_Unittest_Testsuites"
 }
-"""Names of the configuration values the extension registers."""
+"""Names of the configuration values the domain's directives read."""
 
 
 class ReportProject(Project):
-	"""Base-class of the testcases: a Sphinx project enabling the extension, with the report files of the testcases."""
+	"""Base-class of the testcases: a Sphinx project with the report files of the testcases."""
 
 	def _buildReport(self, index: str, builder: str = "html") -> None:
 		"""
@@ -82,7 +82,7 @@ class ReportProject(Project):
 		(package / "Module.py").write_text('def function() -> None:\n\tpass\n', encoding="utf-8")
 
 		self._build(
-			index, builder, "pyTooling.Sphinx.Report",
+			index, builder,
 			pyTooling_Unittest_Testsuites={"ut": {"xml_report": str(DATA / "unittest.xml")}},
 			pyTooling_CodeCoverage_Packages={
 				"cov": {"name": "myPackage", "json_report": str(DATA / "coverage.json"), "fail_below": 80, "levels": "default"}
@@ -93,19 +93,18 @@ class ReportProject(Project):
 		)
 
 
-@testsuite("Report extension registration")
+@testsuite("Report domain registration")
 class Registration(ReportProject):
-	"""What the extension registers with Sphinx."""
+	"""What the extension registers with Sphinx for the domain 'report'."""
 
 	@testcase("Domain, directives and configuration values")
 	def Domain(self) -> None:
 		"""
-		The extension registers domain 'report' with its directives, the configuration values under their new names, and
-		sets up 'pyTooling.Sphinx'.
+		The extension registers domain 'report' with its directives, and the configuration values under their new names.
 
-		Builds an empty project and checks the registry, the configuration and the extensions.
+		Builds an empty project and checks the registry and the configuration.
 		"""
-		app = self._build("Index\n#####\n", extension="pyTooling.Sphinx.Report")
+		app = self._build("Index\n#####\n")
 
 		self.assertEqual([], self._warningLines())
 		self.assertIn("report", app.registry.domains)
@@ -114,37 +113,32 @@ class Registration(ReportProject):
 			with self.subTest(name=name):
 				self.assertIn(name, app.config)
 		self.assertNotIn("report_codecov_packages", app.config)
-		self.assertIn("pyTooling.Sphinx", app.extensions)
-		self.assertEqual(__version__, app.extensions["pyTooling.Sphinx.Report"].version)
 
 	@testcase("Setup with a mock")
 	def Setup(self) -> None:
 		"""
-		The extension's setup() sets up 'pyTooling.Sphinx', and registers the domain, the LaTeX package and the
-		post-transform.
+		The extension's setup() registers the domain, its directives and configuration values, the LaTeX package and
+		the post-transform.
 
 		Calls setup() with a mocked application and checks the calls.
 		"""
 		app = MagicMock()
-		metadata = setup(app)
+		setup(app)
 
-		app.setup_extension.assert_called_once_with("pyTooling.Sphinx")
 		app.add_domain.assert_called_once_with(ReportDomain)
 		self.assertEqual(
 			DIRECTIVES, {call.args[1] for call in app.add_directive_to_domain.call_args_list if call.args[0] == "report"}
 		)
 		app.add_latex_package.assert_called_once_with("pdflscape")
-		transformations = [call.args[0] for call in app.add_post_transform.call_args_list]
-		self.assertEqual(list(ReportDomain.transformations), transformations)
-		self.assertEqual(CONFIG_VALUES, {call.args[0] for call in app.add_config_value.call_args_list})
-		self.assertEqual(__version__, metadata["version"])
+		app.add_post_transform.assert_called_once_with(FixLatexTableWidths)
+		self.assertLessEqual(CONFIG_VALUES, {call.args[0] for call in app.add_config_value.call_args_list})
 
 	@testcase("Core extension without pyEDAA.Reports")
 	def CoreWithoutReports(self) -> None:
 		"""
-		Setting up 'pyTooling.Sphinx' alone doesn't import pyEDAA.Reports.
+		Setting up 'pyTooling.Sphinx', including the domain 'report', doesn't import pyEDAA.Reports.
 
-		Runs a Python process that sets up the core extension with a mocked application, and checks 'sys.modules'.
+		Runs a Python process that sets up the extension with a mocked application, and checks 'sys.modules'.
 		"""
 		script = dedent("""\
 			import sys
@@ -153,10 +147,11 @@ class Registration(ReportProject):
 			import pyTooling.Sphinx
 
 			pyTooling.Sphinx.setup(MagicMock())
+			assert "pyTooling.Sphinx.Unittest" in sys.modules, "the report directives weren't imported"
 			assert not any(name.startswith("pyEDAA") for name in sys.modules), "pyEDAA.Reports was imported"
-			assert "pyTooling.Sphinx.Report" not in sys.modules, "pyTooling.Sphinx.Report was imported"
+			assert "docstr_coverage" not in sys.modules, "docstr_coverage was imported"
 		""")
-		root = Path(__file__).parent.parent.parent.parent
+		root = Path(__file__).parent.parent.parent
 		result = subprocess_run(
 			[executable, "-c", script], cwd=root, env=environ.copy(), capture_output=True, text=True, check=False
 		)
@@ -166,8 +161,8 @@ class Registration(ReportProject):
 	@testcase("Reports without pyEDAA.Reports")
 	def WithoutReportsPackage(self) -> None:
 		"""
-		Without pyEDAA.Reports, the extension sets up and the configuration is checked; a report directive says the
-		report needs pyEDAA.Reports, and how to install it.
+		Without pyEDAA.Reports, the extension sets up and the reports' configuration is checked; a report directive says
+		the report needs pyEDAA.Reports, and how to install it.
 
 		Runs a Python process in which pyEDAA.Reports can't be imported, builds a unit test summary and a documentation
 		coverage table, and checks the messages and 'sys.modules'.
@@ -177,7 +172,7 @@ class Registration(ReportProject):
 		(package / "__init__.py").write_text('"""A documented package."""\n', encoding="utf-8")
 		source = self._path / "src"
 		(source / "conf.py").write_text(dedent(f"""\
-			extensions = ["pyTooling.Sphinx.Report"]
+			extensions = ["pyTooling.Sphinx"]
 			pyTooling_Unittest_Testsuites = {{"ut": {{"xml_report": {str(DATA / "unittest.xml")!r}}}}}
 			pyTooling_DocCoverage_Packages = {{
 				"doc": {{"name": "myPackage", "directory": {str(package)!r}, "fail_below": 80, "levels": "default"}}
@@ -208,7 +203,7 @@ class Registration(ReportProject):
 			print(warnings.getvalue())
 			assert not any(name.startswith("pyEDAA.Reports.") for name in sys.modules), "pyEDAA.Reports was imported"
 		""")
-		root = Path(__file__).parent.parent.parent.parent
+		root = Path(__file__).parent.parent.parent
 		result = subprocess_run(
 			[executable, "-c", script, str(source), str(self._path / "build")],
 			cwd=root, env=environ.copy(), capture_output=True, text=True, check=False
@@ -235,7 +230,7 @@ class Registration(ReportProject):
 		Builds a project declaring a missing unit test report and checks the error.
 		"""
 		self._build(
-			"Index\n#####\n", extension="pyTooling.Sphinx.Report",
+			"Index\n#####\n",
 			pyTooling_Unittest_Testsuites={"ut": {"xml_report": "missing.xml"}}
 		)
 

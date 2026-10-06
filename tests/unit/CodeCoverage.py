@@ -29,13 +29,13 @@
 # ==================================================================================================================== #
 #
 """
-Unit tests for :mod:`pyTooling.Sphinx.Report.CodeCoverage`: checking the configuration values and the coverage levels.
+Unit tests for :mod:`pyTooling.Sphinx.CodeCoverage`: checking the configuration values and the coverage levels.
 """
-from pathlib                              import Path
+from pathlib                       import Path
 
-from pyTooling.Sphinx.Report              import ReportExtensionError
-from pyTooling.Sphinx.Report.CodeCoverage import CONFIG_PREFIX, CodeCoverageBase
-from pyTooling.Testing                    import Testcase, testsuite, testcase
+from pyTooling.Sphinx              import ReportExtensionError
+from pyTooling.Sphinx.CodeCoverage import CONFIG_PREFIX, CodeCoverageBase
+from pyTooling.Testing             import Testcase, testsuite, testcase
 
 
 if __name__ == "__main__":  # pragma: no cover
@@ -44,7 +44,7 @@ if __name__ == "__main__":  # pragma: no cover
 	exit(1)
 
 
-REPORT = Path(__file__).parent.parent.parent / "data" / "Report" / "coverage.json"
+REPORT = Path(__file__).parent.parent / "data" / "Report" / "coverage.json"
 """A report of package 'myPackage'."""
 
 

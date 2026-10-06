@@ -53,29 +53,29 @@ The coverage levels - limits, descriptions and CSS classes - are declared under 
 
    :ref:`DIR/CodeCoverage`
       |rarr| The directives' options and configuration, with examples.
-   :mod:`pyTooling.Sphinx.Report.Adapter.Coverage`
+   :mod:`pyTooling.Sphinx.Adapter.Coverage`
       |rarr| The adapter reading Coverage.py's JSON report.
 """
-from pathlib                                        import Path
-from typing                                         import Any, ClassVar, Generator, Mapping, TypedDict, Union
+from pathlib                                 import Path
+from typing                                  import Any, ClassVar, Generator, Mapping, TypedDict, Union
 
-from docutils                                       import nodes
-from docutils.parsers.rst.directives                import flag
-from sphinx.application                             import Sphinx
-from sphinx.config                                  import Config
-from sphinx.directives.code                         import LiteralIncludeReader
-from sphinx.util.docutils                           import new_document
-from sphinx.util.logging                            import getLogger
+from docutils                                import nodes
+from docutils.parsers.rst.directives         import flag
+from sphinx.application                      import Sphinx
+from sphinx.config                           import Config
+from sphinx.directives.code                  import LiteralIncludeReader
+from sphinx.util.docutils                    import new_document
+from sphinx.util.logging                     import getLogger
 
-from pyTooling.Common                               import getFullyQualifiedName
-from pyTooling.Decorators                           import export
+from pyTooling.Common                        import getFullyQualifiedName
+from pyTooling.Decorators                    import export
 
-from pyTooling.Sphinx                               import BaseDirective, SphinxExtensionError, strip, stripAndNormalize
-from pyTooling.Sphinx.Node                          import Landscape
-from pyTooling.Sphinx.Report                        import INDENTATION, LegendStyle, ReportExtensionError
-from pyTooling.Sphinx.Report.Adapter.Coverage       import Analyzer
-from pyTooling.Sphinx.Report.DataModel.CodeCoverage import Coverage, PackageCoverage
-from pyTooling.Sphinx.Report.DataModel.CodeCoverage import ModuleCoverage as ModuleCoverageData
+from pyTooling.Sphinx                        import INDENTATION, BaseDirective, LegendStyle, ReportExtensionError
+from pyTooling.Sphinx                        import SphinxExtensionError, strip, stripAndNormalize
+from pyTooling.Sphinx.Adapter.Coverage       import Analyzer
+from pyTooling.Sphinx.DataModel.CodeCoverage import Coverage, PackageCoverage
+from pyTooling.Sphinx.DataModel.CodeCoverage import ModuleCoverage as ModuleCoverageData
+from pyTooling.Sphinx.Node                   import Landscape
 
 
 __all__ = ["CONFIG_PREFIX"]
@@ -579,7 +579,7 @@ class CodeCoverageLegend(CodeCoverageBase):
 		"""
 		Parse all directive options or use default values.
 
-		:raises SphinxExtensionError: If option ``:style:`` names no :class:`~pyTooling.Sphinx.Report.LegendStyle`.
+		:raises SphinxExtensionError: If option ``:style:`` names no :class:`~pyTooling.Sphinx.LegendStyle`.
 		:raises ReportExtensionError: If ``pyTooling_CodeCoverage_Packages`` has no entry for the report ID.
 		"""
 		super()._CheckOptions()

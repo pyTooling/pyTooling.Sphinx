@@ -74,18 +74,18 @@ document of every project. This extension declares them once:
   * :rst:dir:`tree` - draws a hierarchy written as an indented list as a tree, each node foldable in HTML.
   * :rst:dir:`abbreviations` - lists abbreviations, which the abbreviation roles refer to.
 
+* the domain ``report`` - unit test, code coverage and documentation coverage reports as tables -, with the
+  configuration values ``pyTooling_Unittest_Testsuites``, ``pyTooling_CodeCoverage_Packages`` and
+  ``pyTooling_DocCoverage_Packages`` declaring the reports. Reading a report needs the extra ``reports``
+  (pyEDAA.Reports), which is imported only then:
+
+  * :rst:dir:`report:unittest-summary` - a unit test report, per testsuite and testcase;
+  * :rst:dir:`report:code-coverage` and :rst:dir:`report:code-coverage-legend` - a code coverage report and its
+    coverage levels;
+  * :rst:dir:`report:doc-coverage` and :rst:dir:`report:doc-coverage-legend` - a package's documentation coverage
+    and its coverage levels.
+
 * the **nodes** the directives emit, listed in :data:`NODES` with their visitors per output format.
-
-The domain ``report`` - unit test, code coverage and documentation coverage reports as tables - is the extension
-:mod:`pyTooling.Sphinx.Report`, enabled separately as ``"pyTooling.Sphinx.Report"``, because it needs the extra
-``reports``. It sets up this extension itself, and adds the configuration values ``pyTooling_Unittest_Testsuites``,
-``pyTooling_CodeCoverage_Packages`` and ``pyTooling_DocCoverage_Packages``:
-
-* :rst:dir:`report:unittest-summary` - a unit test report, per testsuite and testcase;
-* :rst:dir:`report:code-coverage` and :rst:dir:`report:code-coverage-legend` - a code coverage report and its
-  coverage levels;
-* :rst:dir:`report:doc-coverage` and :rst:dir:`report:doc-coverage-legend` - a package's documentation coverage and
-  its coverage levels.
 
 Two classes aren't registered, because they are base-classes for a project's own directives:
 :class:`~pyTooling.Sphinx.BaseDirective` offers typed option access and table construction
@@ -112,15 +112,20 @@ __project_url__ =       "https://github.com/pyTooling/pyTooling.Sphinx"
 __documentation_url__ = "https://pyTooling.github.io/pyTooling.Sphinx"
 __issue_tracker_url__ = "https://GitHub.com/pyTooling/pyTooling.Sphinx/issues"
 
-from enum                    import Enum
+from enum                    import Enum, Flag
 from hashlib                 import md5
 from pathlib                 import Path
 from re                      import match as re_match
 from typing                  import Any, Optional as Nullable, TypeVar
 
 from docutils                import nodes
+from sphinx.addnodes         import pending_xref
 from sphinx.application      import Sphinx
+from sphinx.builders         import Builder
+from sphinx.config           import Config
 from sphinx.directives       import ObjectDescription
+from sphinx.domains          import Domain
+from sphinx.environment      import BuildEnvironment
 from sphinx.errors           import ExtensionError
 from sphinx.util.logging     import getLogger
 
@@ -135,7 +140,7 @@ from pyTooling.Sphinx.LaTeX  import translateLandscape as translateLandscapeAsLa
 from pyTooling.Sphinx.Node   import Abbreviation, Landscape, RegisteredNode, TreeItem, TreeLabel
 
 
-__all__ = ["STYLESHEET", "SUBSTITUTIONS", "NODES"]
+__all__ = ["STYLESHEET", "SUBSTITUTIONS", "NODES", "INDENTATION"]
 
 #: Name of the stylesheet, in :mod:`pyTooling.Sphinx.Resources`.
 STYLESHEET = "pyTooling.css"
@@ -165,6 +170,10 @@ NODES: tuple[RegisteredNode, ...] = (
 )
 
 
+#: The character a report table indents an entry by, per level of the hierarchy: an em quad, which HTML keeps.
+INDENTATION = "\u2001"
+
+
 _EnumType = TypeVar("_EnumType", bound=Enum)
 """Type of an enumeration read from a directive's options."""
 
@@ -178,6 +187,48 @@ class SphinxExtensionError(ExtensionError, DocumentationError):
 	reports with the position of the directive, and :exc:`~pyTooling.Documentation.DocumentationError` is what a
 	caller of pyTooling catches. Neither would be enough alone.
 	"""
+
+
+@export
+class ReportExtensionError(SphinxExtensionError):
+	"""
+	The exception raised by the ``report`` domain, e.g. for a mistake in its configuration values or options.
+	"""
+
+
+@export
+class ReportsPackageMissingError(ReportExtensionError):
+	"""
+	The exception raised when a report is read, but the optional packages of the extra ``reports`` aren't installed.
+
+	The message names what was attempted and the packages it needs; a note says how to install them.
+	"""
+
+	def __init__(self, task: str, packages: str = "'pyEDAA.Reports'") -> None:
+		"""
+		Initialize the exception with what was attempted and the packages it needs.
+
+		:param task:     What needs the packages, e.g. ``Reading a unit test report``.
+		:param packages: Optional, the packages needed, quoted. Default: ``'pyEDAA.Reports'``.
+		"""
+		super().__init__(f"{task} needs {packages}, which isn't installed.")
+		self.add_note("Install it with: pip install pyTooling.Sphinx[reports]")
+
+
+@export
+class LegendStyle(Flag):
+	"""
+	How a legend directive of domain ``report`` lays out the coverage levels; a document writes the names with dashes.
+	"""
+
+	Default =    0     #: No style.
+	Table =      1     #: A table.
+
+	Horizontal = 1024  #: A column per level.
+	Vertical =   2048  #: A row per level.
+
+	horizontal_table = Table | Horizontal  #: A table with a column per level, written ``horizontal-table``.
+	vertical_table =   Table | Vertical    #: A table with a row per level, written ``vertical-table``.
 
 
 @export
@@ -516,9 +567,91 @@ def extendProlog(sphinx: Sphinx, config: Any) -> None:
 
 
 @export
+class ReportDomain(Domain):
+	"""
+	The Sphinx domain ``report``, integrating unit test, code coverage and documentation coverage reports.
+
+	Its directives are registered by :func:`setup`, and read their reports from the files declared in :file:`conf.py`.
+	"""
+
+	name =  "report"  #: Name of the domain, the prefix of its directives.
+	label = "rpt"     #: Name of the domain, as displayed.
+
+	def resolve_xref(
+		self,
+		env: BuildEnvironment,
+		fromdocname: str,
+		builder: Builder,
+		typ: str,
+		target: str,
+		node: pending_xref,
+		contnode: nodes.Element
+	) -> Nullable[nodes.Element]:
+		"""
+		Resolve a cross-reference of this domain, which has none: the domain has no roles and no objects.
+
+		Raises :exc:`NotImplementedError` always. Sphinx doesn't call it, as no role creates a reference of this domain.
+
+		:param env:         The build environment.
+		:param fromdocname: Name of the document the reference is in.
+		:param builder:     The builder.
+		:param typ:         Type of the reference.
+		:param target:      Target of the reference.
+		:param node:        The pending cross-reference.
+		:param contnode:    The node holding the reference's text.
+		:returns:           Never.
+		"""
+		raise NotImplementedError()
+
+
+@export
+def checkReportConfiguration(sphinx: Sphinx, config: Config) -> None:
+	"""
+	Call-back for Sphinx' ``config-inited`` event, checking the reports' configuration values and loading their settings.
+
+	A mistake is logged as an error rather than stopping the build; a directive naming that report fails on its own.
+
+	:param sphinx: The Sphinx application.
+	:param config: The configuration, after :file:`conf.py` was read.
+	"""
+	from pyTooling.Sphinx.CodeCoverage import CodeCoverageBase
+	from pyTooling.Sphinx.DocCoverage  import DocCoverageBase
+	from pyTooling.Sphinx.Unittest     import UnittestSummary
+
+	checkConfigurations = (
+		CodeCoverageBase.CheckConfiguration,
+		DocCoverageBase.CheckConfiguration,
+		UnittestSummary.CheckConfiguration,
+	)
+
+	for check in checkConfigurations:
+		try:
+			check(sphinx, config)
+		except ReportExtensionError as ex:
+			getLogger(__name__).error(f"Caught {ex.__class__.__name__} when checking configuration variables.\n  {ex}")
+
+
+@export
+def readReports(sphinx: Sphinx) -> None:
+	"""
+	Call-back for Sphinx' ``builder-inited`` event, reading the report files.
+
+	:param sphinx: The Sphinx application.
+	"""
+	from pyTooling.Sphinx.CodeCoverage import CodeCoverageBase
+	from pyTooling.Sphinx.Unittest     import UnittestSummary
+
+	CodeCoverageBase.ReadReports(sphinx)
+	UnittestSummary.ReadReports(sphinx)
+
+
+@export
 def setup(sphinx: Sphinx) -> dict[str, Any]:
 	"""
-	Register the roles, the nodes and the directives with Sphinx.
+	Register the roles, the nodes, the directives and the domain ``report`` with Sphinx.
+
+	The modules are imported here rather than with the package, and none of them imports an optional dependency at
+	module level - e.g. pyEDAA.Reports is imported only when a report is read - so the extension works without them.
 
 	:param sphinx: The Sphinx application to register with.
 	:returns:      The extension's metadata.
@@ -526,12 +659,19 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	from pyTooling.Sphinx.Abbreviation    import CONFIG_PREFIX as ABBREVIATION_PREFIX
 	from pyTooling.Sphinx.Abbreviation    import ROLES as ABBREVIATION_ROLES, AbbreviationDomain, AbbreviationRole
 	from pyTooling.Sphinx.Abbreviation    import Abbreviations
+	from pyTooling.Sphinx.CodeCoverage    import CONFIG_PREFIX as CODE_COVERAGE_PREFIX
+	from pyTooling.Sphinx.CodeCoverage    import CodeCoverage, CodeCoverageBase, CodeCoverageLegend, ModuleCoverage
 	from pyTooling.Sphinx.CondensedClass  import CondensedClass
 	from pyTooling.Sphinx.DependencyTable import CONFIG_PREFIX, DependencyTable, prepareEntrypoints, reportBuildTime
+	from pyTooling.Sphinx.DocCoverage     import CONFIG_PREFIX as DOC_COVERAGE_PREFIX
+	from pyTooling.Sphinx.DocCoverage     import DocCoverageBase, DocCoverageLegend, DocStrCoverage
 	from pyTooling.Sphinx.Roles           import BREAK_ROLES, PYTHON_CODE_ROLE, STYLE_ROLES
 	from pyTooling.Sphinx.Roles           import breakRole, pythonCodeRole, styleRole
 	from pyTooling.Sphinx.Shields         import Shields
 	from pyTooling.Sphinx.Tree            import Tree
+	from pyTooling.Sphinx.Unittest        import CONFIG_PREFIX as UNITTEST_PREFIX
+	from pyTooling.Sphinx.Unittest        import UnittestSummary
+	from pyTooling.Sphinx.Workaround      import FixLatexTableWidths
 	from pyTooling.Sphinx.XMLSchemaGraph  import XMLSchemaGraph
 
 	for roleName in STYLE_ROLES:
@@ -554,16 +694,39 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	sphinx.add_directive("tree", Tree)
 	sphinx.add_directive("abbreviations", Abbreviations)
 
+	# Without the domain, these become global directives: 'add_directive' instead of 'add_directive_to_domain'.
+	reportDirectives = {
+		"code-coverage":        CodeCoverage,
+		"code-coverage-legend": CodeCoverageLegend,
+		"module-coverage":      ModuleCoverage,
+		"doc-coverage":         DocStrCoverage,
+		"doc-coverage-legend":  DocCoverageLegend,
+		"unittest-summary":     UnittestSummary,
+	}
+	sphinx.add_domain(ReportDomain)
+	for directiveName, directive in reportDirectives.items():
+		sphinx.add_directive_to_domain(ReportDomain.name, directiveName, directive)
+
 	for registeredNode in NODES:
 		if "latex" in registeredNode:
 			sphinx.add_node(registeredNode["node"], html=registeredNode["html"], latex=registeredNode["latex"])
 		else:
 			sphinx.add_node(registeredNode["node"], html=registeredNode["html"])
 
+	# the report tables are put into 'Landscape' nodes, whose LaTeX environment is package 'pdflscape''s
+	sphinx.add_latex_package("pdflscape")
+	sphinx.add_post_transform(FixLatexTableWidths)
+
 	sphinx.setup_extension("sphinx.ext.graphviz")
 
-	for configName, (default, rebuild, types) in DependencyTable.configValues.items():
-		sphinx.add_config_value(f"{CONFIG_PREFIX}_{configName}", default, rebuild, types)
+	for prefix, configValues in (
+		(CONFIG_PREFIX,        DependencyTable.configValues),
+		(CODE_COVERAGE_PREFIX, CodeCoverageBase.configValues),
+		(DOC_COVERAGE_PREFIX,  DocCoverageBase.configValues),
+		(UNITTEST_PREFIX,      UnittestSummary.configValues),
+	):
+		for configName, (default, rebuild, types) in configValues.items():
+			sphinx.add_config_value(f"{prefix}_{configName}", default, rebuild, types)
 
 	for configName, (default, rebuild, types) in Abbreviations.configValues.items():
 		sphinx.add_config_value(f"{ABBREVIATION_PREFIX}_{configName}", default, rebuild, types)
@@ -572,6 +735,8 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	# after the configuration values above are registered, and before any document is read - a requirements file
 	# that doesn't exist should end the build here rather than in the middle of a page
 	sphinx.connect("config-inited", prepareEntrypoints)
+	sphinx.connect("config-inited", checkReportConfiguration)
+	sphinx.connect("builder-inited", readReports)
 	sphinx.connect("build-finished", reportBuildTime)
 	sphinx.connect("builder-inited", installStylesheet)
 

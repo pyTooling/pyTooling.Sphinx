@@ -41,8 +41,8 @@ PyPI (see :ref:`INSTALL`).
 Report Domain (Optional)
 ************************
 
-The extension ``pyTooling.Sphinx.Report`` - the domain ``report`` - reads unit test reports and analyzes the
-documentation coverage with these packages. They are installed with the extra ``reports``:
+The directives of domain ``report`` read unit test reports and analyze the documentation coverage with these
+packages. They are optional - only a project using a report needs them - and installed with the extra ``reports``:
 
 .. tab-set::
 

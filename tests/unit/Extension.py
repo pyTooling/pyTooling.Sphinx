@@ -76,7 +76,6 @@ class Project(Testcase):
 		index: str,
 		builder: str = "html",
 		documents: Nullable[dict[str, str]] = None,
-		extension: str = "pyTooling.Sphinx",
 		**config: Any
 	) -> "SphinxTestApp":
 		"""
@@ -85,12 +84,11 @@ class Project(Testcase):
 		:param index:     Content of the document ``index``.
 		:param builder:   Optional, name of the builder. Default: ``"html"``.
 		:param documents: Optional, more documents, keyed by name; ``index`` lists them in a hidden toctree.
-		:param extension: Optional, the extension :file:`conf.py` enables. Default: ``"pyTooling.Sphinx"``.
 		:param config:    Configuration values overriding the defaults.
 		:returns:         The Sphinx application after the build.
 		"""
 		source = self._path / "src"
-		(source / "conf.py").write_text(f'extensions = ["{extension}"]\n', encoding="utf-8")
+		(source / "conf.py").write_text('extensions = ["pyTooling.Sphinx"]\n', encoding="utf-8")
 		if documents is not None:
 			index += "\n.. toctree::\n   :hidden:\n\n" + "".join(f"   {name}\n" for name in documents)
 			for name, content in documents.items():

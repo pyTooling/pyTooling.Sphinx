@@ -18,7 +18,8 @@ report:doc-coverage
       declared in :file:`conf.py`, each with an identifier the directives name in their
       :rst:dir:`report:doc-coverage:reportid` option.
 
-      The directives belong to the extension :ref:`pyTooling.Sphinx.Report <DIR/UnittestSummary/Setup>`.
+      The directives are part of :mod:`pyTooling.Sphinx`; they need the
+      :ref:`extra reports <DIR/UnittestSummary/Setup>`.
 
    .. grid-item::
       :columns: 6

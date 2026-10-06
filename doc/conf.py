@@ -185,7 +185,6 @@ extensions = [
 	"autoapi.sphinx",
 # User defined extensions
 	"pyTooling.Sphinx",
-	"pyTooling.Sphinx.Report",
 ]
 
 
@@ -264,7 +263,7 @@ todo_link_only = True
 
 
 # ==============================================================================
-# pyTooling.Sphinx.Report - reports
+# pyTooling.Sphinx - reports of domain 'report'
 # ==============================================================================
 # The examples come first: a report file that doesn't exist stops reading the entries after it, and the project's
 # own reports exist only after the tests ran.

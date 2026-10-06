@@ -37,16 +37,11 @@ It links its stylesheet into every HTML page, appends its substitutions to `rst_
 `sphinx.ext.graphviz` for the schema graphs.
 
 The domain `report` - unit test, code coverage and documentation coverage reports as tables - reads the reports with
-[pyEDAA.Reports](https://GitHub.com/edaa-org/pyEDAA.Reports), so it is an extension of its own, installed with the extra
-`reports` and enabled as `pyTooling.Sphinx.Report`:
+[pyEDAA.Reports](https://GitHub.com/edaa-org/pyEDAA.Reports), an optional dependency. A project using a report installs
+it with the extra `reports`:
 
-```python
-# pip install pyTooling.Sphinx[reports]
-# doc/conf.py
-extensions = [
-  ...,
-  "pyTooling.Sphinx.Report",
-]
+```bash
+pip install pyTooling.Sphinx[reports]
 ```
 
 
@@ -71,7 +66,7 @@ extensions = [
 * [abbreviations][Directives/Abbreviations] - A list of abbreviations, referred to by `:acs:`, `:acl:`, `:acf:` and
   their plurals; in HTML, a short form explains itself on hover.
 
-### Directives of domain `report` (extension `pyTooling.Sphinx.Report`)
+### Directives of domain `report` (extra `reports`)
 
 * [report:unittest-summary][Directives/UnittestSummary] - A unit test report in Any JUnit XML format, per testsuite and
   testcase.

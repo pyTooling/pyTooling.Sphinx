@@ -29,12 +29,12 @@
 # ==================================================================================================================== #
 #
 """
-Unit tests for :mod:`pyTooling.Sphinx.Report.DataModel.CodeCoverage`: packages, modules and the aggregated counts.
+Unit tests for :mod:`pyTooling.Sphinx.DataModel.CodeCoverage`: packages, modules and the aggregated counts.
 """
-from pathlib                                        import Path
+from pathlib                                 import Path
 
-from pyTooling.Sphinx.Report.DataModel.CodeCoverage import ModuleCoverage, PackageCoverage
-from pyTooling.Testing                              import Testcase, testsuite, testcase
+from pyTooling.Sphinx.DataModel.CodeCoverage import ModuleCoverage, PackageCoverage
+from pyTooling.Testing                       import Testcase, testsuite, testcase
 
 
 if __name__ == "__main__":  # pragma: no cover

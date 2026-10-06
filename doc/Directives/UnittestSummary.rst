@@ -17,7 +17,7 @@ report:unittest-summary
       :file:`conf.py`, each with an identifier the directive names in its :rst:dir:`report:unittest-summary:reportid`
       option - so a documentation shows as many reports as it declares.
 
-      The directive belongs to the extension :ref:`pyTooling.Sphinx.Report <DIR/UnittestSummary/Setup>`.
+      The directive is part of :mod:`pyTooling.Sphinx`; it needs the :ref:`extra reports <DIR/UnittestSummary/Setup>`.
 
    .. grid-item::
       :columns: 6
@@ -37,31 +37,25 @@ The documentation's own :doc:`unit test report <../unittests/index>` is rendered
 
 .. _DIR/UnittestSummary/Setup:
 
-Enabling the extension
-**********************
+Installing the extra ``reports``
+********************************
 
-The domain ``report`` is an extension of its own, ``pyTooling.Sphinx.Report``, because it reads the reports with
-pyEDAA.Reports, which the extension :mod:`pyTooling.Sphinx` doesn't need. It sets up ``pyTooling.Sphinx`` itself.
+The directives of domain ``report`` are registered by the extension :mod:`pyTooling.Sphinx`, but read the reports with
+:gh:`pyEDAA.Reports <edaa-org/pyEDAA.Reports>` - and the documentation coverage with ``docstr_coverage`` -, which are
+optional dependencies. A project using a report installs them with the extra ``reports``:
 
-.. grid:: 2
+.. code-block:: bash
 
-   .. grid-item::
-      :columns: 6
+   pip install pyTooling.Sphinx[reports]
 
-      .. code-block:: bash
+Without them, the extension and every other directive work; a report directive reports on the page and in the build's
+log that it needs them:
 
-         pip install pyTooling.Sphinx[reports]
+.. code-block:: text
 
-   .. grid-item::
-      :columns: 6
-
-      .. code-block:: Python
-
-         # doc/conf.py
-         extensions = [
-           ...,
-           "pyTooling.Sphinx.Report",
-         ]
+   Caught ReportsPackageMissingError when reading '../report/unit/unittest.xml'.
+     ReportsPackageMissingError: Reading a unit test report needs 'pyEDAA.Reports', which isn't installed.
+       Install it with: pip install pyTooling.Sphinx[reports]
 
 
 .. _DIR/UnittestSummary/Configuration:

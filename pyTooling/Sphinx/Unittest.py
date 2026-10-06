@@ -49,25 +49,26 @@ the reports of pytest or OSVVM. The report files are declared in :file:`conf.py`
    :ref:`DIR/UnittestSummary`
       |rarr| The directive's options and configuration, with examples.
 """
-from __future__                        import annotations
+from __future__                         import annotations
 
-from datetime                          import timedelta
-from enum                              import Flag
-from pathlib                           import Path
-from typing                            import TYPE_CHECKING, Any, ClassVar, Generator, Mapping, Optional as Nullable
-from typing                            import TypedDict
+from datetime                           import timedelta
+from enum                               import Flag
+from pathlib                            import Path
+from typing                             import TYPE_CHECKING, Any, ClassVar, Generator, Mapping, Optional as Nullable
+from typing                             import TypedDict
 
-from docutils                          import nodes
-from docutils.parsers.rst.directives   import flag
-from sphinx.application                import Sphinx
-from sphinx.config                     import Config
-from sphinx.util.logging               import getLogger
+from docutils                           import nodes
+from docutils.parsers.rst.directives    import flag
+from sphinx.application                 import Sphinx
+from sphinx.config                      import Config
+from sphinx.util.logging                import getLogger
 
-from pyTooling.Decorators              import export
+from pyTooling.Decorators               import export
 
-from pyTooling.Sphinx                  import BaseDirective, SphinxExtensionError, strip, stripAndNormalize
-from pyTooling.Sphinx.Node             import Landscape
-from pyTooling.Sphinx.Report           import INDENTATION, ReportExtensionError, ReportsPackageMissingError
+from pyTooling.Sphinx                   import INDENTATION, BaseDirective, ReportExtensionError
+from pyTooling.Sphinx                   import ReportsPackageMissingError, SphinxExtensionError, strip
+from pyTooling.Sphinx                   import stripAndNormalize
+from pyTooling.Sphinx.Node              import Landscape
 
 if TYPE_CHECKING:  # pragma: no cover
 	# pyEDAA.Reports is an optional dependency (extra 'reports'), imported where a report is read.

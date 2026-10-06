@@ -23,14 +23,14 @@ Version 0.x (2026)
      :ref:`shields <DIR/Shields>`, :ref:`tree <DIR/Tree>` and :ref:`abbreviations <DIR/Abbreviations>` with the
      abbreviation roles ``:acs:``, ``:acl:``, ``:acf:`` and their plurals.
    * :class:`~pyTooling.Sphinx.SchemaGraph.DotGraph` is built on :mod:`pyTooling.Graph.GraphViz`.
-   * Domain ``report`` from :gh:`sphinx-reports <pyTooling/sphinx-reports>` (v0.11.2): the extension
-     :mod:`pyTooling.Sphinx.Report` with the directives :ref:`report:unittest-summary <DIR/UnittestSummary>`,
-     :ref:`report:code-coverage <DIR/CodeCoverage>` and :ref:`report:doc-coverage <DIR/DocCoverage>`, installed with
-     the extra ``reports``.
+   * Domain ``report`` from :gh:`sphinx-reports <pyTooling/sphinx-reports>` (v0.11.2), with the directives
+     :ref:`report:unittest-summary <DIR/UnittestSummary>`, :ref:`report:code-coverage <DIR/CodeCoverage>` and
+     :ref:`report:doc-coverage <DIR/DocCoverage>`. Reading a report needs the extra ``reports``.
 
    .. rubric:: Changes compared to sphinx-reports
 
-   * The extension is ``pyTooling.Sphinx.Report`` instead of ``sphinx_reports``; the domain is still ``report``.
+   * The domain is registered by the extension ``pyTooling.Sphinx`` instead of ``sphinx_reports``; it is still
+     ``report``.
    * The configuration values are renamed: ``report_unittest_testsuites`` |rarr| ``pyTooling_Unittest_Testsuites``,
      ``report_codecov_packages``/``report_codecov_levels`` |rarr|
      ``pyTooling_CodeCoverage_Packages``/``pyTooling_CodeCoverage_Levels``, and

@@ -97,6 +97,6 @@ class Landscape(nodes.container):
 	"""
 	A container whose content LaTeX puts on landscape pages, e.g. a wide table; HTML writes the content only.
 
-	LaTeX's ``landscape`` environment needs package ``pdflscape``, which the extension :mod:`pyTooling.Sphinx.Report`
-	requests - its tables are what this node holds.
+	LaTeX's ``landscape`` environment needs package ``pdflscape``, which :func:`~pyTooling.Sphinx.setup` requests. The
+	report tables of domain ``report`` are what this node holds.
 	"""

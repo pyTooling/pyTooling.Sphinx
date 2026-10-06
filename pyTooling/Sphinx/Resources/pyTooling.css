@@ -254,7 +254,7 @@ dl.pytooling-abbreviations p.abbreviation-long {
   font-style: italic;
 }
 
-/* Styles for the report tables of the extension pyTooling.Sphinx.Report.
+/* Styles for the report tables of domain 'report'.
 
    The classes are put on the tables and rows by the directives of domain 'report', so these rules reach only a report
    table. */

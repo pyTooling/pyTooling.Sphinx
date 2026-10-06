@@ -33,17 +33,17 @@ Adapter reading a code coverage report in Coverage.py's JSON format into the dat
 
 .. seealso::
 
-   :mod:`pyTooling.Sphinx.Report.DataModel.CodeCoverage`
+   :mod:`pyTooling.Sphinx.DataModel.CodeCoverage`
       |rarr| The data model the report is converted to.
 """
-from pathlib                                        import Path
+from pathlib                                 import Path
 
-from pyTooling.Configuration.JSON                   import Configuration
-from pyTooling.Decorators                           import export, readonly
-from pyTooling.MetaClasses                          import ExtendedType
+from pyTooling.Configuration.JSON            import Configuration
+from pyTooling.Decorators                    import export, readonly
+from pyTooling.MetaClasses                   import ExtendedType
 
-from pyTooling.Sphinx.Report                        import ReportExtensionError
-from pyTooling.Sphinx.Report.DataModel.CodeCoverage import Coverage, ModuleCoverage, PackageCoverage
+from pyTooling.Sphinx                        import ReportExtensionError
+from pyTooling.Sphinx.DataModel.CodeCoverage import Coverage, ModuleCoverage, PackageCoverage
 
 
 @export
@@ -59,7 +59,7 @@ class Analyzer(metaclass=ExtendedType, slots=True):
 	An analyzer reading code coverage data from JSON format and converting it to the generic data model.
 
 	Coverage.py writes the statement and branch coverage it collected as JSON (``coverage json``), which is converted to
-	a :class:`~pyTooling.Sphinx.Report.DataModel.CodeCoverage.PackageCoverage` hierarchy.
+	a :class:`~pyTooling.Sphinx.DataModel.CodeCoverage.PackageCoverage` hierarchy.
 	"""
 
 	_packageName:    str            #: Name of the analyzed Python package.

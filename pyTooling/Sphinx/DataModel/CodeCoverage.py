@@ -35,7 +35,7 @@ A :class:`PackageCoverage` holds its sub-packages and its modules - each a :clas
 mirrors the package hierarchy. Both derive from :class:`Coverage`, which holds the counts read from the report; a
 package adds the aggregated counts of everything below it.
 
-The model is filled by :class:`~pyTooling.Sphinx.Report.Adapter.Coverage.Analyzer`.
+The model is filled by :class:`~pyTooling.Sphinx.Adapter.Coverage.Analyzer`.
 """
 from pathlib               import Path
 from typing                import Generic, Optional as Nullable, TypeVar, Union

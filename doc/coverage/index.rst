@@ -10,5 +10,5 @@ Code Coverage Report
 
 Code coverage report generated with :gh:`pytest <pytest-dev/pytest>`,
 :gh:`Coverage.py <nedbat/coveragepy/tree/master>` and visualized by
-:ref:`pyTooling.Sphinx.Report <DIR/CodeCoverage>`.
+:ref:`pyTooling.Sphinx <DIR/CodeCoverage>`.
 
