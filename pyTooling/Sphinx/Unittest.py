@@ -633,7 +633,11 @@ class UnittestSummary(BaseDirective):
 		"""
 		Read the configured report and return it as a table, on landscape pages in LaTeX.
 
-		:returns: A :class:`~pyTooling.Sphinx.Node.Landscape` container holding the table, or the error message.
+		A report with pages adds a hidden table of contents of its top-level testsuites, so the pages are below this
+		document in the navigation.
+
+		:returns: A :class:`~pyTooling.Sphinx.Node.Landscape` container holding the table, or the error message; then
+		          the table of contents, if the report has pages.
 		"""
 		container = Landscape()
 
@@ -660,4 +664,9 @@ class UnittestSummary(BaseDirective):
 			)
 			return self._internalError(container, __name__, message, ex)
 
-		return [container]
+		from pyTooling.Sphinx.UnittestPages import UnittestReportPages
+
+		if (pages := UnittestReportPages.GetPages(self._reportID)) is None:
+			return [container]
+
+		return [container, pages.TableOfContents(self.env.docname)]

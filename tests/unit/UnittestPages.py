@@ -37,6 +37,8 @@ from pathlib                       import Path
 from textwrap                      import dedent
 from typing                        import Any
 
+from docutils                      import nodes
+from sphinx                        import addnodes
 from sphinx.testing.util           import SphinxTestApp
 
 from pyTooling.Sphinx              import ReportDomain, UnittestEntry
@@ -197,6 +199,27 @@ class Pages(PagesProject):
 		self.assertIn("orphan", app.env.metadata[f"{JUNIT_PAGES}/Division/test_ByZero"])
 		self.assertEqual("test_ByZero", app.env.titles[f"{JUNIT_PAGES}/Division/test_ByZero"].astext())
 
+	@testcase("Navigation below the summary")
+	def NavigationBelowSummary(self) -> None:
+		"""
+		The summary directive lists the report's top-level testsuites in a hidden table of contents, so the pages are
+		below its document in the navigation; a page's own sections aren't listed there.
+
+		Builds the project with the JUnit report's summary and checks the environment's table of contents.
+		"""
+		app = self._buildPages("Index\n#####\n\n.. report:unittest-summary::\n   :reportid: ut\n")
+
+		self.assertEqual([], self._warningLines())
+		self.assertEqual(["unittests/ut/pytest"], app.env.toctree_includes["index"])
+		self.assertNotIn("unittests/pyt/tests", app.env.toctree_includes["index"])
+		for docName in (f"{JUNIT_PAGES}/Division", f"{JUNIT_PAGES}/Division/test_ByZero"):
+			with self.subTest(docName=docName):
+				toc = app.env.tocs[docName]
+				self.assertEqual(1, len(list(toc.findall(nodes.reference))))
+				self.assertNotIn("Summary", toc.astext())
+
+		self.assertEqual(1, len(list(app.env.tocs[f"{JUNIT_PAGES}/Division"].findall(addnodes.toctree))))
+
 	@testcase("pyTooling report")
 	def pyToolingReport(self) -> None:
 		"""
@@ -297,7 +320,8 @@ class Pages(PagesProject):
 	@testcase("LaTeX")
 	def LaTeX(self) -> None:
 		"""
-		A LaTeX build succeeds; it doesn't write the pages, so a reference to one shows the name without a link.
+		A LaTeX build writes the pages below the summary, as they are in its table of contents, so a reference to one
+		is a link.
 
 		Builds the summary and a role as LaTeX.
 		"""
@@ -307,7 +331,10 @@ class Pages(PagesProject):
 
 		self.assertEqual([], self._warningLines())
 		latex = next((self._path / "build" / "latex").glob("*.tex")).read_text(encoding="utf-8")
-		self.assertIn("See \\DUrole{xref}{\\DUrole{report}{\\DUrole{report-tc}{test\\_ByZero}}}.", latex)
+		self.assertIn("\\label{\\detokenize{unittests/ut/pytest/tests/unit/Arithmetic/Division/test_ByZero::doc}}", latex)
+		self.assertIn(
+			"See {\\hyperref[\\detokenize{unittests/ut/pytest/tests/unit/Arithmetic/Division/test_ByZero::doc}]", latex
+		)
 
 
 @testsuite("Roles ':tc:' and ':ts:'")

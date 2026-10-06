@@ -45,8 +45,10 @@ The pages are built as docutils node trees from the report :class:`UnittestSumma
 they were read from a file: their names are registered when the builder is initialized and again before the
 documents are read - :meth:`sphinx.project.Project.discover` forgets them in between -, and the file Sphinx sees as
 their source is the report, so a changed report rebuilds them. A page carries the metadata ``:orphan:``; a testsuite's
-page links its testsuites and testcases in a hidden table of contents. Every testsuite and testcase with a page is an
-object of domain ``report``, referred to by the roles ``:ts:`` and ``:tc:``.
+page links its testsuites and testcases in a hidden table of contents, as the directive ``report:unittest-summary``
+links the top-level testsuites, so the pages are in the navigation below the summary's document. A page's sections
+aren't listed there. Every testsuite and testcase with a page is an object of domain ``report``, referred to by the
+roles ``:ts:`` and ``:tc:``.
 
 .. seealso::
 
@@ -316,9 +318,47 @@ class UnittestReportPages(metaclass=ExtendedType, slots=True):
 				env.prepare_settings("")
 				env.ref_context.clear()
 
+			# the navigation shows a page's testsuites and testcases, not its sections
+			pageEntry = env.tocs[docName][0]
+			for entries in pageEntry[1:]:
+				entries[:] = [entry for entry in entries if isinstance(entry, addnodes.toctree)]
+				if len(entries) == 0:
+					pageEntry.remove(entries)
+
 			env.all_docs[docName] = time_ns() // 1_000
 			domain.AddUnittestEntry(roleName, self._entries[id(entity)])
 			sphinxApplication.builder.write_doctree(docName, document)
+
+	def TableOfContents(self, docName: str) -> nodes.compound:
+		"""
+		Create the hidden table of contents of the report's top-level testsuites, for the document showing its summary.
+
+		The pages are then below that document in the navigation.
+
+		:param docName: Name of the document showing the report's summary.
+		:returns:       The table of contents.
+		"""
+		children = [
+			entry.docName
+			for testsuite in sorted(self._summary._testsuites.values(), key=lambda item: item._name)
+			if (entry := self.Entry(testsuite)) is not None
+		]
+		return self._TableOfContents(docName, children)
+
+	@staticmethod
+	def _TableOfContents(docName: str, children: list[str]) -> nodes.compound:
+		"""
+		Create a hidden table of contents listing pages.
+
+		:param docName:  Name of the document holding the table of contents.
+		:param children: Names of the listed pages' documents.
+		:returns:        The table of contents.
+		"""
+		toctree = addnodes.toctree(
+			parent=docName, entries=[(None, child) for child in children], includefiles=children, maxdepth=1,
+			caption=None, glob=False, hidden=True, includehidden=False, titlesonly=True, numbered=0
+		)
+		return nodes.compound("", toctree, classes=["toctree-wrapper"])
 
 	def _Reference(self, roleName: str, entity: Testsuite | Testcase, docName: str) -> nodes.Node:
 		"""
@@ -508,10 +548,6 @@ class UnittestReportPages(metaclass=ExtendedType, slots=True):
 
 		if len(children) > 0:
 			# body elements precede a section's subsections, so the hidden table of contents goes before 'Summary'
-			toctree = addnodes.toctree(
-				parent=docName, entries=[(None, child) for child in children], includefiles=children, maxdepth=1,
-				caption=None, glob=False, hidden=True, includehidden=False, titlesonly=True, numbered=0
-			)
-			page.insert(page.index(summarySection), nodes.compound("", toctree, classes=["toctree-wrapper"]))
+			page.insert(page.index(summarySection), self._TableOfContents(docName, children))
 
 		return page

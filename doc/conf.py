@@ -89,7 +89,7 @@ html_theme = "sphinx_rtd_theme"
 html_theme_options = {
 	"logo_only": True,
 	"vcs_pageview_mode": 'blob',
-	"navigation_depth": 5,
+	"navigation_depth": -1,
 }
 html_css_files = [
 	'css/override.css',

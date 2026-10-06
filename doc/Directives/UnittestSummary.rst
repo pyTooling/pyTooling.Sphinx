@@ -149,13 +149,24 @@ The title, summary and description of a :ref:`pyTooling report <DIR/UnittestSumm
 name, as plain text: they are doc-strings, which aren't necessarily ReST of this documentation.
 
 The :rst:dir:`report:unittest-summary` table links every testsuite and testcase to its page; that is the entry point.
-A testsuite's page lists its children in a hidden table of contents, so the navigation works below it. The pages are
-:ref:`orphans <sphinx:metadata>`: they aren't in a table of contents of a written document, and Sphinx doesn't warn
-about it.
+The directive lists the report's top-level testsuites in a hidden table of contents, and a testsuite's page lists its
+testsuites and testcases, so the pages are below the summary's document in the navigation - in the section holding
+the directive. A page's own sections - *Summary*, *Testcases*, ... - aren't listed there. A report is best shown on a
+page of its own: a title, an introduction and the directive.
+
+.. hint::
+
+   A testcase is as many levels below the summary's document as the report nests testsuites - e.g. seven for
+   ``pytest/tests/unit/Arithmetic/Division/test_ByZero``. A theme limits how deep its navigation goes, e.g. the
+   option ``navigation_depth`` of the *Read the Docs* theme (default 4; ``-1`` = unlimited). ``pyedaa-reports``
+   removes levels like ``pytest/tests/unit`` from a JUnit report with ``--pytest=reduce-depth:pytest.tests.unit``.
+
+The pages are :ref:`orphans <sphinx:metadata>`, so a report with pages, but without a summary directive, causes no
+warnings; its pages are reached by the roles only.
 
 Sphinx regards the report file as the source of its pages, so a changed report regenerates its pages. As the pages
-aren't part of the LaTeX document's table of contents, LaTeX doesn't write them; a reference to a page shows the name
-without a link there.
+are in the table of contents, LaTeX writes them too - below the summary's section, the deepest levels as
+paragraphs.
 
 .. hint::
 
