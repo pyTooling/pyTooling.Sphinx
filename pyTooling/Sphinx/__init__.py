@@ -116,7 +116,7 @@ from enum                    import Enum, Flag
 from hashlib                 import md5
 from pathlib                 import Path
 from re                      import match as re_match
-from typing                  import Any, Optional as Nullable, TypeVar
+from typing                  import Any, Iterable, Optional as Nullable, TypeVar
 
 from docutils                import nodes
 from sphinx.addnodes         import pending_xref
@@ -576,6 +576,17 @@ class ReportDomain(Domain):
 
 	name =  "report"  #: Name of the domain, the prefix of its directives.
 	label = "rpt"     #: Name of the domain, as displayed.
+
+	def merge_domaindata(self, docnames: Iterable[str], otherdata: dict[str, Any]) -> None:
+		"""
+		Take over what a parallel reader collected for its documents: nothing, as the domain holds no data.
+
+		Sphinx calls it for every domain of a parallel build (``-j``); the base-class' implementation raises
+		:exc:`NotImplementedError`.
+
+		:param docnames:  Names of the documents the other reader read.
+		:param otherdata: The other reader's domain data.
+		"""
 
 	def resolve_xref(
 		self,

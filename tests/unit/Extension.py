@@ -76,6 +76,7 @@ class Project(Testcase):
 		index: str,
 		builder: str = "html",
 		documents: Nullable[dict[str, str]] = None,
+		parallel: int = 0,
 		**config: Any
 	) -> "SphinxTestApp":
 		"""
@@ -84,6 +85,7 @@ class Project(Testcase):
 		:param index:     Content of the document ``index``.
 		:param builder:   Optional, name of the builder. Default: ``"html"``.
 		:param documents: Optional, more documents, keyed by name; ``index`` lists them in a hidden toctree.
+		:param parallel:  Optional, number of processes reading in parallel; ``0`` reads serially.
 		:param config:    Configuration values overriding the defaults.
 		:returns:         The Sphinx application after the build.
 		"""
@@ -99,7 +101,7 @@ class Project(Testcase):
 		self._warnings = StringIO()
 		app = SphinxTestApp(
 			builder, source, self._path / "build", freshenv=True, confoverrides=config, status=StringIO(),
-			warning=self._warnings
+			warning=self._warnings, parallel=parallel
 		)
 		try:
 			app.build()
@@ -234,6 +236,24 @@ class Rendering(Project):
 		self.assertIn('class="colorred"', html)
 		self.assertIn("added", html)
 		self.assertIn("print", html)
+
+	@testcase("Parallel build")
+	def Parallel(self) -> None:
+		"""
+		A project builds with parallel readers, which makes Sphinx merge every domain's data.
+
+		Builds seven documents with two processes - Sphinx reads in parallel from six documents on - and checks there is
+		no warning, and the documents were built.
+		"""
+		documents = {f"doc{number}": f"Document {number}\n##########\n\n:acs:`FSM`\n" for number in range(6)}
+		self._build(
+			"Index\n#####\n\n.. abbreviations::\n\n   FSM\n      :long: finite-state machine\n",
+			documents=documents,
+			parallel=2
+		)
+
+		self.assertEqual([], self._warningLines())
+		self.assertIn('href="index.html#abbreviation-FSM"', self._html("doc5"))
 
 	@testcase("Stylesheet linked")
 	def Stylesheet(self) -> None:
