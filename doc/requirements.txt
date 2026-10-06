@@ -13,4 +13,7 @@ autoapi >= 2.0.1
 sphinx_design ~= 0.7.0
 sphinx-copybutton >= 0.5.2
 sphinx_autodoc_typehints ~= 3.13
-sphinx_reports ~= 0.11.0
+
+# Domain 'report': extra 'reports'
+pyEDAA.Reports @ git+https://github.com/edaa-org/pyEDAA.Reports.git@dev
+docstr_coverage ~= 2.3

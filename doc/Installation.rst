@@ -100,6 +100,27 @@ just all (``all``) dependencies.
                # Install with all developer dependencies
                pip install pyTooling.Sphinx[all]
 
+Reading a report with the directives of domain ``report`` needs the :ref:`extra reports <DIR/UnittestSummary/Setup>`
+(see :ref:`DEP/reports`):
+
+.. tab-set::
+
+   .. tab-item:: Linux/macOS
+      :sync: Linux
+
+      .. code-block:: bash
+
+         # Install with the report domain's dependencies
+         pip3 install pyTooling.Sphinx[reports]
+
+   .. tab-item:: Windows
+      :sync: Windows
+
+      .. code-block:: powershell
+
+         # Install with the report domain's dependencies
+         pip install pyTooling.Sphinx[reports]
+
 
 .. _INSTALL/pip/update:
 

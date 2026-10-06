@@ -31,9 +31,9 @@
 """
 The docutils nodes pyTooling.Sphinx adds, and what registering one with Sphinx takes.
 
-A node is a class here; the functions writing it are in a module per output format - :mod:`~pyTooling.Sphinx.HTML` -
-and :data:`~pyTooling.Sphinx.NODES` pairs both for :func:`~pyTooling.Sphinx.setup`. A node without visitors for a
-format is written by the visitors of its base-class there.
+A node is a class here; the functions writing it are in a module per output format - :mod:`~pyTooling.Sphinx.HTML`
+and :mod:`~pyTooling.Sphinx.LaTeX` - and :data:`~pyTooling.Sphinx.NODES` pairs both for :func:`~pyTooling.Sphinx.setup`.
+A node without visitors for a format is written by the visitors of its base-class there.
 """
 from typing               import Any, Callable, NotRequired, TypedDict
 
@@ -89,4 +89,14 @@ class Abbreviation(nodes.abbreviation):
 	written with; ``summary`` holds the summary of its description the box shows, or an empty string. The attribute
 	``explanation`` of the base-class is left unset: LaTeX and text would append it in parentheses, and an abbreviation
 	is written in the form its role asks for.
+	"""
+
+
+@export
+class Landscape(nodes.container):
+	"""
+	A container whose content LaTeX puts on landscape pages, e.g. a wide table; HTML writes the content only.
+
+	LaTeX's ``landscape`` environment needs package ``pdflscape``, which :func:`~pyTooling.Sphinx.setup` requests. The
+	report tables of domain ``report`` are what this node holds.
 	"""

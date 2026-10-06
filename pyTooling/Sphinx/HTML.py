@@ -37,10 +37,10 @@ Each node has a ``visit_*`` and a ``depart_*`` function and a ``translate*`` pai
 from sphinx.writers.html5  import HTML5Translator
 
 from pyTooling.Decorators  import export
-from pyTooling.Sphinx.Node import Abbreviation, TreeItem, TreeLabel, visitFunc, departFunc
+from pyTooling.Sphinx.Node import Abbreviation, Landscape, TreeItem, TreeLabel, visitFunc, departFunc
 
 
-__all__ = ["translateTreeItem", "translateTreeLabel", "translateAbbreviation"]
+__all__ = ["translateLandscape", "translateTreeItem", "translateTreeLabel", "translateAbbreviation"]
 
 
 @export
@@ -108,6 +108,29 @@ def depart_TreeLabel(translator: HTML5Translator, node: TreeLabel) -> None:
 	if node["expandedIcon"] is not None:
 		translator.body.append("</summary>")
 
+
+@export
+def visit_Landscape(translator: HTML5Translator, node: Landscape) -> None:
+	"""
+	Open a landscape container in HTML, which writes nothing: a web page has no page orientation.
+
+	:param translator: The HTML translator writing the page.
+	:param node:       The landscape container.
+	"""
+
+
+@export
+def depart_Landscape(translator: HTML5Translator, node: Landscape) -> None:
+	"""
+	Close a landscape container in HTML, which writes nothing.
+
+	:param translator: The HTML translator writing the page.
+	:param node:       The landscape container.
+	"""
+
+
+translateLandscape: tuple[visitFunc, departFunc] = (visit_Landscape, depart_Landscape)
+"""Visit and depart function writing a :class:`~pyTooling.Sphinx.Node.Landscape` in HTML."""
 
 translateTreeItem: tuple[visitFunc, departFunc] = (visit_TreeItem, depart_TreeItem)
 """Visit and depart function writing a :class:`~pyTooling.Sphinx.Node.TreeItem` in HTML."""

@@ -15,7 +15,7 @@
 
 **pyTooling.Sphinx** adds roles and directives to [Sphinx](https://www.sphinx-doc.org/): styled inline text and line
 breaks working in HTML and LaTeX, condensed class interfaces, dependency tables generated from requirements files and
-the package index, badges, schema graphs, trees, and lists of abbreviations.
+the package index, badges, schema graphs, trees, lists of abbreviations, and unit test and coverage reports.
 
 Other packages build on it: [pyTooling.GitHub](https://GitHub.com/pyTooling/pyTooling.GitHub) contributes the domain
 `ghactions` for GitHub Actions workflows, enabled as the extension `pyTooling.GitHub.Sphinx`.
@@ -35,6 +35,14 @@ extensions = [
 
 It links its stylesheet into every HTML page, appends its substitutions to `rst_prolog`, and sets up
 `sphinx.ext.graphviz` for the schema graphs.
+
+The domain `report` - unit test, code coverage and documentation coverage reports as tables - reads the reports with
+[pyEDAA.Reports](https://GitHub.com/edaa-org/pyEDAA.Reports), an optional dependency. A project using a report installs
+it with the extra `reports`:
+
+```bash
+pip install pyTooling.Sphinx[reports]
+```
 
 
 ## Roles and Directives
@@ -58,6 +66,15 @@ It links its stylesheet into every HTML page, appends its substitutions to `rst_
 * [abbreviations][Directives/Abbreviations] - A list of abbreviations, referred to by `:acs:`, `:acl:`, `:acf:` and
   their plurals; in HTML, a short form explains itself on hover.
 
+### Directives of domain `report` (extra `reports`)
+
+* [report:unittest-summary][Directives/UnittestSummary] - A unit test report in Any JUnit XML format, per testsuite and
+  testcase.
+* [report:code-coverage][Directives/CodeCoverage] - A Coverage.py report, per package and module, and a legend of its
+  coverage levels.
+* [report:doc-coverage][Directives/DocCoverage] - A package's documentation coverage, per package and module, and a
+  legend of its coverage levels.
+
 [Roles/Style]: https://pyTooling.github.io/pyTooling.Sphinx/Roles/Style.html
 [Roles/PythonCode]: https://pyTooling.github.io/pyTooling.Sphinx/Roles/PythonCode.html
 [Roles/Breaks]: https://pyTooling.github.io/pyTooling.Sphinx/Roles/Breaks.html
@@ -68,6 +85,9 @@ It links its stylesheet into every HTML page, appends its substitutions to `rst_
 [Directives/Shields]: https://pyTooling.github.io/pyTooling.Sphinx/Directives/Shields.html
 [Directives/Tree]: https://pyTooling.github.io/pyTooling.Sphinx/Directives/Tree.html
 [Directives/Abbreviations]: https://pyTooling.github.io/pyTooling.Sphinx/Directives/Abbreviations.html
+[Directives/UnittestSummary]: https://pyTooling.github.io/pyTooling.Sphinx/Directives/UnittestSummary.html
+[Directives/CodeCoverage]: https://pyTooling.github.io/pyTooling.Sphinx/Directives/CodeCoverage.html
+[Directives/DocCoverage]: https://pyTooling.github.io/pyTooling.Sphinx/Directives/DocCoverage.html
 
 
 ## Consumers

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<testsuites name="pytest tests" tests="4" failures="1" errors="0" skipped="1" time="0.250"
+            timestamp="2026-01-01T00:00:00.000000">
+  <testsuite name="pytest" tests="4" failures="1" errors="0" skipped="1" time="0.250"
+             timestamp="2026-01-01T00:00:00.000000" hostname="localhost">
+    <testcase classname="tests.unit.Arithmetic.Addition" name="test_Positive" time="0.050"/>
+    <testcase classname="tests.unit.Arithmetic.Addition" name="test_Negative" time="0.060"/>
+    <testcase classname="tests.unit.Arithmetic.Division" name="test_ByZero" time="0.070">
+      <failure message="AssertionError: ZeroDivisionError not raised">Traceback (most recent call last): ...</failure>
+    </testcase>
+    <testcase classname="tests.unit.Arithmetic.Division" name="test_Fraction" time="0.000">
+      <skipped type="pytest.skip" message="not yet implemented"/>
+    </testcase>
+  </testsuite>
+</testsuites>

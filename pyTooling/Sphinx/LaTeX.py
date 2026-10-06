@@ -29,10 +29,49 @@
 # ==================================================================================================================== #
 #
 """
-Resources shipped for :mod:`pyTooling.Sphinx`.
+Visitors writing pyTooling.Sphinx's nodes in LaTeX.
 
-Stylesheets:
-
-* :file:`pyTooling.css` - the styles the roles in :mod:`~pyTooling.Sphinx.Roles`, the dependency tables, the
-  trees and the report tables of domain ``report`` need.
+Each node has a ``visit_*`` and a ``depart_*`` function and a ``translate*`` pair of both, which
+:data:`~pyTooling.Sphinx.NODES` registers. A node without visitors here is written by the visitors of its base-class.
 """
+from textwrap              import dedent
+
+from sphinx.writers.latex  import LaTeXTranslator
+
+from pyTooling.Decorators  import export
+from pyTooling.Sphinx.Node import Landscape, visitFunc, departFunc
+
+
+__all__ = ["translateLandscape"]
+
+
+@export
+def visit_Landscape(translator: LaTeXTranslator, node: Landscape) -> None:
+	"""
+	Open a landscape container in LaTeX: a ``landscape`` environment, which starts a new page in landscape orientation.
+
+	:param translator: The LaTeX translator writing the document.
+	:param node:       The landscape container.
+	"""
+	translator.body.append(dedent("""
+		\\begin{landscape}
+		""")
+	)
+
+
+@export
+def depart_Landscape(translator: LaTeXTranslator, node: Landscape) -> None:
+	"""
+	Close a landscape container in LaTeX: the end of the ``landscape`` environment, which returns to portrait pages.
+
+	:param translator: The LaTeX translator writing the document.
+	:param node:       The landscape container.
+	"""
+	translator.body.append(dedent("""
+		\\end{landscape}
+		""")
+	)
+
+
+translateLandscape: tuple[visitFunc, departFunc] = (visit_Landscape, depart_Landscape)
+"""Visit and depart function writing a :class:`~pyTooling.Sphinx.Node.Landscape` in LaTeX."""

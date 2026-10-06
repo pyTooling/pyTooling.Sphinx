@@ -6,3 +6,7 @@ Coverage ~= 7.15
 # Test Runner
 pytest ~= 9.1
 pytest-cov ~= 7.1
+
+# Report domain: extra 'reports'
+pyEDAA.Reports @ git+https://github.com/edaa-org/pyEDAA.Reports.git@dev
+docstr_coverage ~= 2.3
