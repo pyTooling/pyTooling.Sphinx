@@ -58,6 +58,20 @@ class ShieldOptions(Testcase):
 		self.assertEqual("pyTooling", settings["GitHubOrganization"])
 		self.assertEqual("pyVHDLModel", settings["GitHubRepository"])
 
+	@testcase("GitHub slug with dashes and underscores")
+	def GitHub_Escaped(self) -> None:
+		"""
+		The 'github' badge writes organization and repository as a static badge's label and message.
+
+		Formats the badge of 'edaa-org/my_repo' and checks that '-' and '_' are doubled, as shields.io reads a single
+		one as a separator or a space.
+		"""
+		settings = Shields._Settings({"github": "edaa-org/my_repo"})
+
+		self.assertEqual("edaa-org", settings["GitHubOrganization"])
+		self.assertIn("/badge/edaa--org-my__repo-63bf7f?", SHIELDS["github"].ImageURL(settings, False))
+		self.assertEqual("https://GitHub.com/edaa-org/my_repo", SHIELDS["github"].TargetURL(settings))
+
 	@testcase("Malformed GitHub slug")
 	def GitHub_Malformed(self) -> None:
 		"""
