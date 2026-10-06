@@ -85,7 +85,8 @@ class Abbreviation(nodes.abbreviation):
 	"""
 	A reference to an abbreviation in its short form, which HTML draws with a box explaining it on hover.
 
-	Attributes ``short`` and ``long`` hold the forms the box shows - the abbreviation's, even if the node's text is a
-	title the role was written with. The attribute ``explanation`` of the base-class is left unset:
-	LaTeX and text would append it in parentheses, and an abbreviation is written in the form its role asks for.
+	Attributes ``short`` and ``long`` hold the abbreviation's forms, even if the node's text is a title the role was
+	written with; ``summary`` holds the summary of its description the box shows, or an empty string. The attribute
+	``explanation`` of the base-class is left unset: LaTeX and text would append it in parentheses, and an abbreviation
+	is written in the form its role asks for.
 	"""

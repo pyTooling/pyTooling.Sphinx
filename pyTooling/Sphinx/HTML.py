@@ -130,15 +130,20 @@ def visit_Abbreviation(translator: HTML5Translator, node: Abbreviation) -> None:
 @export
 def depart_Abbreviation(translator: HTML5Translator, node: Abbreviation) -> None:
 	"""
-	Close an abbreviation in HTML, behind the box the stylesheet shows on hover: the short and the long form.
+	Close an abbreviation in HTML, behind the box the stylesheet shows on hover.
+
+	The box shows the long form and, if the node carries one, the summary of the abbreviation's description. The short
+	form is shown in front of the long form only if a title replaced it in the text.
 
 	:param translator: The HTML translator writing the page.
 	:param node:       The abbreviation.
 	"""
-	short = translator.encode(node["short"])
 	long = translator.encode(node["long"])
+	short = "" if node.astext() == node["short"] else f'<strong>{translator.encode(node["short"])}</strong> '
+	summary = node.get("summary", "")
+	summary = f'<span class="pytooling-abbreviation-summary">{translator.encode(summary)}</span>' if summary != "" else ""
 	translator.body.append(
-		f'<span class="pytooling-abbreviation-box" role="tooltip"><strong>{short}</strong> {long}</span></abbr>'
+		f'<span class="pytooling-abbreviation-box" role="tooltip">{short}{long}{summary}</span></abbr>'
 	)
 
 

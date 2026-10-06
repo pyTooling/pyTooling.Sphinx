@@ -13,7 +13,7 @@ abbreviations
       abbreviation from any document, in the form they name - as LaTeX' ``acro`` package does.
 
       Every reference links to the abbreviation in the list. In HTML, a short form shows its long form in a box when
-      the mouse is over it.
+      the mouse is over it - and, if configured, the summary of its description.
 
    .. grid-item::
       :columns: 6
@@ -134,6 +134,32 @@ Options
       Additional CSS classes on the list.
 
 
+.. _DIR/Abbreviations/Configuration:
+
+Configuration
+*************
+
+.. list-table:: Configuration values in :file:`conf.py`
+   :header-rows: 1
+   :widths: 40 15 45
+
+   * - Name
+     - Default
+     - Effect
+   * - ``pyTooling_Abbreviation_ShowSummary``
+     - ``False``
+     - If ``True``, the box in HTML also shows the **summary** of an abbreviation's description: its first paragraph,
+       as plain text. An abbreviation without a description shows its long form only.
+
+The summary is the description's text up to the first blank line - the same split pyTooling applies to a doc-string
+(:func:`pyTooling.Documentation.splitDocString`).
+
+.. code-block:: Python
+
+   # doc/conf.py
+   pyTooling_Abbreviation_ShowSummary = True
+
+
 .. _DIR/Abbreviations/Styling:
 
 Styling
@@ -174,6 +200,12 @@ HTML and other formats
 HTML writes a short form as an ``<abbr>`` element holding the box, which the stylesheet shows while the mouse is over
 the abbreviation or its link has the keyboard focus - without JavaScript. Every other format, e.g. LaTeX, writes the
 form with a hyperlink to the list.
+
+The box shows the long form, below it the summary if configured. The abbreviation itself is shown in front of the
+long form only if a title replaced it in the text, e.g. ``:acs:`FSM-based <FSM>```: otherwise it is the hovered text.
+
+The box is part of the link: clicking anywhere in it opens the abbreviation's entry in the list. The summary is plain
+text, so a reference in a description - e.g. to another abbreviation - is shown as its text, not as a link.
 
 
 .. _DIR/Abbreviations/Errors:

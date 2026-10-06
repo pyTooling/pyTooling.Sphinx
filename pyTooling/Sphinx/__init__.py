@@ -505,6 +505,7 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	:param sphinx: The Sphinx application to register with.
 	:returns:      The extension's metadata.
 	"""
+	from pyTooling.Sphinx.Abbreviation    import CONFIG_PREFIX as ABBREVIATION_PREFIX
 	from pyTooling.Sphinx.Abbreviation    import ROLES as ABBREVIATION_ROLES, AbbreviationDomain, AbbreviationRole
 	from pyTooling.Sphinx.Abbreviation    import Abbreviations
 	from pyTooling.Sphinx.CondensedClass  import CondensedClass
@@ -545,6 +546,9 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 
 	for configName, (default, rebuild, types) in DependencyTable.configValues.items():
 		sphinx.add_config_value(f"{CONFIG_PREFIX}_{configName}", default, rebuild, types)
+
+	for configName, (default, rebuild, types) in Abbreviations.configValues.items():
+		sphinx.add_config_value(f"{ABBREVIATION_PREFIX}_{configName}", default, rebuild, types)
 
 	sphinx.connect("config-inited", extendProlog)
 	# after the configuration values above are registered, and before any document is read - a requirements file

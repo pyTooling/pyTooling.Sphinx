@@ -61,26 +61,30 @@ short form shows its long form in a box on hover.
    :mod:`pyTooling.Sphinx`
       |rarr| The extension this belongs to, and what else it brings.
 """
-from typing                import Any, Iterable, Iterator, NamedTuple, Optional as Nullable
+from typing                  import Any, ClassVar, Iterable, Iterator, Literal, NamedTuple, Optional as Nullable
 
-from docutils              import nodes
-from sphinx.addnodes       import pending_xref
-from sphinx.builders       import Builder
-from sphinx.domains        import Domain, ObjType
-from sphinx.environment    import BuildEnvironment
-from sphinx.roles          import XRefRole
-from sphinx.util.logging   import getLogger
-from sphinx.util.nodes     import make_id, make_refnode
+from docutils                import nodes
+from sphinx.addnodes         import pending_xref
+from sphinx.builders         import Builder
+from sphinx.domains          import Domain, ObjType
+from sphinx.environment      import BuildEnvironment
+from sphinx.roles            import XRefRole
+from sphinx.util.logging     import getLogger
+from sphinx.util.nodes       import make_id, make_refnode
 
-from pyTooling.Decorators  import export, readonly
-from pyTooling.Sphinx      import BaseDirective, SphinxExtensionError, strip
-from pyTooling.Sphinx.Node import Abbreviation
+from pyTooling.Decorators    import export, readonly
+from pyTooling.Documentation import splitDocString
+from pyTooling.Sphinx        import BaseDirective, SphinxExtensionError, strip
+from pyTooling.Sphinx.Node   import Abbreviation
 
 
-__all__ = ["DOMAIN_NAME", "ROLES", "FIELDS"]
+__all__ = ["DOMAIN_NAME", "CONFIG_PREFIX", "ROLES", "FIELDS"]
 
 #: Name of the domain collecting the abbreviations of all documents.
 DOMAIN_NAME = "abbreviation"
+
+#: Prefix of the configuration values the directive adds to :file:`conf.py`.
+CONFIG_PREFIX = "pyTooling_Abbreviation"
 
 #: The roles, mapping a role's name to the form it writes and whether it is the plural.
 ROLES = {
@@ -106,12 +110,13 @@ FIELDS = {
 class AbbreviationEntry(NamedTuple):
 	"""An abbreviation of the list: where it is written, and its forms as plain text."""
 
-	docName:    str  #: Name of the document holding the list.
-	anchor:     str  #: Identifier of the abbreviation's entry in that document.
-	short:      str  #: The abbreviation itself, e.g. ``FSM``.
-	long:       str  #: The long form, e.g. ``finite-state machine``.
-	plural:     str  #: The plural of the short form, e.g. ``FSMs``.
-	longPlural: str  #: The plural of the long form, e.g. ``finite-state machines``.
+	docName:    str       #: Name of the document holding the list.
+	anchor:     str       #: Identifier of the abbreviation's entry in that document.
+	short:      str       #: The abbreviation itself, e.g. ``FSM``.
+	long:       str       #: The long form, e.g. ``finite-state machine``.
+	plural:     str       #: The plural of the short form, e.g. ``FSMs``.
+	longPlural: str       #: The plural of the long form, e.g. ``finite-state machines``.
+	summary:    str = ""  #: The description's first paragraph as plain text; empty without a description.
 
 	def Form(self, form: str, plural: bool) -> str:
 		"""
@@ -236,7 +241,8 @@ class AbbreviationDomain(Domain):
 		Resolve a reference to an abbreviation into a link to its entry, showing the form the role names.
 
 		A short form is an :class:`~pyTooling.Sphinx.Node.Abbreviation`, so HTML explains it on hover; a full form holds
-		one. A title written in the role replaces the form's text; the box still explains the abbreviation.
+		one. A title written in the role replaces the form's text; the box still explains the abbreviation. With
+		``pyTooling_Abbreviation_ShowSummary`` set, the box also shows the summary of the abbreviation's description.
 
 		:param env:         The build environment.
 		:param fromdocname: Name of the document holding the reference.
@@ -252,17 +258,20 @@ class AbbreviationDomain(Domain):
 
 		form, plural = ROLES[typ]
 		short, long = entry.Form("short", plural), entry.Form("long", plural)
+		summary = entry.summary if env.config[f"{CONFIG_PREFIX}_ShowSummary"] else ""
 		if node.get("refexplicit", False):
 			text = contnode.astext()
 			content: list[nodes.Node] = [
-				Abbreviation(text, text, short=short, long=long) if form == "short" else nodes.Text(text)
+				Abbreviation(text, text, short=short, long=long, summary=summary) if form == "short" else nodes.Text(text)
 			]
 		elif form == "short":
-			content = [Abbreviation(short, short, short=short, long=long)]
+			content = [Abbreviation(short, short, short=short, long=long, summary=summary)]
 		elif form == "long":
 			content = [nodes.Text(long)]
 		else:
-			content = [nodes.Text(f"{long} ("), Abbreviation(short, short, short=short, long=long), nodes.Text(")")]
+			content = [
+				nodes.Text(f"{long} ("), Abbreviation(short, short, short=short, long=long, summary=summary), nodes.Text(")")
+			]
 
 		inline = nodes.inline("", "", *content, classes=contnode["classes"])
 		return make_refnode(builder, fromdocname, entry.docName, entry.anchor, inline)
@@ -313,6 +322,15 @@ class Abbreviations(BaseDirective):
 
 	directiveName: str = "abbreviations"  #: Name the directive is invoked by.
 
+	#: The configuration values this directive adds to :file:`conf.py`, as ``name: (default, rebuild, types)``. Each is
+	#: registered with :data:`CONFIG_PREFIX` as prefix, e.g. ``pyTooling_Abbreviation_ShowSummary``.
+	#:
+	#: ``ShowSummary`` adds the summary of an abbreviation's description - its first paragraph - to the box HTML shows
+	#: on hover.
+	configValues: ClassVar[dict[str, tuple[Any, Literal["env"], Any]]] = {
+		"ShowSummary": (False, "env", bool),
+	}
+
 	has_content =               True   #: A boolean; ``True`` if content is allowed.
 	required_arguments =        0      #: Number of required directive arguments.
 	optional_arguments =        0      #: Number of optional arguments after the required ones.
@@ -353,7 +371,8 @@ class Abbreviations(BaseDirective):
 				short=short,
 				long=long.astext(),
 				plural=f"{short}s" if plural is None else plural.astext(),
-				longPlural=f"{long.astext()}s" if longPlural is None else longPlural.astext()
+				longPlural=f"{long.astext()}s" if longPlural is None else longPlural.astext(),
+				summary=splitDocString("\n\n".join(node.astext() for node in description), maxSummaryLength=0)[0]
 			)
 			domain.Register(entry, item)
 

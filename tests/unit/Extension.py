@@ -347,22 +347,28 @@ class AbbreviationRendering(Project):
 		"      :long:        finite-state machine\n"
 		"      :long-plural: finite-state machines\n\n"
 		"      A machine in one of a finite number of states, see :acs:`HDL`.\n\n"
+		"      Its transitions are drawn as a graph.\n\n"
 		"   HDL\n"
 		"      :long: hardware description language\n"
 	)
 
-	def _abbr(self, short: str, long: str, text: Nullable[str] = None) -> str:
+	def _abbr(self, short: str, long: str, text: Nullable[str] = None, summary: Nullable[str] = None) -> str:
 		"""
 		Return the HTML of a short form with its box.
 
-		:param short: The short form the box shows.
-		:param long:  The long form the box shows.
-		:param text:  Optional, the text shown; the short form by default.
-		:returns:     The ``<abbr>`` element.
+		:param short:   The short form; the box shows it only if a title replaced it.
+		:param long:    The long form the box shows.
+		:param text:    Optional, the title shown instead of the short form.
+		:param summary: Optional, the description's summary the box shows.
+		:returns:       The ``<abbr>`` element.
 		"""
+		box = (
+			("" if text is None else f"<strong>{short}</strong> ") + long +
+			("" if summary is None else f'<span class="pytooling-abbreviation-summary">{summary}</span>')
+		)
 		return (
 			f'<abbr class="pytooling-abbreviation">{short if text is None else text}<span class="pytooling-abbreviation-box" '
-			f'role="tooltip"><strong>{short}</strong> {long}</span></abbr>'
+			f'role="tooltip">{box}</span></abbr>'
 		)
 
 	@testcase("List")
@@ -425,6 +431,27 @@ class AbbreviationRendering(Project):
 		html = self._html("index")
 		self.assertIn(self._abbr("FSM", "finite-state machine", "FSM-based"), html)
 		self.assertIn('abbreviation-acl">hardware description language</span></a>', html)
+
+	@testcase("Summary in the box")
+	def Summary(self) -> None:
+		"""
+		With 'pyTooling_Abbreviation_ShowSummary', the box also shows the summary of the description: its first paragraph.
+
+		Builds ':acs:' of an abbreviation with a two-paragraph description and of one without a description, with the
+		option set, and checks both boxes.
+		"""
+		self._build(
+			f"Index\n#####\n\n:acs:`FSM` and :acs:`HDL`\n\n{self._list}", pyTooling_Abbreviation_ShowSummary=True
+		)
+
+		self.assertEqual([], self._warningLines())
+		html = self._html("index")
+		self.assertIn(
+			self._abbr("FSM", "finite-state machine", summary="A machine in one of a finite number of states, see HDL."),
+			html
+		)
+		self.assertIn(self._abbr("HDL", "hardware description language"), html)
+		self.assertNotIn("Its transitions are drawn as a graph.</span>", html)
 
 	@testcase("Default plurals")
 	def DefaultPlurals(self) -> None:
