@@ -74,7 +74,7 @@ from sphinx.util.nodes       import make_id, make_refnode
 
 from pyTooling.Decorators    import export, readonly
 from pyTooling.Documentation import splitDocString
-from pyTooling.Sphinx        import BaseDirective, SphinxExtensionError, strip
+from pyTooling.Sphinx        import BaseDirective, SphinxExtensionError, strip, stripAndNormalize
 from pyTooling.Sphinx.Node   import Abbreviation
 
 
@@ -317,7 +317,8 @@ class Abbreviations(BaseDirective):
 	The ``abbreviations`` directive: a list of abbreviations, which the roles in :data:`ROLES` refer to.
 
 	The content is a definition list. A term is an abbreviation; its definition starts with a field list stating the
-	forms - :data:`FIELDS` - and may continue with a description. ``:class:`` puts additional CSS classes on the list.
+	forms - :data:`FIELDS` - and may continue with a description. The list is shown in alphabetical order, unless
+	``:ordered:`` is ``no``; ``:class:`` puts additional CSS classes on the list.
 	"""
 
 	directiveName: str = "abbreviations"  #: Name the directive is invoked by.
@@ -339,7 +340,8 @@ class Abbreviations(BaseDirective):
 	# spelling of this override a conflict with one of them
 	#: Mapping of option names to validator functions.
 	option_spec: dict[str, Any] = {  # type: ignore[misc]
-		"class": strip,
+		"class":   strip,
+		"ordered": stripAndNormalize,
 	}
 
 	def run(self) -> list[nodes.Node]:
@@ -352,10 +354,20 @@ class Abbreviations(BaseDirective):
 		self.state.nested_parse(self.content, self.content_offset, container)
 
 		try:
+			ordered = self._ParseBooleanOption("ordered", True)
+		except SphinxExtensionError as ex:
+			return [self.state.document.reporter.error(str(ex), line=self.lineno)]
+
+		try:
 			definitionList = self._DefinitionList(container)
 			entries = [self._ReadItem(item) for item in definitionList.children]
 		except SphinxExtensionError as ex:
 			return [self.state.document.reporter.error(f"{self.directiveName}: {ex}", line=self.lineno)]
+
+		if ordered:
+			items = sorted(zip(definitionList.children, entries), key=lambda pair: pair[1][0].casefold())
+			definitionList[:] = [item for item, _ in items]
+			entries = [entry for _, entry in items]
 
 		domain: AbbreviationDomain = self.env.get_domain(DOMAIN_NAME)  # type: ignore[assignment]
 		for item, (short, forms, description) in zip(definitionList.children, entries):

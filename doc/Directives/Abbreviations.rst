@@ -61,6 +61,8 @@ Content
   glossary; it may refer to other abbreviations.
 * Each abbreviation is listed once in the whole documentation; the list may be on a page of its own. An abbreviation
   gets no entry in the general index.
+* The list is shown in alphabetical order, ignoring case, whatever order the source has. With ``:ordered: no``, it is
+  shown in the source's order.
 
 .. list-table::
    :header-rows: 1
@@ -128,6 +130,10 @@ Options
 .. rst:directive:: .. abbreviations::
 
    Lists abbreviations, each with its forms and an optional description.
+
+   .. rst:directive:option:: ordered: yes | no
+
+      Whether the list is shown in alphabetical order. Default: ``yes``.
 
    .. rst:directive:option:: class: <CSS classes>
 
@@ -223,6 +229,7 @@ A mistake in the list is reported on the page, where the list would be, and in t
    abbreviations: Abbreviation 'FSM' has an unknown field ':short:'.
    abbreviations: Abbreviation 'FSM' states field ':long:' twice.
    abbreviations: Field ':long:' of abbreviation 'FSM' isn't a single paragraph.
+   abbreviations::ordered: 'maybe' not supported for a boolean value (yes/true, no/false).
 
 A reference to an abbreviation that isn't listed, or an abbreviation listed twice, is reported as a warning:
 

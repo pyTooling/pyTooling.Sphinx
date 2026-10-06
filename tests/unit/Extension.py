@@ -494,6 +494,46 @@ class AbbreviationRendering(Project):
 		self.assertIn("{\\sphinxstyleabbreviation{FSM}}", latex)
 		self.assertEqual(1, latex.count("finite\\sphinxhyphen{}state machine"), "Only the list writes the long form.")
 
+	@testcase("Alphabetical order")
+	def Ordered(self) -> None:
+		"""
+		The list is shown in alphabetical order, ignoring case, unless ':ordered:' is 'no'.
+
+		Builds a list written as 'HDL', 'fsm', 'ASIC' with the default and with ':ordered: no', and checks the order of the
+		terms on the page.
+		"""
+		unordered = (
+			"   HDL\n      :long: hardware description language\n\n"
+			"   fsm\n      :long: finite-state machine\n\n"
+			"   ASIC\n      :long: application-specific integrated circuit\n"
+		)
+		for option, order in (("", ("ASIC", "fsm", "HDL")), ("   :ordered: no\n", ("HDL", "fsm", "ASIC"))):
+			with self.subTest(option=option):
+				self._build(f"Index\n#####\n\n.. abbreviations::\n{option}\n{unordered}\n:acs:`fsm`\n")
+
+				self.assertEqual([], self._warningLines())
+				html = self._html("index")
+				positions = [html.index(f'<dt id="abbreviation-{short}">') for short in order]
+				self.assertListEqual(sorted(positions), positions)
+				self.assertIn('href="#abbreviation-fsm"', html)
+
+	@testcase("Option error")
+	def OptionError(self) -> None:
+		"""
+		A value of ':ordered:' other than yes/true or no/false is reported at the directive's line.
+
+		Builds a list with ':ordered: maybe' and checks the message.
+		"""
+		self._build("Index\n#####\n\n.. abbreviations::\n   :ordered: maybe\n\n   FSM\n      :long: m\n")
+
+		self.assertEqual(
+			[
+				"src/index.rst:4: ERROR: abbreviations::ordered: 'maybe' not supported for a boolean value "
+				"(yes/true, no/false). [docutils]"
+			],
+			self._warningLines()
+		)
+
 	@testcase("Unknown abbreviation")
 	def Unknown(self) -> None:
 		"""
