@@ -209,7 +209,7 @@ class Shield(metaclass=ExtendedType, slots=True):
 SHIELDS: dict[str, Shield] = {
 	"github": Shield(
 		"Sourcecode on GitHub",
-		"badge/{GitHubOrganization}-{GitHubRepository}-63bf7f?longCache=true&style=flat-square&longCache=true"
+		"badge/{GitHubOrganizationBadge}-{GitHubRepositoryBadge}-63bf7f?longCache=true&style=flat-square&longCache=true"
 		"&logo=GitHub",
 		"https://GitHub.com/{GitHubOrganization}/{GitHubRepository}",
 		("github",)
@@ -421,8 +421,10 @@ class Shields(BaseDirective):
 				raise SphinxExtensionError(f"Option ':github:' is '{gitHub}', not '<organization>/<repository>'.")
 
 			organization, repository = gitHub.split("/")
-			settings["GitHubOrganization"] = organization
-			settings["GitHubRepository"] = repository
+			settings["GitHubOrganization"] =      organization
+			settings["GitHubRepository"] =        repository
+			settings["GitHubOrganizationBadge"] = cls._EscapeBadgeText(organization)
+			settings["GitHubRepositoryBadge"] =   cls._EscapeBadgeText(repository)
 
 		if (pypi := options.get("pypi", None)) is not None:
 			settings["PyPI"] = pypi
