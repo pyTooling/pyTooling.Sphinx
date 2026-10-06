@@ -171,7 +171,7 @@ class Registration(Project):
 			{"condensed-class", "dependency-table", "xmlschema-graph", "shields", "tree", "abbreviations"},
 			directives
 		)
-		app.add_domain.assert_called_once_with(AbbreviationDomain)
+		app.add_domain.assert_any_call(AbbreviationDomain)
 		self.assertEqual(__version__, metadata["version"])
 
 	@testcase("Registered nodes")

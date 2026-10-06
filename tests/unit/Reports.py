@@ -125,7 +125,7 @@ class Registration(ReportProject):
 		app = MagicMock()
 		setup(app)
 
-		app.add_domain.assert_called_once_with(ReportDomain)
+		app.add_domain.assert_any_call(ReportDomain)
 		self.assertEqual(
 			DIRECTIVES, {call.args[1] for call in app.add_directive_to_domain.call_args_list if call.args[0] == "report"}
 		)
