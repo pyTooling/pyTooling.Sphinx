@@ -32,6 +32,7 @@
 Unit tests for :mod:`pyTooling.Sphinx.UnittestPages`: the pages per testsuite and testcase, and the roles ``:tc:`` and
 ``:ts:`` referring to them, each built in a small Sphinx project.
 """
+from os                            import sep
 from pathlib                       import Path
 from textwrap                      import dedent
 from typing                        import Any
@@ -490,14 +491,16 @@ class Configuration(Project):
 		"""
 		A document name with '..', an empty part or a backslash is logged as an error.
 
-		Builds projects with 'unittests/../ut', 'unittests//ut' and 'unittests\\ut'.
+		Builds projects with 'unittests/../ut', 'unittests//ut' and 'unittests\\ut'. On Windows, the warnings are
+		compared with '/' for '\\', as ``_warningLines()`` writes them.
 		"""
 		for pages in ("unittests/../ut", "unittests//ut", "unittests\\ut"):
 			with self.subTest(pages=pages):
+				written = pages.replace("\\", "/") if sep == "\\" else pages
 				self.assertEqual(
 					[
 						"ERROR: Caught ReportExtensionError when checking configuration variables.",
-						f"  conf.py: pyTooling_Unittest_Testsuites:[ut].pages: '{pages}' is not a relative document name."
+						f"  conf.py: pyTooling_Unittest_Testsuites:[ut].pages: '{written}' is not a relative document name."
 					],
 					self._check(pages)
 				)
