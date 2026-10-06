@@ -599,3 +599,48 @@ class AbbreviationRendering(Project):
 				self._build(f"Index\n#####\n\n.. abbreviations::\n\n{content}")
 
 				self.assertEqual([f"src/index.rst:4: ERROR: abbreviations: {message} [docutils]"], self._warningLines())
+
+
+@testsuite("Schema graphs in a document")
+class SchemaGraphRendering(Project):
+	"""Where 'xmlschema-graph' finds the schema it draws."""
+
+	@testcase("Schema of a package")
+	def Package(self) -> None:
+		"""
+		With ':package:', the argument names a resource file of that package.
+
+		Builds a document drawing 'TestReport-v0.1.xsd' of 'pyTooling.Resources', and checks the page holds its diagram.
+		"""
+		self._build("Index\n#####\n\n.. xmlschema-graph:: TestReport-v0.1.xsd\n   :package: pyTooling.Resources\n")
+
+		self.assertEqual([], self._warningLines())
+		self.assertIn("Diagram of TestReport-v0.1.xsd", self._html("index"))
+
+	@testcase("Schema missing in a package")
+	def Package_Missing(self) -> None:
+		"""
+		A file the package doesn't hold is reported at the directive.
+
+		Builds a document naming 'Missing.xsd' of 'pyTooling.Resources', and checks the error names file and package.
+		"""
+		self._build("Index\n#####\n\n.. xmlschema-graph:: Missing.xsd\n   :package: pyTooling.Resources\n")
+
+		self.assertIn(
+			"xmlschema-graph: Couldn't find schema 'Missing.xsd' in package 'pyTooling.Resources'.",
+			"\n".join(self._warningLines())
+		)
+
+	@testcase("Package missing")
+	def Package_Unknown(self) -> None:
+		"""
+		A package that can't be imported is reported at the directive.
+
+		Builds a document naming the package 'pyTooling.NoSuchPackage', and checks the error names it.
+		"""
+		self._build("Index\n#####\n\n.. xmlschema-graph:: TestReport-v0.1.xsd\n   :package: pyTooling.NoSuchPackage\n")
+
+		self.assertIn(
+			"xmlschema-graph: Couldn't find schema 'TestReport-v0.1.xsd' in package 'pyTooling.NoSuchPackage'.",
+			"\n".join(self._warningLines())
+		)
