@@ -199,6 +199,16 @@ intersphinx_mapping = {
 
 
 # ==============================================================================
+# Suppressed warnings
+# ==============================================================================
+# ExtendedType adds '__getstate__'/'__setstate__' to every class with slots. sphinx_autodoc_typehints can't read their
+# type hints, as they are created by the meta-class rather than defined in the class, and warns once per method.
+suppress_warnings = [
+	"sphinx_autodoc_typehints.local_function",
+]
+
+
+# ==============================================================================
 # Sphinx.Ext.AutoDoc
 # ==============================================================================
 # see: https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html#configuration
