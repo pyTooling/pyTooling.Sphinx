@@ -32,8 +32,9 @@
 The language-neutral half of drawing a schema as a Graphviz graph in a Sphinx document.
 
 :class:`DotGraph` is a :class:`pyTooling.Graph.GraphViz.Graph` with the look every schema graph shares, and
-:class:`SchemaGraph` is the directive's base-class: its argument becomes a path, the file becomes a build dependency,
-and the DOT is handed to :mod:`sphinx.ext.graphviz`. A schema language adds a module reading its schemas into a
+:class:`SchemaGraph` is the directive's base-class: its argument becomes a path - of a file next to the document, or of
+a resource file of a package -, the file becomes a build dependency, and the DOT is handed to
+:mod:`sphinx.ext.graphviz`. A schema language adds a module reading its schemas into a
 :class:`DotGraph`, and a subclass naming the directive.
 
 .. seealso::
@@ -47,14 +48,16 @@ and the DOT is handed to :mod:`sphinx.ext.graphviz`. A schema language adds a mo
 """
 from __future__               import annotations
 
+from importlib                import import_module
 from pathlib                  import Path
 from typing                   import Any, Mapping, Optional as Nullable, Sequence
 
 from docutils                 import nodes
 from sphinx.ext.graphviz      import figure_wrapper, graphviz
 
-from pyTooling.Common         import getFullyQualifiedName
+from pyTooling.Common         import getFullyQualifiedName, getResourceFile
 from pyTooling.Decorators     import export
+from pyTooling.Exceptions     import ToolingException
 from pyTooling.Graph.GraphViz import AttributeValue, Graph, Node, RecordField, RecordLabel
 from pyTooling.Sphinx         import BaseDirective, strip
 
@@ -141,7 +144,8 @@ class SchemaGraph(BaseDirective):
 	Base-class of the directives drawing the schema file given as their argument.
 
 	It holds everything that isn't the schema's language: the path is resolved against the document using the
-	directive and registered as a dependency - so editing the schema rebuilds the page holding its diagram - and
+	directive, or with ``:package:`` looked up as a resource file of that package, and registered as a dependency - so
+	editing the schema rebuilds the page holding its diagram - and
 	whatever :meth:`_RenderGraph` returns is handed to :mod:`sphinx.ext.graphviz`, wrapped in a figure when a caption
 	was given. A derived class sets :attr:`~pyTooling.Sphinx.BaseDirective.directiveName` and
 	overrides :meth:`_RenderGraph`.
@@ -156,6 +160,7 @@ class SchemaGraph(BaseDirective):
 	#: Mapping of option names to validator functions.
 	option_spec: dict[str, Any] = {  # type: ignore[misc]
 		"caption": strip,
+		"package": strip,
 	}
 
 	def run(self) -> list[nodes.Node]:
@@ -165,9 +170,31 @@ class SchemaGraph(BaseDirective):
 		:returns: A ``graphviz`` node, wrapped in a figure when a caption was given, or the message of whatever went
 		          wrong while reading the schema.
 		"""
-		relativePath, absolutePath = self.env.relfn2path(self.arguments[0])
-		self.env.note_dependency(relativePath)
-		schemaFile = Path(absolutePath)
+		if (package := self.options.get("package", None)) is None:
+			relativePath, absolutePath = self.env.relfn2path(self.arguments[0])
+			self.env.note_dependency(relativePath)
+			schemaFile = Path(absolutePath)
+		else:
+			try:
+				resourcePackage = import_module(package)
+			except ImportError as ex:
+				return self._internalError(
+					nodes.container(),
+					__name__,
+					f"{self.directiveName}: Couldn't import package '{package}'.",
+					ex
+				)
+
+			try:
+				schemaFile = getResourceFile(resourcePackage, self.arguments[0])
+			except ToolingException as ex:
+				return self._internalError(
+					nodes.container(),
+					__name__,
+					f"{self.directiveName}: Couldn't find schema '{self.arguments[0]}' in package '{package}'.",
+					ex
+				)
+			self.env.note_dependency(str(schemaFile))
 
 		try:
 			code = self._RenderGraph(schemaFile)

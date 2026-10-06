@@ -27,16 +27,25 @@ xmlschema-graph
       .. code-block:: ReST
 
          .. xmlschema-graph:: TestReport-v0.1.xsd
+            :package: pyTooling.Resources
             :caption: The types of TestReport-v0.1.xsd.
 
-This is how the example renders, drawing pyTooling's test report schema:
+This is how the example renders, drawing pyTooling's test report schema from the package pyTooling ships it in:
 
 .. xmlschema-graph:: TestReport-v0.1.xsd
+   :package: pyTooling.Resources
    :caption: The types of TestReport-v0.1.xsd.
 
 .. rst:directive:: .. xmlschema-graph:: <path of an XML schema>
 
-   Draws the schema the argument names, relative to the document.
+   Draws the schema the argument names: a file relative to the document, or with :rst:dir:`xmlschema-graph:package` a
+   resource file of a package.
+
+   .. rst:directive:option:: package: <package>
+
+      A package whose resource file the argument names, e.g. ``pyTooling.Resources``. It is imported, and the file is
+      found wherever the package is installed - so a documentation draws a schema another package ships, without a
+      copy of it.
 
    .. rst:directive:option:: caption: <text>
 
