@@ -31,9 +31,11 @@
 """
 A directive rendering a unit test report as a table: per testsuite and testcase, the counts and the runtime.
 
-The reports are read by :mod:`pyEDAA.Reports` in the Any JUnit XML format, so any JUnit dialect is accepted - e.g.
-the reports of pytest or OSVVM. The report files are declared in :file:`conf.py` under
-``pyTooling_Unittest_Testsuites``, each with an identifier a directive names in its ``:reportid:`` option:
+The reports are read by :mod:`pyEDAA.Reports`: a JUnit XML file in any dialect - e.g. the reports of pytest or
+OSVVM -, or a test report in pyTooling's own XML format, recognized by its root element ``<TestReport>``. The report
+files are declared in :file:`conf.py` under ``pyTooling_Unittest_Testsuites``, each with an identifier a directive
+names in its ``:reportid:`` option. An entry with the key ``pages`` gets a page per testsuite and testcase, generated
+below that document name (see :mod:`pyTooling.Sphinx.UnittestPages`):
 
 .. code-block:: Python
 
@@ -41,8 +43,11 @@ the reports of pytest or OSVVM. The report files are declared in :file:`conf.py`
    pyTooling_Unittest_Testsuites = {
      "src": {
        "xml_report": "../report/unit/unittest.xml",
+       "pages":      "unittests/src",
      }
    }
+
+The reports are read once, when the builder is initialized, and shared by every directive and page using them.
 
 .. seealso::
 
@@ -56,37 +61,48 @@ from enum                               import Flag
 from pathlib                            import Path
 from typing                             import TYPE_CHECKING, Any, ClassVar, Generator, Mapping, Optional as Nullable
 from typing                             import TypedDict
+from xml.etree.ElementTree              import iterparse  # nosec B405 - reads the root element of the project's report
 
 from docutils                           import nodes
 from docutils.parsers.rst.directives    import flag
+from sphinx.addnodes                    import pending_xref
 from sphinx.application                 import Sphinx
 from sphinx.config                      import Config
 from sphinx.util.logging                import getLogger
 
+from pyTooling.Common                   import getFullyQualifiedName
 from pyTooling.Decorators               import export
 
-from pyTooling.Sphinx                   import INDENTATION, BaseDirective, ReportExtensionError
-from pyTooling.Sphinx                   import ReportsPackageMissingError, SphinxExtensionError, strip
+from pyTooling.Sphinx                   import INDENTATION, BaseDirective, ReportDomain, ReportExtensionError
+from pyTooling.Sphinx                   import ReportsPackageMissingError, SphinxExtensionError, UnittestEntry, strip
 from pyTooling.Sphinx                   import stripAndNormalize
 from pyTooling.Sphinx.Node              import Landscape
 
 if TYPE_CHECKING:  # pragma: no cover
 	# pyEDAA.Reports is an optional dependency (extra 'reports'), imported where a report is read.
 	from pyEDAA.Reports.Unittesting       import TestcaseStatus, TestsuiteStatus
-	from pyEDAA.Reports.Unittesting.JUnit import Testcase, Testsuite, TestsuiteSummary
+	from pyEDAA.Reports.Unittesting       import Testcase, Testsuite, TestsuiteSummary
 
 
-__all__ = ["CONFIG_PREFIX"]
+__all__ = ["CONFIG_PREFIX", "REPORT_FORMATS"]
 
 #: Prefix every configuration value of the unit test directive carries in :file:`conf.py`.
 CONFIG_PREFIX = "pyTooling_Unittest"
+
+#: The report formats, by the root element of a report file.
+REPORT_FORMATS = {
+	"testsuites": "JUnit",
+	"testsuite":  "JUnit",
+	"TestReport": "pyTooling",
+}
 
 
 @export
 class TestsuiteConfiguration(TypedDict):
 	"""An entry of ``pyTooling_Unittest_Testsuites``, after :meth:`UnittestSummary.CheckConfiguration` read it."""
 
-	xml_report: Path  #: The unit test report, in Any JUnit XML format.
+	xml_report: Path           #: The unit test report, in JUnit XML or pyTooling's XML format.
+	pages:      Nullable[str]  #: Document name the pages per testsuite and testcase are generated below, if any.
 
 
 @export
@@ -97,8 +113,8 @@ class ShowTestcases(Flag):
 	A member compares equal to a :class:`~pyEDAA.Reports.Unittesting.TestcaseStatus` it includes.
 	"""
 
-	passed =    1  #: Passed testcases.
-	failed =    2  #: Failed testcases.
+	passed =    1  #: Passed testcases, and testcases failing as expected.
+	failed =    2  #: Failed testcases, and testcases passing unexpectedly.
 	skipped =   4  #: Skipped testcases.
 	excluded =  8  #: Excluded testcases.
 	errors =   16  #: Errored testcases, and testcases whose setup failed.
@@ -117,9 +133,9 @@ class ShowTestcases(Flag):
 		from pyEDAA.Reports.Unittesting import TestcaseStatus
 
 		if isinstance(other, TestcaseStatus):
-			if other is TestcaseStatus.Passed:
+			if other is TestcaseStatus.Passed or other is TestcaseStatus.ExpectedFailed:
 				return ShowTestcases.passed in self
-			elif other is TestcaseStatus.Failed:
+			elif other is TestcaseStatus.Failed or other is TestcaseStatus.UnexpectedPassed:
 				return ShowTestcases.failed in self
 			elif other is TestcaseStatus.Skipped:
 				return ShowTestcases.skipped in self
@@ -159,6 +175,8 @@ class UnittestSummary(BaseDirective):
 	}  #: Values added to :file:`conf.py`, as ``name: (default, rebuild, types)``, prefixed by :data:`CONFIG_PREFIX`.
 
 	_testSummaries: ClassVar[dict[str, TestsuiteConfiguration]] = {}  #: Report configurations, by report ID.
+	_reports:       ClassVar[dict[str, TestsuiteSummary]] = {}        #: Reports read by :meth:`ReadReports`, by ID.
+	_readErrors:    ClassVar[dict[str, Exception]] = {}               #: Why a report couldn't be read, by report ID.
 
 	_cssClasses:           list[str]         #: Additional CSS classes of the table.
 	_reportID:             str               #: Identifier of the report in the configuration.
@@ -207,13 +225,74 @@ class UnittestSummary(BaseDirective):
 	@classmethod
 	def ReadReports(cls, sphinxApplication: Sphinx) -> None:
 		"""
-		Read unittest report files.
+		Read every configured unit test report, once per build.
 
-		So far, this only logs that the reports are read; each directive reads its report when it runs.
+		A report that can't be read keeps the exception, which a directive or a report's pages show when they need it.
 
 		:param sphinxApplication: Sphinx application instance.
 		"""
 		getLogger(__name__).info("[REPORT] Reading unittest reports ...")
+
+		cls._reports = {}
+		cls._readErrors = {}
+		for reportID, testSummary in cls._testSummaries.items():
+			try:
+				cls._reports[reportID] = cls._ReadReport(testSummary["xml_report"])
+			except Exception as ex:
+				cls._readErrors[reportID] = ex
+
+	@classmethod
+	def GetReport(cls, reportID: str) -> TestsuiteSummary:
+		"""
+		Return a report read by :meth:`ReadReports`.
+
+		:param reportID:              Identifier of the report.
+		:returns:                     The report's testsuite summary.
+		:raises ReportExtensionError: If the report wasn't read, chained to the exception reading it raised.
+		"""
+		try:
+			return cls._reports[reportID]
+		except KeyError:
+			cause = cls._readErrors.get(reportID, None)
+			raise ReportExtensionError(f"Unittest report '{reportID}' wasn't read.") from cause
+
+	@staticmethod
+	def _ReadReport(xmlReport: Path) -> TestsuiteSummary:
+		"""
+		Read a report file, choosing the reader by the file's root element.
+
+		:param xmlReport:                   The report file.
+		:returns:                           The report's testsuite summary, aggregated.
+		:raises ReportExtensionError:       If the file's root element is no known report format.
+		:raises ReportsPackageMissingError: If pyEDAA.Reports, or its reader for the report's format, isn't installed.
+		"""
+		_, rootElement = next(iterparse(xmlReport, events=("start",)))  # nosec B314 - the project's own report
+		try:
+			reportFormat = REPORT_FORMATS[rootElement.tag]
+		except KeyError:
+			ex = ReportExtensionError(f"Unittest report '{xmlReport}' has an unknown format.")
+			ex.add_note(f"Got root element '<{rootElement.tag}>'; supported: {', '.join(REPORT_FORMATS)}")
+			raise ex from None
+
+		if reportFormat == "pyTooling":
+			try:
+				from pyEDAA.Reports.Unittesting.pyTooling import Document as pyToolingDocument
+			except ImportError as cause:
+				raise ReportsPackageMissingError("Reading a pyTooling test report") from cause
+
+			return pyToolingDocument(xmlReport, analyzeAndConvert=True)
+
+		try:
+			from pyEDAA.Reports.Unittesting.JUnit import Document as JUnitDocument
+		except ImportError as cause:
+			raise ReportsPackageMissingError("Reading a unit test report") from cause
+
+		document = JUnitDocument(xmlReport, analyzeAndConvert=True)
+		document.Aggregate()
+		testsuiteSummary = document.ToTestsuiteSummary()
+		testsuiteSummary.Aggregate()
+
+		return testsuiteSummary
 
 	@classmethod
 	def _CheckConfiguration(cls, sphinxConfiguration: Config) -> None:
@@ -224,8 +303,12 @@ class UnittestSummary(BaseDirective):
 		:raises ReportExtensionError: If the configuration value isn't registered.
 		:raises ReportExtensionError: If a report configuration has no ``xml_report``.
 		:raises ReportExtensionError: If the ``xml_report`` file doesn't exist.
+		:raises ReportExtensionError: If ``pages`` isn't a string.
+		:raises ReportExtensionError: If ``pages`` isn't a relative document name. |br|
+		                              Use a name like 'unittests/src', separated by '/', without '.' or '..'.
 		"""
 		variableName = f"{CONFIG_PREFIX}_Testsuites"
+		cls._testSummaries = {}
 
 		try:
 			allTestsuites: dict[str, TestsuiteConfiguration] = sphinxConfiguration[variableName]
@@ -245,8 +328,24 @@ class UnittestSummary(BaseDirective):
 					f"{summaryName}.xml_report: Unittest report file '{xmlReport}' doesn't exist."
 				) from FileNotFoundError(xmlReport)
 
+			pages = testSummary.get("pages", None)
+			if pages is not None:
+				if not isinstance(pages, str):
+					ex = ReportExtensionError(f"{summaryName}.pages: Document name is not a string.")
+					ex.add_note(f"Got type '{getFullyQualifiedName(pages)}'.")
+					raise ex
+
+				parts = pages.strip("/").split("/")
+				if "\\" in pages or any(part in ("", ".", "..") for part in parts):
+					ex = ReportExtensionError(f"{summaryName}.pages: '{pages}' is not a relative document name.")
+					ex.add_note("Use a name like 'unittests/src', separated by '/', without '.' or '..'.")
+					raise ex
+
+				pages = "/".join(parts)
+
 			cls._testSummaries[reportID] = {
-				"xml_report": xmlReport
+				"xml_report": xmlReport,
+				"pages":      pages
 			}
 
 	def _SortedValues(self, d: Mapping[str, Any]) -> Generator[Any, None, None]:
@@ -259,7 +358,8 @@ class UnittestSummary(BaseDirective):
 		for key in sorted(d.keys()):
 			yield d[key]
 
-	def _ConvertTestcaseStatusToSymbol(self, status: TestcaseStatus) -> str:
+	@staticmethod
+	def _ConvertTestcaseStatusToSymbol(status: TestcaseStatus) -> str:
 		"""
 		Return the symbol shown for a testcase's status.
 
@@ -268,7 +368,7 @@ class UnittestSummary(BaseDirective):
 		"""
 		from pyEDAA.Reports.Unittesting import TestcaseStatus
 
-		if status is TestcaseStatus.Passed:
+		if status is TestcaseStatus.Passed or status is TestcaseStatus.ExpectedFailed:
 			return "✅"
 		elif status is TestcaseStatus.Failed:
 			return "❌"
@@ -287,7 +387,8 @@ class UnittestSummary(BaseDirective):
 		else:
 			return "❌"
 
-	def _ConvertTestsuiteStatusToSymbol(self, status: TestsuiteStatus) -> str:
+	@staticmethod
+	def _ConvertTestsuiteStatusToSymbol(status: TestsuiteStatus) -> str:
 		"""
 		Return the symbol shown for a testsuite's status.
 
@@ -315,7 +416,8 @@ class UnittestSummary(BaseDirective):
 		else:
 			return "❌"
 
-	def _FormatTimedelta(self, delta: Nullable[timedelta]) -> str:
+	@staticmethod
+	def _FormatTimedelta(delta: Nullable[timedelta]) -> str:
 		"""
 		Format a duration as ``HH:MM:SS.sss``, rounded to milliseconds.
 
@@ -426,7 +528,7 @@ class UnittestSummary(BaseDirective):
 		tableRow = nodes.row("", classes=["report-testsuite", f"testsuite-{testsuite._status.name.lower()}"])
 		tableBody += tableRow
 
-		tableRow += nodes.entry("", nodes.Text(f"{INDENTATION * 2 * level}{state}{testsuite.Name}"))
+		tableRow += self._NameEntry(f"{INDENTATION * 2 * level}{state}", testsuite, "ts")
 		tableRow += nodes.entry("", nodes.Text(f"{testsuite.TestcaseCount}"))
 		tableRow += nodes.entry("", nodes.Text(f"{testsuite.Skipped}"))
 		tableRow += nodes.entry("", nodes.Text(f"{testsuite.Errored}"))
@@ -456,7 +558,7 @@ class UnittestSummary(BaseDirective):
 		tableRow = nodes.row("", classes=["report-testcase", f"testcase-{testcase._status.name.lower()}"])
 		tableBody += tableRow
 
-		tableRow += nodes.entry("", nodes.Text(f"{INDENTATION * 2 * level}{state}{testcase.Name}"))
+		tableRow += self._NameEntry(f"{INDENTATION * 2 * level}{state}", testcase, "tc")
 		tableRow += nodes.entry("", nodes.Text(""))
 		tableRow += nodes.entry("", nodes.Text(""))
 		tableRow += nodes.entry("", nodes.Text(""))
@@ -465,6 +567,43 @@ class UnittestSummary(BaseDirective):
 		if not self._noAssertions:
 			tableRow += nodes.entry("", nodes.Text(f"{testcase.AssertionCount}"))
 		tableRow += nodes.entry("", nodes.Text(f"{self._FormatTimedelta(testcase.TotalDuration)}"))
+
+	def _NameEntry(self, prefix: str, entity: Testsuite | Testcase, roleName: str) -> nodes.entry:
+		"""
+		Create the cell naming a testsuite or testcase, linked to its page if the report has pages.
+
+		:param prefix:   The indentation and the status symbol written before the name.
+		:param entity:   The testsuite or testcase.
+		:param roleName: The role referring to it: ``ts`` for a testsuite, ``tc`` for a testcase.
+		:returns:        The table cell.
+		"""
+		from pyTooling.Sphinx.UnittestPages import UnittestReportPages
+
+		if (pages := UnittestReportPages.GetPages(self._reportID)) is None or (entry := pages.Entry(entity)) is None:
+			return nodes.entry("", nodes.Text(f"{prefix}{entity.Name}"))
+
+		# a reference has to be inside a text element; an inline keeps the cell free of a paragraph, as the others are
+		reference = self.CreateReference(roleName, entry, self.env.docname)
+		return nodes.entry("", nodes.inline("", "", nodes.Text(prefix), reference))
+
+	@staticmethod
+	def CreateReference(roleName: str, entry: UnittestEntry, docname: str) -> pending_xref:
+		"""
+		Create a reference to the page of a testsuite or testcase, showing its name.
+
+		:param roleName: The role referring to it: ``ts`` for a testsuite, ``tc`` for a testcase.
+		:param entry:    The testsuite or testcase.
+		:param docname:  Name of the document holding the reference.
+		:returns:        The reference, resolved by domain ``report``.
+		"""
+		reference = pending_xref(
+			"", refdomain=ReportDomain.name, reftype=roleName, reftarget=f"{entry.reportID}:{entry.QualifiedName}",
+			refexplicit=False, refwarn=True, refdoc=docname
+		)
+		classes = ["xref", ReportDomain.name, f"{ReportDomain.name}-{roleName}"]
+		reference += nodes.inline(entry.Name, entry.Name, classes=classes)
+
+		return reference
 
 	def _RenderSummary(self, tableBody: nodes.tbody, testsuiteSummary: TestsuiteSummary) -> None:
 		"""
@@ -504,38 +643,19 @@ class UnittestSummary(BaseDirective):
 			message = f"Caught {ex.__class__.__name__} when checking options for directive '{self.directiveName}'."
 			return self._internalError(container, __name__, message, ex)
 
-		try:
-			from pyEDAA.Reports.Unittesting.JUnit import Document
-		except ImportError as cause:
-			ex = ReportsPackageMissingError("Reading a unit test report")
-			ex.__cause__ = cause
-			message = f"Caught {ex.__class__.__name__} when reading '{self._xmlReport}'."
-			return self._internalError(container, __name__, message, ex)
+		if (readError := self._readErrors.get(self._reportID, None)) is not None:
+			if isinstance(readError, ReportsPackageMissingError):
+				message = f"Caught {readError.__class__.__name__} when reading '{self._xmlReport}'."
+			else:
+				message = f"Caught {readError.__class__.__name__} when reading and parsing '{self._xmlReport}'."
+			return self._internalError(container, __name__, message, readError)
 
 		try:
-			doc = Document(self._xmlReport, analyzeAndConvert=True)
-		except Exception as ex:
-			message = f"Caught {ex.__class__.__name__} when reading and parsing '{self._xmlReport}'."
-			return self._internalError(container, __name__, message, ex)
-
-		doc.Aggregate()
-
-		try:
-			self._testsuite = doc.ToTestsuiteSummary()
-		except Exception as ex:
-			message = (
-				f"Caught {ex.__class__.__name__} when converting to a TestsuiteSummary for JUnit document "
-				f"'{self._xmlReport}'."
-			)
-			return self._internalError(container, __name__, message, ex)
-
-		self._testsuite.Aggregate()
-
-		try:
+			self._testsuite = self.GetReport(self._reportID)
 			container += self._GenerateTestSummaryTable()
 		except Exception as ex:
 			message = (
-				f"Caught {ex.__class__.__name__} when generating the document structure for JUnit document "
+				f"Caught {ex.__class__.__name__} when generating the document structure for unittest report "
 				f"'{self._xmlReport}'."
 			)
 			return self._internalError(container, __name__, message, ex)

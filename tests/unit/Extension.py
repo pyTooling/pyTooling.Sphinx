@@ -44,7 +44,7 @@ from sphinx.util.console           import strip_colors
 
 from pyTooling.Testing             import Testcase, testsuite, testcase
 
-from pyTooling.Sphinx              import __version__, NODES, SUBSTITUTIONS, setup
+from pyTooling.Sphinx              import __version__, NODES, SUBSTITUTIONS, UNITTEST_ROLES, setup
 from pyTooling.Sphinx              import HTML, LaTeX
 from pyTooling.Sphinx.Abbreviation import ROLES as ABBREVIATION_ROLES, AbbreviationDomain
 from pyTooling.Sphinx.Node         import Landscape
@@ -162,14 +162,17 @@ class Registration(Project):
 		The extension's setup() registers every role and directive it brings.
 
 		Calls setup() with a mocked application and compares the names passed to 'add_role' and 'add_directive' with the
-		style, break, code and abbreviation roles and the six directives, and checks the abbreviation domain is added.
+		style, break, code, abbreviation and unit test roles and the six directives, and checks the abbreviation domain
+		is added.
 		"""
 		app = MagicMock()
 		metadata = setup(app)
 
 		roles = {call.args[0] for call in app.add_role.call_args_list}
 		directives = {call.args[0] for call in app.add_directive.call_args_list}
-		self.assertEqual(set(STYLE_ROLES) | set(BREAK_ROLES) | {PYTHON_CODE_ROLE} | set(ABBREVIATION_ROLES), roles)
+		self.assertEqual(
+			set(STYLE_ROLES) | set(BREAK_ROLES) | {PYTHON_CODE_ROLE} | set(ABBREVIATION_ROLES) | set(UNITTEST_ROLES), roles
+		)
 		self.assertEqual(
 			{"condensed-class", "dependency-table", "xmlschema-graph", "shields", "tree", "abbreviations"},
 			directives
