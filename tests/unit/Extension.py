@@ -644,11 +644,14 @@ class SchemaGraphRendering(Project):
 		"""
 		A package that can't be imported is reported at the directive.
 
-		Builds a document naming the package 'pyTooling.NoSuchPackage', and checks the error names it.
+		Builds a document naming the package 'pyTooling.NoSuchPackage', and checks the error says it can't be imported.
 		"""
-		self._build("Index\n#####\n\n.. xmlschema-graph:: TestReport-v0.1.xsd\n   :package: pyTooling.NoSuchPackage\n", builder="dummy")
+		self._build(
+			"Index\n#####\n\n.. xmlschema-graph:: TestReport-v0.1.xsd\n   :package: pyTooling.NoSuchPackage\n",
+			builder="dummy"
+		)
 
 		self.assertIn(
-			"xmlschema-graph: Couldn't find schema 'TestReport-v0.1.xsd' in package 'pyTooling.NoSuchPackage'.",
+			"xmlschema-graph: Couldn't import package 'pyTooling.NoSuchPackage'.",
 			"\n".join(self._warningLines())
 		)

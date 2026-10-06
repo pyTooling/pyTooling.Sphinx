@@ -57,6 +57,7 @@ from sphinx.ext.graphviz      import figure_wrapper, graphviz
 
 from pyTooling.Common         import getFullyQualifiedName, getResourceFile
 from pyTooling.Decorators     import export
+from pyTooling.Exceptions     import ToolingException
 from pyTooling.Graph.GraphViz import AttributeValue, Graph, Node, RecordField, RecordLabel
 from pyTooling.Sphinx         import BaseDirective, strip
 
@@ -175,8 +176,18 @@ class SchemaGraph(BaseDirective):
 			schemaFile = Path(absolutePath)
 		else:
 			try:
-				schemaFile = getResourceFile(import_module(package), self.arguments[0])
-			except Exception as ex:
+				resourcePackage = import_module(package)
+			except ImportError as ex:
+				return self._internalError(
+					nodes.container(),
+					__name__,
+					f"{self.directiveName}: Couldn't import package '{package}'.",
+					ex
+				)
+
+			try:
+				schemaFile = getResourceFile(resourcePackage, self.arguments[0])
+			except ToolingException as ex:
 				return self._internalError(
 					nodes.container(),
 					__name__,
