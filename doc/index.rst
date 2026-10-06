@@ -22,7 +22,7 @@ The pyTooling.Sphinx Documentation
 
 **pyTooling.Sphinx** adds roles and directives to `Sphinx <https://www.sphinx-doc.org/>`__: styled inline text and
 line breaks working in HTML and LaTeX, condensed class interfaces, dependency tables generated from requirements files
-and the package index, badges, schema graphs, and trees.
+and the package index, badges, schema graphs, trees, and lists of abbreviations.
 
 Other packages build on it: :gh:`pyTooling.GitHub <pyTooling/pyTooling.GitHub>` contributes the
 domain ``ghactions`` for GitHub Actions workflows, enabled as the extension ``pyTooling.GitHub.Sphinx``.
@@ -74,6 +74,9 @@ Roles and Directives
   |rarr| A project's badges from shields.io, in rows.
 :ref:`tree <DIR/Tree>`
   |rarr| A hierarchy, written as an indented list, drawn as a tree with foldable nodes.
+:ref:`abbreviations <DIR/Abbreviations>`
+  |rarr| A list of abbreviations, referred to by ``:acs:``, ``:acl:``, ``:acf:`` and their plurals; in HTML, a
+  short form explains itself on hover.
 
 
 .. _CONSUMERS:
@@ -151,6 +154,7 @@ License
    Directives/XMLSchemaGraph
    Directives/Shields
    Directives/Tree
+   Directives/Abbreviations
 
 .. raw:: latex
 

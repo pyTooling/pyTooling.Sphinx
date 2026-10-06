@@ -29,6 +29,12 @@
   --pyTooling-tree-icon-gap:       0.3em;
   --pyTooling-tree-line:           1px solid #999;
   --pyTooling-tree-margin-bottom:  24px;
+
+  --pyTooling-abbreviation-underline:  1px dotted;
+  --pyTooling-abbreviation-background: #fff;
+  --pyTooling-abbreviation-border:     1px solid #999;
+  --pyTooling-abbreviation-shadow:     0 2px 6px rgba(0, 0, 0, 0.2);
+  --pyTooling-abbreviation-max-width:  30em;
 }
 
 span.bolditalic {
@@ -198,4 +204,52 @@ ul.pytooling-tree details:not([open]) > summary > span.tree-expanded {
 
 ul.pytooling-tree details:not([open]) > summary > span.tree-collapsed {
   display: inline-block;
+}
+
+
+/* Styles for the abbreviations the roles ':acs:', ':acf:' etc. write.
+
+   A short form is an '<abbr>' holding a box with the short and the long form, hidden until the abbreviation is
+   hovered, or its link has the keyboard focus. */
+abbr.pytooling-abbreviation {
+  position: relative;
+  text-decoration: underline var(--pyTooling-abbreviation-underline);
+  cursor: help;
+}
+
+abbr.pytooling-abbreviation > span.pytooling-abbreviation-box {
+  display: none;
+  position: absolute;
+  left: 0;
+  top: 100%;
+  z-index: 100;
+  width: max-content;
+  max-width: var(--pyTooling-abbreviation-max-width);
+  padding: 0.3em 0.6em;
+  background: var(--pyTooling-abbreviation-background);
+  border: var(--pyTooling-abbreviation-border);
+  box-shadow: var(--pyTooling-abbreviation-shadow);
+  color: initial;
+  font-weight: normal;
+  font-style: normal;
+  white-space: normal;
+  text-align: left;
+  cursor: auto;
+}
+
+abbr.pytooling-abbreviation:hover > span.pytooling-abbreviation-box,
+a:focus abbr.pytooling-abbreviation > span.pytooling-abbreviation-box {
+  display: block;
+}
+
+/* The summary of the description, below the long form. */
+abbr.pytooling-abbreviation span.pytooling-abbreviation-summary {
+  display: block;
+  margin-top: 0.3em;
+  font-size: 0.9em;
+}
+
+/* The long form opens an abbreviation's definition in the list, like a glossary's first line. */
+dl.pytooling-abbreviations p.abbreviation-long {
+  font-style: italic;
 }

@@ -15,7 +15,7 @@
 
 **pyTooling.Sphinx** adds roles and directives to [Sphinx](https://www.sphinx-doc.org/): styled inline text and line
 breaks working in HTML and LaTeX, condensed class interfaces, dependency tables generated from requirements files and
-the package index, badges, schema graphs, and trees.
+the package index, badges, schema graphs, trees, and lists of abbreviations.
 
 Other packages build on it: [pyTooling.GitHub](https://GitHub.com/pyTooling/pyTooling.GitHub) contributes the domain
 `ghactions` for GitHub Actions workflows, enabled as the extension `pyTooling.GitHub.Sphinx`.
@@ -55,6 +55,8 @@ It links its stylesheet into every HTML page, appends its substitutions to `rst_
 * [xmlschema-graph][Directives/XMLSchemaGraph] - An XML schema as a Graphviz graph, drawn from the schema file.
 * [shields][Directives/Shields] - A project's badges from shields.io, in rows.
 * [tree][Directives/Tree] - A hierarchy, written as an indented list, drawn as a tree with foldable nodes.
+* [abbreviations][Directives/Abbreviations] - A list of abbreviations, referred to by `:acs:`, `:acl:`, `:acf:` and
+  their plurals; in HTML, a short form explains itself on hover.
 
 [Roles/Style]: https://pyTooling.github.io/pyTooling.Sphinx/Roles/Style.html
 [Roles/PythonCode]: https://pyTooling.github.io/pyTooling.Sphinx/Roles/PythonCode.html
@@ -65,6 +67,7 @@ It links its stylesheet into every HTML page, appends its substitutions to `rst_
 [Directives/XMLSchemaGraph]: https://pyTooling.github.io/pyTooling.Sphinx/Directives/XMLSchemaGraph.html
 [Directives/Shields]: https://pyTooling.github.io/pyTooling.Sphinx/Directives/Shields.html
 [Directives/Tree]: https://pyTooling.github.io/pyTooling.Sphinx/Directives/Tree.html
+[Directives/Abbreviations]: https://pyTooling.github.io/pyTooling.Sphinx/Directives/Abbreviations.html
 
 
 ## Consumers
