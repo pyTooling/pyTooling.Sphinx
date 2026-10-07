@@ -75,13 +75,13 @@ from pyTooling.Sphinx.Pages        import ReportPages
 
 if TYPE_CHECKING:  # pragma: no cover
 	# pyEDAA.Reports is an optional dependency (extra 'reports'), imported where a report is read.
-	from pyEDAA.Reports.CodeCoverage import Base, CoverageSummary, Directory, File
+	from pyEDAA.Reports.CodeCoverage import BaseWithPath, CoverageSummary, Directory, File
 
 
 __all__ = ["LINE_STATES"]
 
 #: The state a listing marks a line with, by the name of the line's
-#: :class:`~pyEDAA.Reports.CodeCoverage.CoverageStatus`.
+#: :class:`~pyEDAA.Reports.CodeCoverage.LineCoverageStatus`.
 LINE_STATES = {
 	"Covered":          "covered",
 	"PartiallyCovered": "partial",
@@ -152,18 +152,18 @@ def createListing(file: File, sources: Path, anchors: bool) -> Union[CoverageLis
 	:param anchors: Whether a line gets the ID ``L<number>``, so the role ``:cov:`` can link to it.
 	:returns:       The listing; or a paragraph saying so, if the source file can't be read.
 	"""
-	sourceFile = sources / str(file.Path)
+	sourceFile = sources / file.Path
 	try:
 		source = sourceFile.read_text(encoding="utf-8", errors="replace")
 	except OSError as ex:
 		getLogger(__name__).warning(f"Source file '{sourceFile}' of the code coverage report can't be read: {ex}")
-		return nodes.paragraph(text=f"The source file '{file.Path}' can't be read.")
+		return nodes.paragraph(text=f"The source file '{file.Path.as_posix()}' can't be read.")
 
 	tokens = tokenizeSource(source, file._name)
 	if len(file._lines) > 0 and (lastLine := max(file._lines)) > len(tokens):
 		getLogger(__name__).warning(
-			f"The code coverage report names line {lastLine} of '{file.Path}', which has {len(tokens)} lines: the report "
-			f"wasn't measured on this version of the file."
+			f"The code coverage report names line {lastLine} of '{file.Path.as_posix()}', which has {len(tokens)} lines: the "
+			f"report wasn't measured on this version of the file."
 		)
 
 	lines = []
@@ -172,9 +172,9 @@ def createListing(file: File, sources: Path, anchors: bool) -> Union[CoverageLis
 			lines.append((number, "", None, 0, 0, lineTokens))
 		else:
 			state = LINE_STATES[line._status.name]
-			lines.append((number, state, line._count, len(line._branches), line.CoveredBranches, lineTokens))
+			lines.append((number, state, line._coverageCount, len(line._branches), line.CoveredBranches, lineTokens))
 
-	return CoverageListing(source, source, lines=lines, anchors=anchors, path=str(file.Path), language="text")
+	return CoverageListing(source, source, lines=lines, anchors=anchors, path=file.Path.as_posix(), language="text")
 
 
 @export
@@ -246,7 +246,7 @@ class CodeCoverageReportPages(ReportPages):
 			pages.Register(sphinxApplication.env)
 
 	@staticmethod
-	def _DirectoryChildren(directory: Directory) -> list[tuple[str, Base]]:
+	def _DirectoryChildren(directory: Directory) -> list[tuple[str, BaseWithPath]]:
 		"""
 		Return a directory's directories - each compacted with its single subdirectories -, then its files, each sorted by
 		name.
@@ -254,13 +254,13 @@ class CodeCoverageReportPages(ReportPages):
 		:param directory: The directory.
 		:returns:         The children as ``(role name, object)`` pairs.
 		"""
-		children: list[tuple[str, Base]] = []
+		children: list[tuple[str, BaseWithPath]] = []
 		children.extend(("cov", compactDirectory(directory._directories[name])) for name in sorted(directory._directories))
 		children.extend(("cov", directory._files[name]) for name in sorted(directory._files))
 
 		return children
 
-	def _Name(self, entity: Base) -> str:
+	def _Name(self, entity: BaseWithPath) -> str:
 		"""
 		Return the name a directory or file is shown with; a compacted directory's includes its parents' names.
 
@@ -278,7 +278,7 @@ class CodeCoverageReportPages(ReportPages):
 		"""
 		return tuple(name.split("/"))
 
-	def _Title(self, entity: Base) -> Nullable[str]:
+	def _Title(self, entity: BaseWithPath) -> Nullable[str]:
 		"""
 		Return no title, as a report has none for its directories and files.
 
@@ -287,7 +287,7 @@ class CodeCoverageReportPages(ReportPages):
 		"""
 		return None
 
-	def _Children(self, roleName: str, entity: Base) -> Iterable[tuple[str, Base]]:
+	def _Children(self, roleName: str, entity: BaseWithPath) -> Iterable[tuple[str, BaseWithPath]]:
 		"""
 		Return a directory's directories, then its files; a file has none.
 
@@ -300,7 +300,7 @@ class CodeCoverageReportPages(ReportPages):
 
 		return []
 
-	def _Page(self, docName: str, roleName: str, entity: Base) -> nodes.section:
+	def _Page(self, docName: str, roleName: str, entity: BaseWithPath) -> nodes.section:
 		"""
 		Build a directory's or file's page.
 
@@ -314,7 +314,7 @@ class CodeCoverageReportPages(ReportPages):
 		else:
 			return self._FilePage(docName, entity)
 
-	def _SummarySection(self, docName: str, entity: Base) -> tuple[nodes.section, nodes.field_list]:
+	def _SummarySection(self, docName: str, entity: BaseWithPath) -> tuple[nodes.section, nodes.field_list]:
 		"""
 		Create a page's section *Summary*: the line and branch counters, the coverage, and the parent directory.
 

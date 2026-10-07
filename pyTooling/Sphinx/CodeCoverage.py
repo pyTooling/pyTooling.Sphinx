@@ -91,7 +91,7 @@ from pyTooling.Sphinx.Pages           import ReportPages
 
 if TYPE_CHECKING:  # pragma: no cover
 	# pyEDAA.Reports is an optional dependency (extra 'reports'), imported where a report is read.
-	from pyEDAA.Reports.CodeCoverage    import Base, CoverageSummary, Directory, File
+	from pyEDAA.Reports.CodeCoverage    import BaseWithPath, CoverageSummary, Directory, File
 
 
 __all__ = ["CONFIG_PREFIX", "REPORT_KEYS"]
@@ -138,7 +138,7 @@ def isCompacted(directory: Nullable[Directory]) -> bool:
 
 
 @export
-def compactedName(entity: Base) -> str:
+def compactedName(entity: BaseWithPath) -> str:
 	"""
 	Return the name a directory or file is shown with: a directory's name is joined with those of the parent
 	directories it was compacted with by :func:`compactDirectory`.
@@ -597,7 +597,7 @@ class CodeCoverage(CodeCoverageBase):
 			file = directory._files[name]
 			self._RenderRow(tableBody, file, self._NameCell(pages, file, f"{INDENTATION * level}📄"), "report-file")
 
-	def _NameCell(self, pages: Nullable[ReportPages], entity: Base, prefix: str) -> nodes.Node:
+	def _NameCell(self, pages: Nullable[ReportPages], entity: BaseWithPath, prefix: str) -> nodes.Node:
 		"""
 		Create the content of the cell naming a directory or file, linked to its page if the report has pages.
 
@@ -613,7 +613,7 @@ class CodeCoverage(CodeCoverageBase):
 		# a reference has to be inside a text element; an inline keeps the cell free of a paragraph, as the others are
 		return nodes.inline("", "", nodes.Text(prefix), pages.CreateReference("cov", entry, self.env.docname, name))
 
-	def _RenderRow(self, tableBody: nodes.tbody, entity: Base, name: nodes.Node, cssClass: str) -> None:
+	def _RenderRow(self, tableBody: nodes.tbody, entity: BaseWithPath, name: nodes.Node, cssClass: str) -> None:
 		"""
 		Add a row of a directory or file: its name and counters, colored by its coverage level.
 
@@ -628,7 +628,7 @@ class CodeCoverage(CodeCoverageBase):
 		tableRow += nodes.entry("", name)
 		self._RenderCounters(tableRow, entity)
 
-	def _RenderCounters(self, tableRow: nodes.row, entity: Base) -> None:
+	def _RenderCounters(self, tableRow: nodes.row, entity: BaseWithPath) -> None:
 		"""
 		Add the cells of a directory's or file's line and - unless left out - branch counters.
 
@@ -856,7 +856,7 @@ class FileCoverage(CodeCoverageBase):
 		:raises ReportExtensionError: If the report has no such file.
 		"""
 		for file in coverage.IterateFiles():
-			if str(file.Path) == path.strip("/"):
+			if file.Path.as_posix() == path.strip("/"):
 				return file
 
 		raise ReportExtensionError(f"Code coverage report has no file '{path}'.")
