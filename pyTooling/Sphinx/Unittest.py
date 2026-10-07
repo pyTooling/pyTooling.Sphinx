@@ -69,13 +69,13 @@ from sphinx.application                 import Sphinx
 from sphinx.config                      import Config
 from sphinx.util.logging                import getLogger
 
-from pyTooling.Common                   import getFullyQualifiedName
 from pyTooling.Decorators               import export
 
 from pyTooling.Sphinx                   import INDENTATION, BaseDirective, ReportExtensionError
 from pyTooling.Sphinx                   import ReportsPackageMissingError, SphinxExtensionError
 from pyTooling.Sphinx                   import strip, stripAndNormalize
 from pyTooling.Sphinx.Node              import Landscape
+from pyTooling.Sphinx.Pages             import ReportPages
 
 if TYPE_CHECKING:  # pragma: no cover
 	# pyEDAA.Reports is an optional dependency (extra 'reports'), imported where a report is read.
@@ -327,20 +327,8 @@ class UnittestSummary(BaseDirective):
 					f"{summaryName}.xml_report: Unittest report file '{xmlReport}' doesn't exist."
 				) from FileNotFoundError(xmlReport)
 
-			pages = testSummary.get("pages", None)
-			if pages is not None:
-				if not isinstance(pages, str):
-					ex = ReportExtensionError(f"{summaryName}.pages: Document name is not a string.")
-					ex.add_note(f"Got type '{getFullyQualifiedName(pages)}'.")
-					raise ex
-
-				parts = pages.strip("/").split("/")
-				if "\\" in pages or any(part in ("", ".", "..") for part in parts):
-					ex = ReportExtensionError(f"{summaryName}.pages: '{pages}' is not a relative document name.")
-					ex.add_note("Use a name like 'unittests/src', separated by '/', without '.' or '..'.")
-					raise ex
-
-				pages = "/".join(parts)
+			if (pages := testSummary.get("pages", None)) is not None:
+				pages = ReportPages.CheckPagesConfiguration(summaryName, pages)
 
 			cls._testSummaries[reportID] = {
 				"xml_report": xmlReport,

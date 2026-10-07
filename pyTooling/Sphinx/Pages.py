@@ -67,10 +67,11 @@ from sphinx.environment         import BuildEnvironment
 from sphinx.util.docutils       import new_document
 from sphinx.util.logging        import getLogger
 
+from pyTooling.Common           import getFullyQualifiedName
 from pyTooling.Decorators       import export, readonly
 from pyTooling.MetaClasses      import ExtendedType, abstractmethod
 
-from pyTooling.Sphinx           import ReportDomain, ReportEntry
+from pyTooling.Sphinx           import ReportDomain, ReportEntry, ReportExtensionError
 
 
 __all__ = ["UNSAFE_CHARACTERS"]
@@ -158,6 +159,32 @@ class ReportPages(metaclass=ExtendedType, slots=True):
 			return docNames
 
 		self._topLevel = addPages(topLevel, (), prefix)
+
+	@staticmethod
+	def CheckPagesConfiguration(configurationName: str, pages: Any) -> str:
+		"""
+		Check the document name a report's pages are generated below - the value of a report's key ``pages`` -, and
+		normalize it.
+
+		:param configurationName:     Name of the report's configuration, as an error message names it.
+		:param pages:                 The value of key ``pages``.
+		:returns:                     The document name without leading and trailing ``/``.
+		:raises ReportExtensionError: If ``pages`` isn't a string.
+		:raises ReportExtensionError: If ``pages`` isn't a relative document name. |br|
+		                              Use a name like 'unittests/src', separated by '/', without '.' or '..'.
+		"""
+		if not isinstance(pages, str):
+			ex = ReportExtensionError(f"{configurationName}.pages: Document name is not a string.")
+			ex.add_note(f"Got type '{getFullyQualifiedName(pages)}'.")
+			raise ex
+
+		parts = pages.strip("/").split("/")
+		if "\\" in pages or any(part in ("", ".", "..") for part in parts):
+			ex = ReportExtensionError(f"{configurationName}.pages: '{pages}' is not a relative document name.")
+			ex.add_note("Use a name like 'unittests/src', separated by '/', without '.' or '..'.")
+			raise ex
+
+		return "/".join(parts)
 
 	@classmethod
 	def GetPages(cls, reportID: str) -> Nullable[ReportPages]:
