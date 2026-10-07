@@ -124,3 +124,17 @@ class Landscape(nodes.container):
 	LaTeX's ``landscape`` environment needs package ``pdflscape``, which :func:`~pyTooling.Sphinx.setup` requests. The
 	report tables of domain ``report`` are what this node holds.
 	"""
+
+
+@export
+class CoverageListing(nodes.literal_block):
+	"""
+	A source file's code coverage: its lines, syntax highlighted, each marked by its coverage state.
+
+	Attribute ``lines`` holds a tuple per line: the line number, the state (``covered``, ``partial``, ``uncovered``,
+	``excluded``, or ``""`` for a line, which isn't executable), the hits or ``None``, the number of branches and of
+	taken branches, and the line's tokens as ``(CSS class, text)`` pairs - the short classes of Pygments' token types,
+	which Sphinx' Pygments stylesheet colors. Attribute ``anchors`` states whether a line gets the ID ``L<number>``.
+
+	The node's text is the plain source, so a builder without visitors for this node writes it as a literal block.
+	"""

@@ -31,6 +31,13 @@ Version 0.x (2026)
      from the summary table and listed in the navigation below the summary's page, and the roles
      :ref:`:tc: and :ts: <DIR/UnittestSummary/Roles>` refer to them. A report may be in
      :ref:`pyTooling's XML format <DIR/UnittestSummary/Formats>` too.
+   * A code coverage report is read with pyEDAA.Reports' language-neutral model, from
+     :ref:`Cobertura XML or coverage.py's JSON report <DIR/CodeCoverage/Formats>`, and shown per directory and source
+     file. Declared with ``pages`` and ``sources``, it gets a
+     :ref:`page per directory and source file <DIR/CodeCoverage/Pages>`; a file's page shows its source, syntax
+     highlighted with Pygments, each line marked by its coverage state. The role
+     :ref:`:cov: <DIR/CodeCoverage/Role>` refers to a page, optionally to a line, and the directive
+     :ref:`report:file-coverage <DIR/CodeCoverage/FileCoverage>` shows a file's listing anywhere.
 
    .. rubric:: Changes compared to sphinx-reports
 
@@ -42,6 +49,9 @@ Version 0.x (2026)
      ``report_doccov_packages``/``report_doccov_levels`` |rarr|
      ``pyTooling_DocCoverage_Packages``/``pyTooling_DocCoverage_Levels``.
    * ``report:dependency-table`` is dropped in favour of :ref:`dependency-table <DIR/DependencyTable>`.
+   * ``report:code-coverage`` shows directories and files instead of Python packages and modules, and reads
+     Cobertura XML too; the prototype ``report:module-coverage`` is replaced by
+     :ref:`report:file-coverage <DIR/CodeCoverage/FileCoverage>`.
    * The report styles are part of the stylesheet of :mod:`pyTooling.Sphinx`, and a theme's row stripes are reset for
      the report tables only, no longer for every table.
    * A legend in style ``horizontal-table`` renders.

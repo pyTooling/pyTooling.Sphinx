@@ -131,7 +131,7 @@ class ReportPages(metaclass=ExtendedType, slots=True):
 			docNames: list[str] = []
 			for roleName, child in children:
 				name = self._Name(child)
-				childPath = (*path, name)
+				childPath = (*path, *self._PathElements(name))
 				qualifiedName = self._separator.join(childPath)
 				if qualifiedName in (names := qualifiedNames.setdefault(roleName, set())):
 					getLogger(__name__).warning(
@@ -248,21 +248,23 @@ class ReportPages(metaclass=ExtendedType, slots=True):
 			context["sourcename"] = ""
 
 	@staticmethod
-	def CreateReference(roleName: str, entry: ReportEntry, docname: str) -> pending_xref:
+	def CreateReference(roleName: str, entry: ReportEntry, docname: str, text: Nullable[str] = None) -> pending_xref:
 		"""
-		Create a reference to an object's page, showing its name.
+		Create a reference to an object's page, showing its name or a text.
 
 		:param roleName: The role referring to the object, e.g. ``tc`` for a testcase.
 		:param entry:    The object.
 		:param docname:  Name of the document holding the reference.
+		:param text:     Optional, the text shown instead of the object's name. Default: ``None``.
 		:returns:        The reference, resolved by domain ``report``.
 		"""
 		reference = pending_xref(
 			"", refdomain=ReportDomain.name, reftype=roleName, reftarget=f"{entry.reportID}:{entry.QualifiedName}",
-			refexplicit=False, refwarn=True, refdoc=docname
+			refexplicit=text is not None, refwarn=True, refdoc=docname
 		)
+		text = entry.Name if text is None else text
 		classes = ["xref", ReportDomain.name, f"{ReportDomain.name}-{roleName}"]
-		reference += nodes.inline(entry.Name, entry.Name, classes=classes)
+		reference += nodes.inline(text, text, classes=classes)
 
 		return reference
 
@@ -422,6 +424,15 @@ class ReportPages(metaclass=ExtendedType, slots=True):
 		:param entity: The object.
 		:returns:      The name.
 		"""
+
+	def _PathElements(self, name: str) -> tuple[str, ...]:
+		"""
+		Return the elements an object's name adds to its path: the name itself, unless a derived class splits it.
+
+		:param name: The object's name.
+		:returns:    The path elements.
+		"""
+		return (name, )
 
 	@abstractmethod
 	def _Title(self, entity: Any) -> Nullable[str]:

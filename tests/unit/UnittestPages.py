@@ -482,7 +482,7 @@ class DomainData(PagesProject):
 		unread = ReportEntry("other/unread", "ut", ("other", "test_Unread"), ".", None)
 		domain.merge_domaindata(
 			["other/read"],
-			{"tc": {"ut": {"other.test_Read": read, "other.test_Unread": unread}}, "ts": {}}
+			{"tc": {"ut": {"other.test_Read": read, "other.test_Unread": unread}}, "ts": {}, "cov": {}}
 		)
 
 		self.assertEqual([read], domain.FindEntries("tc", "test_Read"))

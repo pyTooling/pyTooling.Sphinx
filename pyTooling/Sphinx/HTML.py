@@ -39,12 +39,12 @@ from sphinx.writers.html5  import HTML5Translator
 
 from pyTooling.Decorators  import export
 from pyTooling.Sphinx.Node import Abbreviation, Landscape, TreeDescription, TreeItem, TreeLabel, TreeSeparator
-from pyTooling.Sphinx.Node import visitFunc, departFunc
+from pyTooling.Sphinx.Node import CoverageListing, visitFunc, departFunc
 
 
 __all__ = [
 	"translateLandscape", "translateTreeItem", "translateTreeLabel", "translateTreeSeparator", "translateTreeDescription",
-	"translateAbbreviation"
+	"translateAbbreviation", "translateCoverageListing"
 ]
 
 
@@ -253,3 +253,60 @@ def depart_Abbreviation(translator: HTML5Translator, node: Abbreviation) -> None
 
 translateAbbreviation: tuple[visitFunc, departFunc] = (visit_Abbreviation, depart_Abbreviation)
 """Visit and depart function writing an :class:`~pyTooling.Sphinx.Node.Abbreviation` in HTML."""
+
+
+@export
+def visit_CoverageListing(translator: HTML5Translator, node: CoverageListing) -> None:
+	"""
+	Write a source file's code coverage in HTML, completely.
+
+	The listing is a ``<pre>`` in Sphinx' highlighting ``<div>``s, so Sphinx' Pygments stylesheet colors the tokens. Each
+	line is a ``<span>`` with class ``report-line`` and ``report-line-<state>``, holding its number, its hits - if the
+	report has any - and its tokens. A line, which ran without taking all its branches, says on hover how many were
+	taken. The node's text - the plain source - isn't written again.
+
+	:param translator: The HTML translator writing the page.
+	:param node:       The listing.
+	:raises SkipNode:  Always, so the node's text isn't written again.
+	"""
+	withHits = any(hits is not None for _, _, hits, _, _, _ in node["lines"])
+
+	lines: list[str] = []
+	for number, status, hits, branches, coveredBranches, tokens in node["lines"]:
+		classes = "report-line" if status == "" else f"report-line report-line-{status}"
+		attributes = f' id="L{number}"' if node["anchors"] else ""
+		if status == "partial":
+			attributes += f' title="{coveredBranches} of {branches} branches taken"'
+
+		hitsText = "" if hits is None else f"{hits}"
+		gutter = f'<span class="linenos">{number}</span>'
+		if withHits:
+			gutter += f'<span class="linenos report-hits">{hitsText}</span>'
+
+		code = "".join(
+			translator.encode(text) if cssClass == "" else f'<span class="{cssClass}">{translator.encode(text)}</span>'
+			for cssClass, text in tokens
+		)
+		lines.append(f'<span class="{classes}"{attributes}>{gutter}{code}\n</span>')
+
+	classes = "highlight-default notranslate report-coverage-listing"
+	translator.body.append(translator.starttag(node, "div", "", CLASS=classes))
+	translator.body.append('<div class="highlight"><pre>')
+	translator.body.extend(lines)
+	translator.body.append("</pre></div></div>\n")
+
+	raise nodes.SkipNode
+
+
+@export
+def depart_CoverageListing(translator: HTML5Translator, node: CoverageListing) -> None:
+	"""
+	Close a source file's code coverage in HTML, which writes nothing: :func:`visit_CoverageListing` wrote it all.
+
+	:param translator: The HTML translator writing the page.
+	:param node:       The listing.
+	"""
+
+
+translateCoverageListing: tuple[visitFunc, departFunc] = (visit_CoverageListing, depart_CoverageListing)
+"""Visit and depart function writing a :class:`~pyTooling.Sphinx.Node.CoverageListing` in HTML."""

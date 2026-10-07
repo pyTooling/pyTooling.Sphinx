@@ -44,8 +44,11 @@ if __name__ == "__main__":  # pragma: no cover
 	exit(1)
 
 
-REPORT = Path(__file__).parent.parent / "data" / "Report" / "coverage.json"
-"""A report of package 'myPackage'."""
+DATA = Path(__file__).parent.parent / "data" / "CodeCoverage"
+"""Directory of the code coverage reports and their sources."""
+
+REPORT = DATA / "Python" / "coverage.json"
+"""coverage.py's JSON report of the fixture package 'myPackage'."""
 
 
 class ConfigurationTestcase(Testcase):
@@ -100,9 +103,83 @@ class Configuration(ConfigurationTestcase):
 
 		package = CodeCoverageBase._packageConfigurations["src"]
 		self.assertEqual("myPackage", package["name"])
-		self.assertEqual(REPORT, package["json_report"])
+		self.assertEqual(REPORT, package["report"])
+		self.assertEqual("coverage.py", package["format"])
+		self.assertIsNone(package["sources"])
+		self.assertIsNone(package["pages"])
 		self.assertEqual(0.8, package["fail_below"])
 		self.assertEqual("report-cov-below100", package["levels"][100]["class"])
+
+	@testcase("Cobertura report with pages")
+	def CoberturaPages(self) -> None:
+		"""
+		A Cobertura report with 'sources' and 'pages' is loaded with its format, and the document name normalized.
+
+		Checks the configuration of the VHDL fixture report.
+		"""
+		CodeCoverageBase.CheckConfiguration(None, self._Configuration(vhdl={
+			"name": "myDesign", "xml_report": str(DATA / "VHDL" / "Cobertura.xml"), "sources": str(DATA / "VHDL"),
+			"pages": "/coverage/vhdl/", "fail_below": 80, "levels": "default"
+		}))
+
+		package = CodeCoverageBase._packageConfigurations["vhdl"]
+		self.assertEqual("Cobertura", package["format"])
+		self.assertEqual(DATA / "VHDL", package["sources"])
+		self.assertEqual("coverage/vhdl", package["pages"])
+
+	@testcase("Number of report files")
+	def ReportFiles(self) -> None:
+		"""
+		A package configuration needs exactly one report file: neither none nor both formats.
+
+		Checks the ReportExtensionError's message and note for both cases.
+		"""
+		for files in ({}, {"json_report": str(REPORT), "xml_report": str(DATA / "Python" / "coverage.xml")}):
+			with self.subTest(files=list(files)):
+				with self.assertRaises(ReportExtensionError) as context:
+					CodeCoverageBase.CheckConfiguration(None, self._Configuration(
+						src={"name": "myPackage", "fail_below": 80, "levels": "default"} | files
+					))
+
+				self.assertEqual(
+					"conf.py: pyTooling_CodeCoverage_Packages:[src]: Configuration needs exactly one report file.",
+					str(context.exception)
+				)
+				self.assertEqual(["Use one of: xml_report, json_report"], context.exception.__notes__)
+
+	@testcase("Missing source directory")
+	def MissingSources(self) -> None:
+		"""
+		A 'sources' directory that doesn't exist is rejected.
+
+		Checks the ReportExtensionError's message.
+		"""
+		with self.assertRaises(ReportExtensionError) as context:
+			CodeCoverageBase.CheckConfiguration(None, self._Configuration(src={
+				"name": "myPackage", "json_report": str(REPORT), "sources": "missing", "fail_below": 80, "levels": "default"
+			}))
+
+		self.assertEqual(
+			"conf.py: pyTooling_CodeCoverage_Packages:[src].sources: Source directory 'missing' doesn't exist.",
+			str(context.exception)
+		)
+
+	@testcase("Pages without sources")
+	def PagesWithoutSources(self) -> None:
+		"""
+		A package configuration with 'pages' needs 'sources', as a file's page shows its source.
+
+		Checks the ReportExtensionError's message.
+		"""
+		with self.assertRaises(ReportExtensionError) as context:
+			CodeCoverageBase.CheckConfiguration(None, self._Configuration(src={
+				"name": "myPackage", "json_report": str(REPORT), "pages": "coverage", "fail_below": 80, "levels": "default"
+			}))
+
+		self.assertEqual(
+			"conf.py: pyTooling_CodeCoverage_Packages:[src].sources: Configuration is missing, as 'pages' needs it.",
+			str(context.exception)
+		)
 
 	@testcase("Missing report file")
 	def MissingReport(self) -> None:

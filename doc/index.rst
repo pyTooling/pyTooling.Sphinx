@@ -93,7 +93,10 @@ Roles and Directives
   :ref:`page per testsuite and testcase <DIR/UnittestSummary/Pages>`, referred to by the roles
   :ref:`:ts: and :tc: <DIR/UnittestSummary/Roles>`.
 :ref:`report:code-coverage <DIR/CodeCoverage>`
-  |rarr| A Coverage.py report, per package and module, and a legend of its coverage levels.
+  |rarr| A code coverage report in Cobertura XML or coverage.py's JSON format, per directory and source file, and a
+  legend of its coverage levels; optionally with a :ref:`page per directory and source file <DIR/CodeCoverage/Pages>`
+  showing a file's highlighted source, each line marked by its coverage, referred to by the role
+  :ref:`:cov: <DIR/CodeCoverage/Role>`.
 :ref:`report:doc-coverage <DIR/DocCoverage>`
   |rarr| A package's documentation coverage, per package and module, and a legend of its coverage levels.
 
