@@ -89,7 +89,7 @@ html_theme = "sphinx_rtd_theme"
 html_theme_options = {
 	"logo_only": True,
 	"vcs_pageview_mode": 'blob',
-	"navigation_depth": 5,
+	"navigation_depth": -1,
 }
 html_css_files = [
 	'css/override.css',
@@ -280,6 +280,11 @@ todo_link_only = True
 pyTooling_Unittest_Testsuites = {
 	"example": {
 		"xml_report":  "../tests/data/Report/unittest.xml",
+		"pages":       "unittests/example",
+	},
+	"pytooling": {
+		"xml_report":  "../tests/data/Report/TestReport.xml",
+		"pages":       "unittests/pytooling",
 	},
 	"src": {
 		"xml_report":  "../report/unit/unittest.xml",

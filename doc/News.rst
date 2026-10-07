@@ -26,6 +26,11 @@ Version 0.x (2026)
    * Domain ``report`` from :gh:`sphinx-reports <pyTooling/sphinx-reports>` (v0.11.2), with the directives
      :ref:`report:unittest-summary <DIR/UnittestSummary>`, :ref:`report:code-coverage <DIR/CodeCoverage>` and
      :ref:`report:doc-coverage <DIR/DocCoverage>`. Reading a report needs the extra ``reports``.
+   * A unit test report declared with ``pages`` gets a
+     :ref:`page per testsuite and testcase <DIR/UnittestSummary/Pages>`, generated without source files, linked
+     from the summary table and listed in the navigation below the summary's page, and the roles
+     :ref:`:tc: and :ts: <DIR/UnittestSummary/Roles>` refer to them. A report may be in
+     :ref:`pyTooling's XML format <DIR/UnittestSummary/Formats>` too.
 
    .. rubric:: Changes compared to sphinx-reports
 
