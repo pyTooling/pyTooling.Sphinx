@@ -33,7 +33,6 @@ PyPI (see :ref:`INSTALL`).
 
 .. dependency-table:: package
    :caption: Mandatory dependencies of the pyTooling.Sphinx package.
-   :depth: 1
 
 
 .. _DEP/reports:
@@ -110,7 +109,6 @@ install the mandatory dependencies too.
 
 .. dependency-table:: unittest
    :caption: Dependencies for unit testing and code coverage.
-   :depth: 1
 
 
 .. _DEP/documentation:
@@ -146,4 +144,3 @@ the mandatory dependencies too.
 
 .. dependency-table:: documentation
    :caption: Dependencies for building the documentation.
-   :depth: 1
