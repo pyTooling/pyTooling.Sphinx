@@ -39,7 +39,7 @@ from sphinx.writers.html5  import HTML5Translator
 
 from pyTooling.Decorators  import export
 from pyTooling.Sphinx.Node import Abbreviation, Landscape, TreeDescription, TreeItem, TreeLabel, TreeSeparator
-from pyTooling.Sphinx.Node import CoverageListing, visitFunc, departFunc
+from pyTooling.Sphinx.Node import COVERAGE_STATES, CoverageListing, visitFunc, departFunc
 
 
 __all__ = [
@@ -260,10 +260,11 @@ def visit_CoverageListing(translator: HTML5Translator, node: CoverageListing) ->
 	"""
 	Write a source file's code coverage in HTML, completely.
 
-	The listing is a ``<pre>`` in Sphinx' highlighting ``<div>``s, so Sphinx' Pygments stylesheet colors the tokens. Each
-	line is a ``<span>`` with class ``report-line`` and ``report-line-<state>``, holding its number, its hits - if the
-	report has any - and its tokens. A line, which ran without taking all its branches, says on hover how many were
-	taken. The node's text - the plain source - isn't written again.
+	A header shows the file's path and a legend of the coverage states. The listing is a ``<pre>`` in Sphinx'
+	highlighting ``<div>``s, so Sphinx' Pygments stylesheet colors the tokens. Each line is a ``<span>`` with class
+	``report-line`` and ``report-line-<state>``, holding its number, its hits - if the report has any - and its tokens.
+	A line, which ran without taking all its branches, says on hover how many were taken. The node's text - the plain
+	source - isn't written again.
 
 	:param translator: The HTML translator writing the page.
 	:param node:       The listing.
@@ -290,7 +291,15 @@ def visit_CoverageListing(translator: HTML5Translator, node: CoverageListing) ->
 		lines.append(f'<span class="{classes}"{attributes}>{gutter}{code}\n</span>')
 
 	classes = "highlight-default notranslate report-coverage-listing"
+	legend = "".join(
+		f'<span class="report-coverage-legend-{state or "none"}">{translator.encode(label)}</span>'
+		for state, label in COVERAGE_STATES.items()
+	)
 	translator.body.append(translator.starttag(node, "div", "", CLASS=classes))
+	translator.body.append(
+		f'<div class="report-coverage-header"><span class="report-coverage-path">{translator.encode(node["path"])}</span>'
+		f'<span class="report-coverage-legend">{legend}</span></div>'
+	)
 	translator.body.append('<div class="highlight"><pre>')
 	translator.body.extend(lines)
 	translator.body.append("</pre></div></div>\n")

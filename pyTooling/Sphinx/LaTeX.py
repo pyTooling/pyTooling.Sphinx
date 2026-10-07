@@ -41,7 +41,7 @@ from pygments.formatters.latex import escape_tex
 from sphinx.writers.latex      import LaTeXTranslator
 
 from pyTooling.Decorators      import export
-from pyTooling.Sphinx.Node     import CoverageListing, Landscape, visitFunc, departFunc
+from pyTooling.Sphinx.Node     import COVERAGE_STATES, CoverageListing, Landscape, visitFunc, departFunc
 
 
 __all__ = ["translateLandscape", "translateCoverageListing", "COVERAGE_MARKERS", "TAB_WIDTH"]
@@ -98,7 +98,8 @@ def visit_CoverageListing(translator: LaTeXTranslator, node: CoverageListing) ->
 	The listing is a ``sphinxVerbatim`` environment with the tokens written as Sphinx writes highlighted code -
 	``\\PYG{<class>}{<text>}`` -, so the configured Pygments style colors them. Each line starts with its number,
 	colored by its coverage state, and a marker of :data:`COVERAGE_MARKERS`. Tabs are expanded to :data:`TAB_WIDTH`
-	columns. The node's text - the plain source - isn't written again.
+	columns. A line above the listing shows the file's path and a legend of the markers. The node's text - the plain
+	source - isn't written again.
 
 	:param translator: The LaTeX translator writing the document.
 	:param node:       The listing.
@@ -122,6 +123,13 @@ def visit_CoverageListing(translator: LaTeXTranslator, node: CoverageListing) ->
 
 		lines.append(f"\\textcolor{{{color}}}{{{number:>{width}} {marker}}} {''.join(code)}")
 
+	legend = "\\quad{}".join(
+		f"\\textcolor{{{color}}}{{\\texttt{{{escape_tex(marker, 'PYG')}}}}}~{COVERAGE_STATES[state]}"
+		for state, (color, marker) in COVERAGE_MARKERS.items() if state != ""
+	)
+	translator.body.append(
+		f"\n\\par\\noindent\\sphinxcode{{{translator.encode(node['path'])}}}\\hfill{{}}{{\\small{{}}{legend}}}\\par\n"
+	)
 	translator.body.append("\n\\begin{sphinxVerbatim}[commandchars=\\\\\\{\\}]\n")
 	translator.body.append("\n".join(lines))
 	translator.body.append("\n\\end{sphinxVerbatim}\n")

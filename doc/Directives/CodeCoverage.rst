@@ -209,15 +209,17 @@ Pygments style, as of every code block. Each line is marked by its coverage stat
    * - (none)
      - The line isn't executable: a comment, a declaration, an empty line.
 
-A line's number and - if the report has them - its hits are written in front of it. A line has the ID
-``L<number>``, so the role :rst:role:`cov` links to it.
+A header above the listing shows the file's path and a legend of these states. A line's number and - if the report
+has them - its hits are written in front of it. A line has the ID ``L<number>``, so the role :rst:role:`cov` links to
+it.
 
 The report must have been measured on the source as it is: a report naming a line beyond a file's end is warned about.
 
 The :rst:dir:`report:code-coverage` directive lists the top-level directories and files in a hidden table of contents,
 and a directory's page lists its directories and files, so the pages are in the navigation below the table's
 document. LaTeX writes the pages too, below the table's section; a listing's line numbers are colored by the coverage
-state, followed by a marker: ``+`` covered, ``~`` partial, ``-`` uncovered, ``x`` excluded.
+state, followed by a marker: ``+`` covered, ``~`` partial, ``-`` uncovered, ``x`` excluded; a line above the
+listing shows the file's path and the markers' legend.
 
 Sphinx regards the report file as the source of its pages, so a changed report regenerates its pages.
 
@@ -365,7 +367,8 @@ adds rules for a palette of its own, in a stylesheet listed in ``html_css_files`
      background: hsl(45 75% 80%);
    }
 
-A listing is a ``<div>`` with class ``report-coverage-listing``, a line a ``<span>`` with class ``report-line`` and
+A listing is a ``<div>`` with class ``report-coverage-listing``, its header a ``<div>`` with class
+``report-coverage-header`` holding the path and the legend, a line a ``<span>`` with class ``report-line`` and
 ``report-line-<state>``. Its colors and widths are custom properties:
 
 .. code-block:: CSS
@@ -379,6 +382,8 @@ A listing is a ``<div>`` with class ``report-coverage-listing``, a line a ``<spa
      --pyTooling-coverage-uncovered-marker: #c63c3c;
      --pyTooling-coverage-excluded:         rgba(110, 120, 130, 0.10);
      --pyTooling-coverage-excluded-marker:  #8a949c;
+     --pyTooling-coverage-none-marker:      #c8c8c8;                  /* legend of a line, which isn't executable */
+     --pyTooling-coverage-header-border:    1px solid #e1e4e5;
      --pyTooling-coverage-marker-width:     4px;
      --pyTooling-coverage-tab-size:         4;
    }

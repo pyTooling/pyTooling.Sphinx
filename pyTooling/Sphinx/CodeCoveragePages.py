@@ -160,7 +160,7 @@ def createListing(file: File, sources: Path, anchors: bool) -> Union[CoverageLis
 		else:
 			lines.append((number, line.Status.name.lower(), line._hits, line._branches, line._coveredBranches, lineTokens))
 
-	return CoverageListing(source, source, lines=lines, anchors=anchors, language="text")
+	return CoverageListing(source, source, lines=lines, anchors=anchors, path=str(file.Path), language="text")
 
 
 @export

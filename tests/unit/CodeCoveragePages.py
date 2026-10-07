@@ -173,6 +173,11 @@ class Pages(CoverageProject):
 		self.assertIn('href="../src.html"', body)
 		self.assertIn('<div class="highlight-default notranslate report-coverage-listing', body)
 		self.assertIn(
+			'<div class="report-coverage-header"><span class="report-coverage-path">src/Counter.vhdl</span>'
+			'<span class="report-coverage-legend"><span class="report-coverage-legend-covered">covered</span>', body
+		)
+		self.assertIn('<span class="report-coverage-legend-none">not executable</span></span></div>', body)
+		self.assertIn(
 			'<span class="report-line report-line-partial" id="L26" title="1 of 2 branches taken">'
 			'<span class="linenos">26</span><span class="linenos report-hits">1024</span>', body
 		)
@@ -289,6 +294,8 @@ class Pages(CoverageProject):
 		self.assertIn("\\begin{sphinxVerbatim}[commandchars=\\\\\\{\\}]", latex)
 		self.assertIn("\\textcolor{orange}{26 ~} ", latex)
 		self.assertIn("\\textcolor{red}{27 -} ", latex)
+		self.assertIn("\\sphinxcode{src/Counter.vhdl}\\hfill{}", latex)
+		self.assertIn("\\textcolor{orange}{\\texttt{\\PYGZti{}}}~partial", latex)
 		self.assertIn("\\PYG{k}{if}", latex)
 
 
