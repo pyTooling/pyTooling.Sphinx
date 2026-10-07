@@ -78,6 +78,19 @@ if TYPE_CHECKING:  # pragma: no cover
 	from pyEDAA.Reports.CodeCoverage import Base, CoverageSummary, Directory, File
 
 
+__all__ = ["LINE_STATES"]
+
+#: The state a listing marks a line with, by the name of the line's
+#: :class:`~pyEDAA.Reports.CodeCoverage.CoverageStatus`.
+LINE_STATES = {
+	"Covered":          "covered",
+	"PartiallyCovered": "partial",
+	"Uncovered":        "uncovered",
+	"Excluded":         "excluded",
+	"Unknown":          "",
+}
+
+
 @export
 def tokenClass(tokenType: _TokenType) -> str:
 	"""
@@ -158,7 +171,8 @@ def createListing(file: File, sources: Path, anchors: bool) -> Union[CoverageLis
 		if (line := file._lines.get(number)) is None:
 			lines.append((number, "", None, 0, 0, lineTokens))
 		else:
-			lines.append((number, line.Status.name.lower(), line._hits, line._branches, line._coveredBranches, lineTokens))
+			state = LINE_STATES[line._status.name]
+			lines.append((number, state, line._count, len(line._branches), line.CoveredBranches, lineTokens))
 
 	return CoverageListing(source, source, lines=lines, anchors=anchors, path=str(file.Path), language="text")
 
@@ -409,11 +423,11 @@ class CodeCoverageReportPages(ReportPages):
 		ranges: list[str] = []
 		start = end = None
 		for number in sorted(file._lines):
-			line = file._lines[number]
-			if line._excluded:
+			state = file._lines[number]._status.name
+			if state == "Excluded":
 				continue
 
-			if not line._executed:
+			if state == "Uncovered":
 				start = number if start is None else start
 				end = number
 			elif start is not None:

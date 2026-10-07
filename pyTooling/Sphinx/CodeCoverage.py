@@ -305,7 +305,7 @@ class CodeCoverageBase(BaseDirective):
 		except ImportError as cause:
 			raise ReportsPackageMissingError("Reading a code coverage report", "'pyEDAA.Reports' >= 0.20") from cause
 
-		return Document(packageConfiguration["report"], analyzeAndConvert=True)
+		return Document(packageConfiguration["report"], analyzeAndConvert=True).ToCoverageSummary()
 
 	@classmethod
 	def _CheckLevelsConfiguration(cls, sphinxConfiguration: Config) -> None:
