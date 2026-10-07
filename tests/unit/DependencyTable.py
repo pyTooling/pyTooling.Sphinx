@@ -38,6 +38,8 @@ from tempfile                         import TemporaryDirectory
 from textwrap                         import dedent
 from typing                           import Optional as Nullable
 
+from docutils                         import nodes
+from packaging.requirements           import Requirement
 from packaging.specifiers             import SpecifierSet
 from pytest                           import mark
 
@@ -477,6 +479,92 @@ class DependencyFormats(Testcase):
 		"""
 		self.assertEqual("PackageVersionLicense", str(DependencyFormat.PackageVersionLicense))
 		self.assertEqual("MajorMinor", str(VersionFormat.MajorMinor))
+
+
+class _TreeRelease:
+	"""A release requiring other packages, unconditionally."""
+
+	def __init__(self, *requirements: str) -> None:
+		self.Requirements = {None: [Requirement(requirement) for requirement in requirements]}
+
+
+class _TreeCollector:
+	"""A collector knowing every package by its name."""
+
+	@staticmethod
+	def Project(name: str) -> str:
+		return name
+
+
+class _TreeTable(DependencyTable):
+	"""A table rendering a package as its name, with releases from a dictionary instead of the package index."""
+
+	_releases: dict[str, _TreeRelease]  #: The release of each package, by name.
+
+	def __init__(self, releases: dict[str, _TreeRelease]) -> None:
+		self._releases = releases
+
+	def _SelectRelease(self, project: str, requirement: Requirement, collector: _TreeCollector) -> _TreeRelease:
+		return self._releases[project]
+
+	def _RequirementParagraph(self, requirement: Requirement, project: str, release: _TreeRelease) -> nodes.paragraph:
+		return nodes.paragraph(text=requirement.name)
+
+
+@testsuite("Dependency trees")
+class DependencyTrees(Testcase):
+	"""A dependency tree is expanded up to the depth limit, and says where the limit cut it off."""
+
+	_releases = {
+		"a": _TreeRelease("b"),
+		"b": _TreeRelease("c", "d"),
+		"c": _TreeRelease("e"),
+		"d": _TreeRelease(),
+		"e": _TreeRelease("a")
+	}
+
+	@staticmethod
+	def _render(depth: Nullable[int]) -> list[str]:
+		table = _TreeTable(DependencyTrees._releases)
+		bulletList = table._CreateBulletList([Requirement("a")], _TreeCollector(), depth, set())
+
+		return [node.astext() for node in bulletList.findall(nodes.paragraph)]
+
+	@testcase("Unlimited")
+	def Unlimited(self) -> None:
+		"""
+		Without a limit, a tree is expanded until it ends; a cycle ends at a package already on the path.
+
+		Renders a -> b -> c, d; c -> e -> a and checks every package is listed once and nothing is marked.
+		"""
+		self.assertEqual(["a", "b", "c", "e", "d"], self._render(None))
+
+	@testcase("Limited")
+	def Limited(self) -> None:
+		"""
+		A package whose dependencies the limit cuts off says how many weren't expanded.
+
+		Renders the tree with one level below 'a' and checks 'b' is followed by the marker for its two dependencies.
+		"""
+		self.assertEqual(["a", "b", "… 2 dependencies not expanded (depth limit)"], self._render(1))
+
+	@testcase("Limited, one dependency")
+	def Limited_One(self) -> None:
+		"""
+		The marker counts a single dependency in the singular.
+
+		Renders the tree with two levels below 'a' and checks the marker of 'c', which requires 'e' only.
+		"""
+		self.assertEqual(["a", "b", "c", "… 1 dependency not expanded (depth limit)", "d"], self._render(2))
+
+	@testcase("Limited, leaf")
+	def Limited_Leaf(self) -> None:
+		"""
+		A package without dependencies gets no marker, even at the limit; neither does a cycle back into the path.
+
+		Renders the tree with three levels below 'a' and checks 'e' - requiring only 'a' - and 'd' are unmarked.
+		"""
+		self.assertEqual(["a", "b", "c", "e", "d"], self._render(3))
 
 
 @testsuite("Unresolved license report")
