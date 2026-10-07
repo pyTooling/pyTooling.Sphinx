@@ -65,7 +65,6 @@ from xml.etree.ElementTree              import iterparse  # nosec B405 - reads t
 
 from docutils                           import nodes
 from docutils.parsers.rst.directives    import flag
-from sphinx.addnodes                    import pending_xref
 from sphinx.application                 import Sphinx
 from sphinx.config                      import Config
 from sphinx.util.logging                import getLogger
@@ -73,9 +72,9 @@ from sphinx.util.logging                import getLogger
 from pyTooling.Common                   import getFullyQualifiedName
 from pyTooling.Decorators               import export
 
-from pyTooling.Sphinx                   import INDENTATION, BaseDirective, ReportDomain, ReportExtensionError
-from pyTooling.Sphinx                   import ReportsPackageMissingError, SphinxExtensionError, UnittestEntry, strip
-from pyTooling.Sphinx                   import stripAndNormalize
+from pyTooling.Sphinx                   import INDENTATION, BaseDirective, ReportExtensionError
+from pyTooling.Sphinx                   import ReportsPackageMissingError, SphinxExtensionError
+from pyTooling.Sphinx                   import strip, stripAndNormalize
 from pyTooling.Sphinx.Node              import Landscape
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -583,27 +582,8 @@ class UnittestSummary(BaseDirective):
 			return nodes.entry("", nodes.Text(f"{prefix}{entity.Name}"))
 
 		# a reference has to be inside a text element; an inline keeps the cell free of a paragraph, as the others are
-		reference = self.CreateReference(roleName, entry, self.env.docname)
+		reference = pages.CreateReference(roleName, entry, self.env.docname)
 		return nodes.entry("", nodes.inline("", "", nodes.Text(prefix), reference))
-
-	@staticmethod
-	def CreateReference(roleName: str, entry: UnittestEntry, docname: str) -> pending_xref:
-		"""
-		Create a reference to the page of a testsuite or testcase, showing its name.
-
-		:param roleName: The role referring to it: ``ts`` for a testsuite, ``tc`` for a testcase.
-		:param entry:    The testsuite or testcase.
-		:param docname:  Name of the document holding the reference.
-		:returns:        The reference, resolved by domain ``report``.
-		"""
-		reference = pending_xref(
-			"", refdomain=ReportDomain.name, reftype=roleName, reftarget=f"{entry.reportID}:{entry.QualifiedName}",
-			refexplicit=False, refwarn=True, refdoc=docname
-		)
-		classes = ["xref", ReportDomain.name, f"{ReportDomain.name}-{roleName}"]
-		reference += nodes.inline(entry.Name, entry.Name, classes=classes)
-
-		return reference
 
 	def _RenderSummary(self, tableBody: nodes.tbody, testsuiteSummary: TestsuiteSummary) -> None:
 		"""

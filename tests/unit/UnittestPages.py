@@ -41,7 +41,7 @@ from docutils                      import nodes
 from sphinx                        import addnodes
 from sphinx.testing.util           import SphinxTestApp
 
-from pyTooling.Sphinx              import ReportDomain, UnittestEntry
+from pyTooling.Sphinx              import ReportDomain, ReportEntry
 from pyTooling.Sphinx.Unittest     import UnittestSummary
 from pyTooling.Sphinx.UnittestPages import UnittestReportPages
 from pyTooling.Testing             import testsuite, testcase
@@ -260,8 +260,8 @@ class Pages(PagesProject):
 		self.assertEqual([], self._warningLines())
 		self.assertFalse((self._path / "build" / "html" / "unittests").exists())
 		domainData = app.env.domains[ReportDomain.name].data
-		self.assertEqual({}, domainData["testcases"])
-		self.assertEqual({}, domainData["testsuites"])
+		self.assertEqual({}, domainData["tc"])
+		self.assertEqual({}, domainData["ts"])
 		self.assertNotIn("report-tc", self._html("index"))
 
 	@testcase("Unreadable report")
@@ -462,8 +462,8 @@ class DomainData(PagesProject):
 
 		domain.clear_doc(f"{JUNIT_PAGES}/Division/test_ByZero")
 
-		self.assertEqual([], domain.FindUnittestEntries("tc", "test_ByZero"))
-		self.assertEqual(1, len(domain.FindUnittestEntries("tc", "test_Fraction")))
+		self.assertEqual([], domain.FindEntries("tc", "test_ByZero"))
+		self.assertEqual(1, len(domain.FindEntries("tc", "test_Fraction")))
 
 	@testcase("Merge a parallel reader's data")
 	def MergeDomainData(self) -> None:
@@ -475,15 +475,15 @@ class DomainData(PagesProject):
 		app = self._buildPages("Index\n#####\n")
 		domain: ReportDomain = app.env.domains[ReportDomain.name]
 
-		read = UnittestEntry("other/read", "ut", ("other", "test_Read"), None)
-		unread = UnittestEntry("other/unread", "ut", ("other", "test_Unread"), None)
+		read = ReportEntry("other/read", "ut", ("other", "test_Read"), ".", None)
+		unread = ReportEntry("other/unread", "ut", ("other", "test_Unread"), ".", None)
 		domain.merge_domaindata(
 			["other/read"],
-			{"testcases": {"ut": {"other.test_Read": read, "other.test_Unread": unread}}, "testsuites": {}}
+			{"tc": {"ut": {"other.test_Read": read, "other.test_Unread": unread}}, "ts": {}}
 		)
 
-		self.assertEqual([read], domain.FindUnittestEntries("tc", "test_Read"))
-		self.assertEqual([], domain.FindUnittestEntries("tc", "test_Unread"))
+		self.assertEqual([read], domain.FindEntries("tc", "test_Read"))
+		self.assertEqual([], domain.FindEntries("tc", "test_Unread"))
 
 
 @testsuite("Configuration key 'pages'")
