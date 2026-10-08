@@ -160,15 +160,16 @@ def createListing(file: File, sources: Path, anchors: bool) -> Union[CoverageLis
 		return nodes.paragraph(text=f"The source file '{file.Path.as_posix()}' can't be read.")
 
 	tokens = tokenizeSource(source, file._name)
-	if len(file._lines) > 0 and (lastLine := max(file._lines)) > len(tokens):
+	if (lastLineNumber := file.LastLineNumber) > len(tokens):
 		getLogger(__name__).warning(
-			f"The code coverage report names line {lastLine} of '{file.Path.as_posix()}', which has {len(tokens)} lines: the "
-			f"report wasn't measured on this version of the file."
+			f"The code coverage report names line {lastLineNumber} of '{file.Path.as_posix()}', which has {len(tokens)} "
+			f"lines: the report wasn't measured on this version of the file."
 		)
 
+	fileLines = file.Lines
 	lines = []
 	for number, lineTokens in enumerate(tokens, start=1):
-		if (line := file._lines.get(number)) is None:
+		if number > lastLineNumber or (line := fileLines[number]) is None:
 			lines.append((number, "", None, 0, 0, lineTokens))
 		else:
 			state = LINE_STATES[line._status.name]
@@ -422,8 +423,9 @@ class CodeCoverageReportPages(ReportPages):
 		"""
 		ranges: list[str] = []
 		start = end = None
-		for number in sorted(file._lines):
-			state = file._lines[number]._status.name
+		for line in file.IterateLines():
+			number = line._lineNumber
+			state =  line._status.name
 			if state == "Excluded":
 				continue
 
