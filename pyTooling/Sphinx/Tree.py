@@ -84,7 +84,7 @@ from pyTooling.Sphinx      import BaseDirective, SphinxExtensionError, strip
 from pyTooling.Sphinx.Node import TreeItem, TreeLabel
 
 
-__all__ = ["DEFAULT_MARKER", "DEFAULT_ICONS", "CODE_POINT_PATTERN"]
+__all__ = ["DEFAULT_MARKER", "DEFAULT_ICONS", "CODE_POINT_PATTERN", "SEPARATOR_PATTERN"]
 
 #: The marker of an entry whose icon is the one of its kind.
 DEFAULT_MARKER = "-"
@@ -104,8 +104,18 @@ DEFAULT_ICONS = {
 #: A word of an icon option written as a Unicode code point, e.g. ``U+1F4C1``.
 CODE_POINT_PATTERN = re_compile(r"U\+([0-9A-Fa-f]{1,6})")
 
+#: The separator between an entry's text and its description, as group ``separator``: a ``|`` after whitespace and
+#: before whitespace or the line's end.
+#:
+#: The other alternatives match what the separator isn't searched in - an escaped character, an inline literal, and
+#: interpreted text such as a role's -, so a ``|`` in them separates nothing.
+SEPARATOR_PATTERN = re_compile(r"\\.|``.*?``|`(?:\\.|[^`\\])*`|(?<=\s)(?P<separator>\|)(?=\s|$)")
+
 _Entry = Node[None, str, str, Any]
-"""An entry of the content: its text as the value, the index of its line and its marker as key-value pairs."""
+"""
+An entry of the content: its text as the value, the index of its line, its marker and its description as key-value
+pairs.
+"""
 
 
 @export
@@ -227,14 +237,16 @@ class Tree(BaseDirective):
 		"""
 		Read the content into trees: an entry per line, and an entry indented deeper than the one above is its child.
 
-		An entry's text is the node's value. Key ``index`` holds the index of the entry's line in the content, and key
-		``marker`` the marker the line starts with.
+		An entry's text is the node's value. Key ``index`` holds the index of the entry's line in the content, key
+		``marker`` the marker the line starts with, and key ``description`` the text behind a separator ``|`` - see
+		:data:`SEPARATOR_PATTERN` -, or an empty string.
 
 		:param content:               The directive's content, line by line.
 		:param markers:               Optional, the markers an entry may start with. Default: ``-``.
 		:returns:                     The root of each tree, in the order written.
 		:raises SphinxExtensionError: If the content holds no entry.
 		:raises SphinxExtensionError: If a line doesn't start with a marker and a space.
+		:raises SphinxExtensionError: If a line has more than one separator ``|``.
 		:raises SphinxExtensionError: If an entry has no text.
 		:raises SphinxExtensionError: If an entry is indented less than the entry above, but not as deep as one of its
 		                              ancestors.
@@ -251,7 +263,17 @@ class Tree(BaseDirective):
 				accepted = ", ".join(f"'{marker} '" for marker in markers)
 				raise SphinxExtensionError(f"'{text.rstrip()}' is not an entry, which starts with {accepted}.")
 
-			if (value := text[1:].strip()) == "":
+			separators = [match.start() for match in SEPARATOR_PATTERN.finditer(text) if match["separator"] is not None]
+			if len(separators) > 1:
+				raise SphinxExtensionError(
+					f"'{text.rstrip()}' has more than one separator ' | '; a '|' in a text is escaped as '\\|'."
+				)
+			elif len(separators) == 1:
+				value, description = text[1:separators[0]].strip(), text[separators[0] + 1:].strip()
+			else:
+				value, description = text[1:].strip(), ""
+
+			if value == "":
 				raise SphinxExtensionError(f"'{text.rstrip()}' is an entry without text.")
 
 			closed = False
@@ -267,7 +289,9 @@ class Tree(BaseDirective):
 				)
 
 			parent = ancestors[-1][1] if len(ancestors) > 0 else None
-			entry: _Entry = Node(value=value, keyValuePairs={"index": index, "marker": marker}, parent=parent)
+			entry: _Entry = Node(
+				value=value, keyValuePairs={"index": index, "marker": marker, "description": description}, parent=parent
+			)
 			if parent is None:
 				roots.append(entry)
 
