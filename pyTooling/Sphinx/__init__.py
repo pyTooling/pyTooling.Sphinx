@@ -139,9 +139,11 @@ from pyTooling.Documentation import DocumentationError
 
 from pyTooling.Sphinx        import Resources as SphinxResources
 from pyTooling.Sphinx.HTML   import translateLandscape as translateLandscapeAsHTML
-from pyTooling.Sphinx.HTML   import translateAbbreviation, translateTreeItem, translateTreeLabel
+from pyTooling.Sphinx.HTML   import translateAbbreviation, translateTreeItem, translateTreeLabel, translateTreeSeparator
+from pyTooling.Sphinx.HTML   import translateTreeDescription
 from pyTooling.Sphinx.LaTeX  import translateLandscape as translateLandscapeAsLaTeX
-from pyTooling.Sphinx.Node   import Abbreviation, Landscape, RegisteredNode, TreeItem, TreeLabel
+from pyTooling.Sphinx.Node   import Abbreviation, Landscape, RegisteredNode, TreeItem, TreeLabel, TreeSeparator
+from pyTooling.Sphinx.Node   import TreeDescription
 
 
 __all__ = ["STYLESHEET", "SUBSTITUTIONS", "NODES", "INDENTATION", "UNITTEST_ROLES"]
@@ -167,10 +169,13 @@ SUBSTITUTIONS = """
 #: A format without visitors of its own - e.g. LaTeX for the tree's nodes - writes a node with the visitors of its
 #: base-class.
 NODES: tuple[RegisteredNode, ...] = (
-	{"name": "TreeItem",     "node": TreeItem,     "html": translateTreeItem},
-	{"name": "TreeLabel",    "node": TreeLabel,    "html": translateTreeLabel},
-	{"name": "Abbreviation", "node": Abbreviation, "html": translateAbbreviation},
-	{"name": "Landscape",    "node": Landscape,    "html": translateLandscapeAsHTML, "latex": translateLandscapeAsLaTeX},
+	{"name": "TreeItem",        "node": TreeItem,        "html": translateTreeItem},
+	{"name": "TreeLabel",       "node": TreeLabel,       "html": translateTreeLabel},
+	{"name": "TreeSeparator",   "node": TreeSeparator,   "html": translateTreeSeparator},
+	{"name": "TreeDescription", "node": TreeDescription, "html": translateTreeDescription},
+	{"name": "Abbreviation",    "node": Abbreviation,    "html": translateAbbreviation},
+	{"name": "Landscape",       "node": Landscape,       "html": translateLandscapeAsHTML,
+	 "latex": translateLandscapeAsLaTeX},
 )
 
 

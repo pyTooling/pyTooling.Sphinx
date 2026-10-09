@@ -29,9 +29,12 @@
 # ==================================================================================================================== #
 #
 """
-Unit tests for :mod:`pyTooling.Sphinx.Tree`: reading the directive's content, and its icon options.
+Unit tests for :mod:`pyTooling.Sphinx.Tree`: reading the directive's content, its descriptions, and its icon options.
 """
+from docutils              import nodes
+
 from pyTooling.Sphinx      import SphinxExtensionError
+from pyTooling.Sphinx.Node import TreeDescription, TreeLabel, TreeSeparator
 from pyTooling.Sphinx.Tree import Tree, icon, markerIcons
 from pyTooling.Testing     import Testcase, testsuite, testcase
 
@@ -174,6 +177,147 @@ class TreeContent(Testcase):
 		self.assertEqual(
 			"'- c' is indented less than the entry above, but not as deep as one of its ancestors.",
 			str(context.exception)
+		)
+
+
+@testsuite("Tree descriptions")
+class TreeDescriptions(Testcase):
+	"""An entry's description: the text behind a '|' between spaces."""
+
+	@testcase("Description")
+	def Description(self) -> None:
+		"""
+		A '|' between spaces separates the entry's text from its description; spaces around both are dropped.
+
+		Parses an entry with a description aligned by spaces and checks text and description.
+		"""
+		entry = Tree._ParseEntries(["- Directory      |   e.g. ``myPackage/``  "])[0]
+
+		self.assertEqual("Directory", entry.Value)
+		self.assertEqual("e.g. ``myPackage/``", entry["description"])
+
+	@testcase("Without description")
+	def NoDescription(self) -> None:
+		"""
+		An entry without a separator has an empty description.
+
+		Parses an entry without a separator and checks its description is empty.
+		"""
+		self.assertEqual("", Tree._ParseEntries(["- Directory"])[0]["description"])
+
+	@testcase("Empty description")
+	def EmptyDescription(self) -> None:
+		"""
+		A separator at the line's end leaves the description empty, as if there were none.
+
+		Parses an entry ending in a separator, with and without trailing spaces, and checks text and description.
+		"""
+		for line in ("- Directory |", "- Directory |   "):
+			with self.subTest(line=line):
+				entry = Tree._ParseEntries([line])[0]
+
+				self.assertEqual("Directory", entry.Value)
+				self.assertEqual("", entry["description"])
+
+	@testcase("Not a separator")
+	def NotASeparator(self) -> None:
+		"""
+		A '|' in a literal, in interpreted text, escaped, or delimiting a substitution reference separates nothing.
+
+		Parses lines whose text contains a '|' that isn't a separator, some followed by a separator, and checks text and
+		description.
+		"""
+		for line, text, description in (
+			("- ``int | None``",                 "``int | None``",                 ""),
+			("- ``int | None`` | type",          "``int | None``",                 "type"),
+			("- :code:`a | b` | code",           ":code:`a | b`",                  "code"),
+			("- `a | b <https://example.org>`_", "`a | b <https://example.org>`_", ""),
+			("- a \\| b",                        "a \\| b",                        ""),
+			("- a |br| b | c",                   "a |br| b",                       "c"),
+			("- a|b",                            "a|b",                            ""),
+		):
+			with self.subTest(line=line):
+				entry = Tree._ParseEntries([line])[0]
+
+				self.assertEqual(text, entry.Value)
+				self.assertEqual(description, entry["description"])
+
+	@testcase("Separator as marker")
+	def Marker(self) -> None:
+		"""
+		A marker '|' declared by ':icons:' is no separator, as no whitespace precedes it.
+
+		Parses an entry marked '|' with a description and checks marker, text and description.
+		"""
+		entry = Tree._ParseEntries(["| directory | empty"], ("-", "|"))[0]
+
+		self.assertEqual("|", entry["marker"])
+		self.assertEqual("directory", entry.Value)
+		self.assertEqual("empty", entry["description"])
+
+	@testcase("Nesting")
+	def Nesting(self) -> None:
+		"""
+		Descriptions don't change the hierarchy, and entries with and without one may be mixed at every level.
+
+		Parses a root with a description, a child without one and a grandchild with one, and checks each entry.
+		"""
+		roots = Tree._ParseEntries(["- root   | the root", "  - node", "    - leaf | a leaf", "  - sibling | last"])
+
+		self.assertEqual(
+			[("root", "the root", 0), ("node", "", 1), ("leaf", "a leaf", 2), ("sibling", "last", 1)],
+			[(entry.Value, entry["description"], entry.Level) for entry in roots[0].IteratePreOrder()]
+		)
+
+	@testcase("Several separators")
+	def Separators(self) -> None:
+		"""
+		A line with more than one separator is rejected; the message tells how to write a '|' in a text.
+
+		Parses a line with two separators and checks the message.
+		"""
+		with self.assertRaises(SphinxExtensionError) as context:
+			Tree._ParseEntries(["- a | b | c"])
+
+		self.assertEqual(
+			"'- a | b | c' has more than one separator ' | '; a '|' in a text is escaped as '\\|'.", str(context.exception)
+		)
+
+	@testcase("Description without text")
+	def NoText(self) -> None:
+		"""
+		An entry needs a text, even if it has a description.
+
+		Parses a description behind the marker and checks the message.
+		"""
+		with self.assertRaises(SphinxExtensionError) as context:
+			Tree._ParseEntries(["- | description"])
+
+		self.assertEqual("'- | description' is an entry without text.", str(context.exception))
+
+	@testcase("Column width")
+	def ColumnWidth(self) -> None:
+		"""
+		The column is as wide as its widest entry, per level counted in character cells, icon and gap included.
+
+		Computes the width of two roots, a child with a wide icon and a variation selector, and a grandchild behind a
+		description, and checks the CSS expression: the description and its separator aren't counted, and the widest
+		entry per level is.
+		"""
+		labels = [
+			TreeLabel("", "", nodes.Text("root"), icon="", level=0),
+			TreeLabel("", "", nodes.Text("second root"), icon="", level=0),
+			TreeLabel("", "", nodes.Text("node"), icon="\U0001f4c1\ufe0f", level=1),
+			TreeLabel(
+				"", "", nodes.Text("leaf"), TreeSeparator("", " \u2013 "), TreeDescription("", "a long description"),
+				icon="", level=2
+			),
+		]
+
+		self.assertEqual(
+			"calc(var(--pyTooling-tree-expander-width) + max(11ch, calc(1 * var(--pyTooling-tree-level) + 7ch), "
+			"calc(2 * var(--pyTooling-tree-level) + 4ch)))",
+			Tree._ColumnWidth(labels)
 		)
 
 

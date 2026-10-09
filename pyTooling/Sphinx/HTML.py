@@ -34,13 +34,18 @@ Visitors writing pyTooling.Sphinx's nodes in HTML.
 Each node has a ``visit_*`` and a ``depart_*`` function and a ``translate*`` pair of both, which
 :data:`~pyTooling.Sphinx.NODES` registers.
 """
+from docutils              import nodes
 from sphinx.writers.html5  import HTML5Translator
 
 from pyTooling.Decorators  import export
-from pyTooling.Sphinx.Node import Abbreviation, Landscape, TreeItem, TreeLabel, visitFunc, departFunc
+from pyTooling.Sphinx.Node import Abbreviation, Landscape, TreeDescription, TreeItem, TreeLabel, TreeSeparator
+from pyTooling.Sphinx.Node import visitFunc, departFunc
 
 
-__all__ = ["translateLandscape", "translateTreeItem", "translateTreeLabel", "translateAbbreviation"]
+__all__ = [
+	"translateLandscape", "translateTreeItem", "translateTreeLabel", "translateTreeSeparator", "translateTreeDescription",
+	"translateAbbreviation"
+]
 
 
 @export
@@ -48,10 +53,19 @@ def visit_TreeItem(translator: HTML5Translator, node: TreeItem) -> None:
 	"""
 	Open an entry in HTML: a list item, and a ``<details>`` element if the entry has children.
 
+	The root of a tree with descriptions states the width of the column of the entries' texts, as CSS custom property
+	``--pyTooling-tree-column``, which its descendants inherit.
+
 	:param translator: The HTML translator writing the page.
 	:param node:       The entry.
 	"""
-	translator.body.append(translator.starttag(node, "li", ""))
+	if node["columnWidth"] is None:
+		translator.body.append(translator.starttag(node, "li", ""))
+	else:
+		translator.body.append(
+			translator.starttag(node, "li", "", style=f"--pyTooling-tree-column: {node['columnWidth']}")
+		)
+
 	if node["expanded"] is not None:
 		translator.body.append("<details open>" if node["expanded"] else "<details>")
 
@@ -78,13 +92,25 @@ def visit_TreeLabel(translator: HTML5Translator, node: TreeLabel) -> None:
 	Any other entry writes an empty expander instead, so its text is aligned with its siblings'. Icons are hidden from
 	a screen reader.
 
+	In a tree with descriptions, the text ends with a :class:`~pyTooling.Sphinx.Node.TreeDescription`: the entry is a
+	row, whose first column holds the icons and the text, and whose second column the description. The row states the
+	entry's level as CSS custom property ``--pyTooling-tree-depth``, from which the stylesheet computes how wide the
+	first column is at this level.
+
 	:param translator: The HTML translator writing the page.
 	:param node:       The entry's text.
 	"""
+	if node["expandedIcon"] is not None:
+		translator.body.append("<summary>")
+
+	if isinstance(node.children[-1], TreeDescription):
+		translator.body.append(
+			f'<span class="tree-row" style="--pyTooling-tree-depth: {node["level"]}"><span class="tree-label">'
+		)
+
 	if node["expandedIcon"] is None:
 		translator.body.append('<span class="tree-expander" aria-hidden="true"></span>')
 	else:
-		translator.body.append("<summary>")
 		for state, stateIcon in (("expanded", node["expandedIcon"]), ("collapsed", node["collapsedIcon"])):
 			translator.body.append(
 				f'<span class="tree-expander tree-{state}" aria-hidden="true">{translator.encode(stateIcon)}</span>'
@@ -99,7 +125,8 @@ def visit_TreeLabel(translator: HTML5Translator, node: TreeLabel) -> None:
 @export
 def depart_TreeLabel(translator: HTML5Translator, node: TreeLabel) -> None:
 	"""
-	Close an entry's text in HTML, and its ``<summary>`` if the entry has children.
+	Close an entry's text in HTML - or its row, in a tree with descriptions -, and its ``<summary>`` if the entry has
+	children.
 
 	:param translator: The HTML translator writing the page.
 	:param node:       The entry's text.
@@ -107,6 +134,54 @@ def depart_TreeLabel(translator: HTML5Translator, node: TreeLabel) -> None:
 	translator.body.append("</span>")
 	if node["expandedIcon"] is not None:
 		translator.body.append("</summary>")
+
+
+@export
+def visit_TreeSeparator(translator: HTML5Translator, node: TreeSeparator) -> None:
+	"""
+	Skip the separator between an entry's text and its description in HTML, which draws the description in a column of
+	its own.
+
+	:param translator: The HTML translator writing the page.
+	:param node:       The separator.
+	:raises SkipNode:  Always, so neither the separator's text nor its depart function is written.
+	"""
+	raise nodes.SkipNode()
+
+
+@export
+def depart_TreeSeparator(translator: HTML5Translator, node: TreeSeparator) -> None:
+	"""
+	Close the separator between an entry's text and its description in HTML, which is never called:
+	:func:`visit_TreeSeparator` skips the node.
+
+	:param translator: The HTML translator writing the page.
+	:param node:       The separator.
+	"""
+
+
+@export
+def visit_TreeDescription(translator: HTML5Translator, node: TreeDescription) -> None:
+	"""
+	Open an entry's description in HTML: close the entry's text and the first column, and open the second column.
+
+	An entry without a description has an empty one, so every row of a tree with descriptions has both columns.
+
+	:param translator: The HTML translator writing the page.
+	:param node:       The description.
+	"""
+	translator.body.append('</span></span><span class="tree-description">')
+
+
+@export
+def depart_TreeDescription(translator: HTML5Translator, node: TreeDescription) -> None:
+	"""
+	Close an entry's description in HTML.
+
+	:param translator: The HTML translator writing the page.
+	:param node:       The description.
+	"""
+	translator.body.append("</span>")
 
 
 @export
@@ -137,6 +212,12 @@ translateTreeItem: tuple[visitFunc, departFunc] = (visit_TreeItem, depart_TreeIt
 
 translateTreeLabel: tuple[visitFunc, departFunc] = (visit_TreeLabel, depart_TreeLabel)
 """Visit and depart function writing a :class:`~pyTooling.Sphinx.Node.TreeLabel` in HTML."""
+
+translateTreeSeparator: tuple[visitFunc, departFunc] = (visit_TreeSeparator, depart_TreeSeparator)
+"""Visit and depart function skipping a :class:`~pyTooling.Sphinx.Node.TreeSeparator` in HTML."""
+
+translateTreeDescription: tuple[visitFunc, departFunc] = (visit_TreeDescription, depart_TreeDescription)
+"""Visit and depart function writing a :class:`~pyTooling.Sphinx.Node.TreeDescription` in HTML."""
 
 
 @export

@@ -23,12 +23,14 @@
   --pyTooling-table-list-margin:         0;
   --pyTooling-table-min-width:           50%;
 
-  --pyTooling-tree-row-height:     1.6em;
-  --pyTooling-tree-indentation:    1.4em;
-  --pyTooling-tree-expander-width: 1em;
-  --pyTooling-tree-icon-gap:       0.3em;
-  --pyTooling-tree-line:           1px solid #999;
-  --pyTooling-tree-margin-bottom:  24px;
+  --pyTooling-tree-row-height:            1.6em;
+  --pyTooling-tree-indentation:           1.4em;
+  --pyTooling-tree-expander-width:        1em;
+  --pyTooling-tree-icon-gap:              0.3em;
+  --pyTooling-tree-line:                  1px solid #999;
+  --pyTooling-tree-margin-bottom:         24px;
+  --pyTooling-tree-column-gap:            1.5em;
+  --pyTooling-tree-description-min-width: 15em;
 
   --pyTooling-abbreviation-underline:  1px dotted;
   --pyTooling-abbreviation-background: #fff;
@@ -197,13 +199,48 @@ ul.pytooling-tree span.tree-icon {
 }
 
 /* Both expander icons are written; which one shows depends on whether the entry is expanded. */
-ul.pytooling-tree details > summary > span.tree-collapsed,
-ul.pytooling-tree details:not([open]) > summary > span.tree-expanded {
+ul.pytooling-tree details > summary span.tree-collapsed,
+ul.pytooling-tree details:not([open]) > summary span.tree-expanded {
   display: none;
 }
 
-ul.pytooling-tree details:not([open]) > summary > span.tree-collapsed {
+ul.pytooling-tree details:not([open]) > summary span.tree-collapsed {
   display: inline-block;
+}
+
+/* A tree with descriptions: every entry is a row of two columns, its icons and text, and its description.
+
+   The root states the width of the first column, measured from the tree's left edge, as '--pyTooling-tree-column'
+   - the directive estimates it from the texts' lengths -, and every row its level as '--pyTooling-tree-depth'. Each
+   level is indented by '--pyTooling-tree-level', so the first column of a row is as many levels narrower as the row
+   is deep, and every description starts at the same horizontal position. A text wider than its column pushes its own
+   description to the right, never over it.
+
+   A description that doesn't get its minimum width beside the text - on a narrow screen - wraps below the text. */
+ul.pytooling-tree {
+  --pyTooling-tree-level: calc(var(--pyTooling-tree-indentation) + var(--pyTooling-tree-expander-width) / 2);
+}
+
+ul.pytooling-tree span.tree-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+ul.pytooling-tree span.tree-label {
+  flex: 0 1 auto;
+  min-width: min(100%, calc(var(--pyTooling-tree-column) - var(--pyTooling-tree-depth) * var(--pyTooling-tree-level)));
+}
+
+ul.pytooling-tree span.tree-description {
+  flex: 1 1 var(--pyTooling-tree-description-min-width);
+  min-width: 0;
+  padding-left: var(--pyTooling-tree-column-gap);
+}
+
+/* An entry without a description has an empty one, which mustn't wrap below the text on a narrow screen. */
+ul.pytooling-tree span.tree-description:empty {
+  display: none;
 }
 
 

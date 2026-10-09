@@ -379,6 +379,107 @@ class TreeRendering(Project):
 		)
 
 
+@testsuite("Trees with descriptions in a document")
+class TreeDescriptionRendering(Project):
+	"""What the 'tree' directive puts into a built page for entries with descriptions, in HTML, text and LaTeX."""
+
+	_document = (
+		"Index\n#####\n\n"
+		".. tree::\n"
+		"   :leaf-icon: U+1F4C4\n"
+		"\n"
+		"   - root     | the root\n"
+		"     - node\n"
+		"       - leaf | e.g. ``leaf.py``\n"
+	)
+
+	@testcase("HTML")
+	def HTML(self) -> None:
+		"""
+		Every entry is a row of the label and the description, which is empty for an entry without one; the roots state
+		the column's width, each row its level, and the separator isn't written.
+
+		Builds a tree with a described root, a node without description and a described leaf with an icon, and checks
+		the page.
+		"""
+		self._build(self._document)
+
+		self.assertEqual([], self._warningLines())
+		html = self._html("index")
+		self.assertIn(
+			'<li class="tree-root tree-expandable" style="--pyTooling-tree-column: '
+			'calc(var(--pyTooling-tree-expander-width) + max(4ch, calc(1 * var(--pyTooling-tree-level) + 4ch), '
+			'calc(2 * var(--pyTooling-tree-level) + 7ch)))"><details open><summary>'
+			'<span class="tree-row" style="--pyTooling-tree-depth: 0"><span class="tree-label">'
+			'<span class="tree-expander tree-expanded" aria-hidden="true">\u25be</span>',
+			html
+		)
+		self.assertIn(
+			'<span class="tree-text">root</span></span><span class="tree-description">the root</span></span></summary>',
+			html
+		)
+		self.assertIn(
+			'<li class="tree-node tree-expandable"><details open><summary>'
+			'<span class="tree-row" style="--pyTooling-tree-depth: 1"><span class="tree-label">',
+			html
+		)
+		self.assertIn(
+			'<span class="tree-text">node</span></span><span class="tree-description"></span></span></summary>', html
+		)
+		self.assertIn(
+			'<li class="tree-leaf"><span class="tree-row" style="--pyTooling-tree-depth: 2"><span class="tree-label">'
+			'<span class="tree-expander" aria-hidden="true"></span>'
+			'<span class="tree-icon" aria-hidden="true">\U0001f4c4</span><span class="tree-text">leaf</span></span>'
+			'<span class="tree-description">e.g. <code class="docutils literal notranslate"><span class="pre">leaf.py</span>'
+			'</code></span></span></li>',
+			html
+		)
+		self.assertNotIn("\u2013", html)
+
+	@testcase("Text")
+	def Text(self) -> None:
+		"""
+		A format without visitors of its own writes the description behind the entry's text and an en dash.
+
+		Builds the tree as plain text and checks each entry's line.
+		"""
+		self._build(self._document, "text")
+
+		self.assertEqual([], self._warningLines())
+		text = (self._path / "build" / "text" / "index.txt").read_text(encoding="utf-8")
+		self.assertIn("* root \u2013 the root\n", text)
+		self.assertIn("  * node\n", text)
+		self.assertIn('    * leaf \u2013 e.g. "leaf.py"\n', text)
+
+	@testcase("LaTeX")
+	def LaTeX(self) -> None:
+		"""
+		LaTeX writes the description behind the entry's text and an en dash.
+
+		Builds the tree as LaTeX and checks the root's and the leaf's item.
+		"""
+		self._build(self._document, "latex")
+
+		self.assertEqual([], self._warningLines())
+		latex = next((self._path / "build" / "latex").glob("*.tex")).read_text(encoding="utf-8")
+		self.assertIn("root \\textendash{} the root", latex)
+		self.assertIn("leaf \\textendash{} e.g. \\sphinxcode{\\sphinxupquote{leaf.py}}", latex)
+
+	@testcase("Error in a description")
+	def DescriptionError(self) -> None:
+		"""
+		A mistake in a description is reported at the entry's line.
+
+		Builds a tree whose second entry's description uses an unknown role, and checks the warning names line 7.
+		"""
+		self._build("Index\n#####\n\n.. tree::\n\n   - root\n     - child | :unknown:`x`\n")
+
+		self.assertEqual(
+			['src/index.rst:7: ERROR: Unknown interpreted text role "unknown". [docutils]'],
+			self._warningLines()
+		)
+
+
 @testsuite("Abbreviations in a document")
 class AbbreviationRendering(Project):
 	"""What the 'abbreviations' directive and the abbreviation roles put into a built page."""
