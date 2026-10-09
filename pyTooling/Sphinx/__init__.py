@@ -117,7 +117,7 @@ __issue_tracker_url__ = "https://GitHub.com/pyTooling/pyTooling.Sphinx/issues"
 from enum                    import Enum, Flag
 from hashlib                 import md5
 from pathlib                 import Path
-from re                      import match as re_match
+from re                      import compile as re_compile, match as re_match
 from typing                  import Any, Iterable, Iterator, NamedTuple, Optional as Nullable, TypeVar
 
 from docutils                import nodes
@@ -139,14 +139,16 @@ from pyTooling.Documentation import DocumentationError
 
 from pyTooling.Sphinx        import Resources as SphinxResources
 from pyTooling.Sphinx.HTML   import translateLandscape as translateLandscapeAsHTML
+from pyTooling.Sphinx.HTML   import translateCoverageListing as translateCoverageListingAsHTML
 from pyTooling.Sphinx.HTML   import translateAbbreviation, translateTreeItem, translateTreeLabel, translateTreeSeparator
 from pyTooling.Sphinx.HTML   import translateTreeDescription
 from pyTooling.Sphinx.LaTeX  import translateLandscape as translateLandscapeAsLaTeX
+from pyTooling.Sphinx.LaTeX  import translateCoverageListing as translateCoverageListingAsLaTeX
 from pyTooling.Sphinx.Node   import Abbreviation, Landscape, RegisteredNode, TreeItem, TreeLabel, TreeSeparator
-from pyTooling.Sphinx.Node   import TreeDescription
+from pyTooling.Sphinx.Node   import CoverageListing, TreeDescription
 
 
-__all__ = ["STYLESHEET", "SUBSTITUTIONS", "NODES", "INDENTATION", "REPORT_ROLES"]
+__all__ = ["STYLESHEET", "SUBSTITUTIONS", "NODES", "INDENTATION", "LINE_ANCHOR", "REPORT_ROLES"]
 
 #: Name of the stylesheet, in :mod:`pyTooling.Sphinx.Resources`.
 STYLESHEET = "pyTooling.css"
@@ -176,6 +178,8 @@ NODES: tuple[RegisteredNode, ...] = (
 	{"name": "Abbreviation",    "node": Abbreviation,    "html": translateAbbreviation},
 	{"name": "Landscape",       "node": Landscape,       "html": translateLandscapeAsHTML,
 	 "latex": translateLandscapeAsLaTeX},
+	{"name": "CoverageListing", "node": CoverageListing, "html": translateCoverageListingAsHTML,
+	 "latex": translateCoverageListingAsLaTeX},
 )
 
 
@@ -622,15 +626,20 @@ class ReportRoleDefinition(NamedTuple):
 	What a role of domain ``report`` refers to: a kind of object of the reports declared in a configuration value.
 	"""
 
-	objectType:  str  #: The object type, as listed by the domain, e.g. ``testcase``.
-	configValue: str  #: The configuration value declaring the reports; its first report is the default one.
-	reports:     str  #: The reports, as a warning names them, e.g. ``unit test reports``.
+	objectType:  str           #: The object type, as listed by the domain, e.g. ``testcase``.
+	configValue: str           #: The configuration value declaring the reports; its first report is the default one.
+	reports:     str           #: The reports, as a warning names them, e.g. ``unit test reports``.
+	lineAnchors: bool = False  #: Whether a target may end in ``#<line number>``, linking to the line on the page.
 
+
+#: The line number a target of a role with line anchors may end in, e.g. ``#12`` of ``src/Counter.vhdl#12``.
+LINE_ANCHOR = re_compile(r"#(\d+)$")
 
 #: The roles referring to the objects of reports with pages, by role name.
 REPORT_ROLES = {
-	"tc": ReportRoleDefinition("testcase",  "pyTooling_Unittest_Testsuites", "unit test reports"),
-	"ts": ReportRoleDefinition("testsuite", "pyTooling_Unittest_Testsuites", "unit test reports"),
+	"tc":  ReportRoleDefinition("testcase",  "pyTooling_Unittest_Testsuites",   "unit test reports"),
+	"ts":  ReportRoleDefinition("testsuite", "pyTooling_Unittest_Testsuites",   "unit test reports"),
+	"cov": ReportRoleDefinition("source",    "pyTooling_CodeCoverage_Packages", "code coverage reports", True),
 }
 
 
@@ -786,6 +795,11 @@ class ReportDomain(Domain):
 		if typ not in REPORT_ROLES:
 			return None
 
+		anchor = line = ""
+		if REPORT_ROLES[typ].lineAnchors and (match := LINE_ANCHOR.search(target)) is not None:
+			target, line = target[:match.start()], match[1]
+			anchor = f"L{line}"
+
 		entries = self.FindEntries(typ, target)
 		if len(entries) == 0:
 			return None
@@ -801,10 +815,11 @@ class ReportDomain(Domain):
 		if node.get("refexplicit", False):
 			content = contnode
 		else:
-			content = nodes.inline(entry.Name, entry.Name, classes=contnode["classes"])
+			text = entry.Name if line == "" else f"{entry.Name}:{line}"
+			content = nodes.inline(text, text, classes=contnode["classes"])
 
 		try:
-			return make_refnode(builder, fromdocname, entry.docName, None, content, entry.title)
+			return make_refnode(builder, fromdocname, entry.docName, anchor or None, content, entry.title)
 		except NoUri:
 			# a builder may not write every document, so a link to a page becomes the name
 			return content
@@ -889,12 +904,14 @@ def readReports(sphinx: Sphinx) -> None:
 
 	:param sphinx: The Sphinx application.
 	"""
-	from pyTooling.Sphinx.CodeCoverage  import CodeCoverageBase
-	from pyTooling.Sphinx.Unittest      import UnittestSummary
-	from pyTooling.Sphinx.UnittestPages import UnittestReportPages
+	from pyTooling.Sphinx.CodeCoverage      import CodeCoverageBase
+	from pyTooling.Sphinx.CodeCoveragePages import CodeCoverageReportPages
+	from pyTooling.Sphinx.Unittest          import UnittestSummary
+	from pyTooling.Sphinx.UnittestPages     import UnittestReportPages
 
 	CodeCoverageBase.ReadReports(sphinx)
 	UnittestSummary.ReadReports(sphinx)
+	CodeCoverageReportPages.CreatePages(sphinx)
 	UnittestReportPages.CreatePages(sphinx)
 
 
@@ -909,24 +926,25 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	:param sphinx: The Sphinx application to register with.
 	:returns:      The extension's metadata.
 	"""
-	from pyTooling.Sphinx.Abbreviation    import CONFIG_PREFIX as ABBREVIATION_PREFIX
-	from pyTooling.Sphinx.Abbreviation    import ROLES as ABBREVIATION_ROLES, AbbreviationDomain, AbbreviationRole
-	from pyTooling.Sphinx.Abbreviation    import Abbreviations
-	from pyTooling.Sphinx.CodeCoverage    import CONFIG_PREFIX as CODE_COVERAGE_PREFIX
-	from pyTooling.Sphinx.CodeCoverage    import CodeCoverage, CodeCoverageBase, CodeCoverageLegend, ModuleCoverage
-	from pyTooling.Sphinx.CondensedClass  import CondensedClass
-	from pyTooling.Sphinx.DependencyTable import CONFIG_PREFIX, DependencyTable, prepareEntrypoints, reportBuildTime
-	from pyTooling.Sphinx.DocCoverage     import CONFIG_PREFIX as DOC_COVERAGE_PREFIX
-	from pyTooling.Sphinx.DocCoverage     import DocCoverageBase, DocCoverageLegend, DocStrCoverage
-	from pyTooling.Sphinx.Roles           import BREAK_ROLES, PYTHON_CODE_ROLE, STYLE_ROLES
-	from pyTooling.Sphinx.Roles           import breakRole, pythonCodeRole, styleRole
-	from pyTooling.Sphinx.Shields         import Shields
-	from pyTooling.Sphinx.Tree            import Tree
-	from pyTooling.Sphinx.Unittest        import CONFIG_PREFIX as UNITTEST_PREFIX
-	from pyTooling.Sphinx.Unittest        import UnittestSummary
-	from pyTooling.Sphinx.UnittestPages   import UnittestReportPages
-	from pyTooling.Sphinx.Workaround      import FixLatexTableWidths
-	from pyTooling.Sphinx.XMLSchemaGraph  import XMLSchemaGraph
+	from pyTooling.Sphinx.Abbreviation      import CONFIG_PREFIX as ABBREVIATION_PREFIX
+	from pyTooling.Sphinx.Abbreviation      import ROLES as ABBREVIATION_ROLES, AbbreviationDomain, AbbreviationRole
+	from pyTooling.Sphinx.Abbreviation      import Abbreviations
+	from pyTooling.Sphinx.CodeCoverage      import CONFIG_PREFIX as CODE_COVERAGE_PREFIX
+	from pyTooling.Sphinx.CodeCoverage      import CodeCoverage, CodeCoverageBase, CodeCoverageLegend, FileCoverage
+	from pyTooling.Sphinx.CodeCoveragePages import CodeCoverageReportPages
+	from pyTooling.Sphinx.CondensedClass    import CondensedClass
+	from pyTooling.Sphinx.DependencyTable   import CONFIG_PREFIX, DependencyTable, prepareEntrypoints, reportBuildTime
+	from pyTooling.Sphinx.DocCoverage       import CONFIG_PREFIX as DOC_COVERAGE_PREFIX
+	from pyTooling.Sphinx.DocCoverage       import DocCoverageBase, DocCoverageLegend, DocStrCoverage
+	from pyTooling.Sphinx.Roles             import BREAK_ROLES, PYTHON_CODE_ROLE, STYLE_ROLES
+	from pyTooling.Sphinx.Roles             import breakRole, pythonCodeRole, styleRole
+	from pyTooling.Sphinx.Shields           import Shields
+	from pyTooling.Sphinx.Tree              import Tree
+	from pyTooling.Sphinx.Unittest          import CONFIG_PREFIX as UNITTEST_PREFIX
+	from pyTooling.Sphinx.Unittest          import UnittestSummary
+	from pyTooling.Sphinx.UnittestPages     import UnittestReportPages
+	from pyTooling.Sphinx.Workaround        import FixLatexTableWidths
+	from pyTooling.Sphinx.XMLSchemaGraph    import XMLSchemaGraph
 
 	for roleName in STYLE_ROLES:
 		sphinx.add_role(roleName, styleRole)
@@ -956,7 +974,7 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	reportDirectives = {
 		"code-coverage":        CodeCoverage,
 		"code-coverage-legend": CodeCoverageLegend,
-		"module-coverage":      ModuleCoverage,
+		"file-coverage":        FileCoverage,
 		"doc-coverage":         DocStrCoverage,
 		"doc-coverage-legend":  DocCoverageLegend,
 		"unittest-summary":     UnittestSummary,
@@ -995,8 +1013,9 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	sphinx.connect("config-inited", prepareEntrypoints)
 	sphinx.connect("config-inited", checkReportConfiguration)
 	sphinx.connect("builder-inited", readReports)
-	sphinx.connect("env-before-read-docs", UnittestReportPages.GenerateAll)
-	sphinx.connect("html-page-context", UnittestReportPages.HideSource)
+	for reportPages in (CodeCoverageReportPages, UnittestReportPages):
+		sphinx.connect("env-before-read-docs", reportPages.GenerateAll)
+		sphinx.connect("html-page-context", reportPages.HideSource)
 	sphinx.connect("build-finished", reportBuildTime)
 	sphinx.connect("builder-inited", installStylesheet)
 

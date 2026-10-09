@@ -293,13 +293,25 @@ pyTooling_Unittest_Testsuites = {
 pyTooling_CodeCoverage_Packages = {
 	"example": {
 		"name":        "myPackage",
-		"json_report": "../tests/data/Report/coverage.json",
+		"json_report": "../tests/data/CodeCoverage/Python/coverage.json",
+		"sources":     "../tests/data/CodeCoverage/Python",
+		"pages":       "coverage/example",
+		"fail_below":  80,
+		"levels":      "default"
+	},
+	"vhdl": {
+		"name":        "myDesign",
+		"xml_report":  "../tests/data/CodeCoverage/VHDL/Cobertura.xml",
+		"sources":     "../tests/data/CodeCoverage/VHDL",
+		"pages":       "coverage/vhdl",
 		"fail_below":  80,
 		"levels":      "default"
 	},
 	"src": {
 		"name":        f"{pythonProject}",
 		"json_report": "../report/coverage/coverage.json",
+		"sources":     "..",
+		"pages":       "coverage/src",
 		"fail_below":  80,
 		"levels":      "default"
 	},

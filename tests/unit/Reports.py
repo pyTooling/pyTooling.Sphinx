@@ -54,8 +54,11 @@ if __name__ == "__main__":  # pragma: no cover
 DATA = Path(__file__).parent.parent / "data" / "Report"
 """Directory of the report files the testcases read."""
 
+COVERAGE = Path(__file__).parent.parent / "data" / "CodeCoverage" / "Python" / "coverage.json"
+"""coverage.py's JSON report of the fixture package 'myPackage'."""
+
 DIRECTIVES = {
-	"code-coverage", "code-coverage-legend", "module-coverage", "doc-coverage", "doc-coverage-legend", "unittest-summary"
+	"code-coverage", "code-coverage-legend", "file-coverage", "doc-coverage", "doc-coverage-legend", "unittest-summary"
 }
 """Names of the directives in domain ``report``."""
 
@@ -85,7 +88,7 @@ class ReportProject(Project):
 			index, builder,
 			pyTooling_Unittest_Testsuites={"ut": {"xml_report": str(DATA / "unittest.xml")}},
 			pyTooling_CodeCoverage_Packages={
-				"cov": {"name": "myPackage", "json_report": str(DATA / "coverage.json"), "fail_below": 80, "levels": "default"}
+				"cov": {"name": "myPackage", "json_report": str(COVERAGE), "fail_below": 80, "levels": "default"}
 			},
 			pyTooling_DocCoverage_Packages={
 				"doc": {"name": "myPackage", "directory": str(package), "fail_below": 80, "levels": "default"}
@@ -283,7 +286,8 @@ class Rendering(ReportProject):
 		self.assertIn('class="report-testcase testcase-failed', html)
 		self.assertIn("test_ByZero", html)
 		self.assertIn('class="report-codecov-table report-codecov-cov docutils', html)
-		self.assertIn('class="report-module report-cov-below50', html)
+		self.assertIn('class="report-file report-cov-below60', html)
+		self.assertIn('class="report-directory report-cov-below80', html)
 		self.assertIn('class="report-codecov-legend docutils', html)
 		self.assertIn('class="report-doccov-table report-doccov-doc docutils', html)
 		self.assertIn('class="report-doccov-legend docutils', html)

@@ -232,7 +232,7 @@ class UnittestSummary(BaseDirective):
 		"""
 		getLogger(__name__).info("[REPORT] Reading unittest reports ...")
 
-		cls._reports = {}
+		cls._reports =    {}
 		cls._readErrors = {}
 		for reportID, testSummary in cls._testSummaries.items():
 			try:

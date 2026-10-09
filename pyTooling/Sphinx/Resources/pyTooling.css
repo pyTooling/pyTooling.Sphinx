@@ -37,6 +37,19 @@
   --pyTooling-abbreviation-border:     1px solid #999;
   --pyTooling-abbreviation-shadow:     0 2px 6px rgba(0, 0, 0, 0.2);
   --pyTooling-abbreviation-max-width:  30em;
+
+  --pyTooling-coverage-covered:          rgba(46, 160, 88, 0.14);
+  --pyTooling-coverage-covered-marker:   #2e9e58;
+  --pyTooling-coverage-partial:          rgba(218, 160, 24, 0.24);
+  --pyTooling-coverage-partial-marker:   #b88910;
+  --pyTooling-coverage-uncovered:        rgba(212, 58, 58, 0.16);
+  --pyTooling-coverage-uncovered-marker: #c63c3c;
+  --pyTooling-coverage-excluded:         rgba(110, 120, 130, 0.10);
+  --pyTooling-coverage-excluded-marker:  #8a949c;
+  --pyTooling-coverage-none-marker:      #c8c8c8;
+  --pyTooling-coverage-header-border:    1px solid #e1e4e5;
+  --pyTooling-coverage-marker-width:     4px;
+  --pyTooling-coverage-tab-size:         4;
 }
 
 span.bolditalic {
@@ -432,4 +445,87 @@ table.report-unittest-table > tbody > tr.report-summary.testsuitesummary-passed 
 table.report-unittest-table > tbody > tr.testsuite-passed,
 table.report-unittest-table > tbody > tr.testcase-passed */ {
   background: hsl(120 75% 90%);
+}
+
+/* A source file's code coverage: a line per <span>, its background and left border by its coverage state. */
+div.report-coverage-listing pre {
+  tab-size: var(--pyTooling-coverage-tab-size);
+  -moz-tab-size: var(--pyTooling-coverage-tab-size);
+}
+div.report-coverage-listing span.report-line {
+  display: block;
+  border-left: var(--pyTooling-coverage-marker-width) solid transparent;
+}
+div.report-coverage-listing span.report-line-covered {
+  background: var(--pyTooling-coverage-covered);
+  border-left-color: var(--pyTooling-coverage-covered-marker);
+}
+div.report-coverage-listing span.report-line-partial {
+  background: var(--pyTooling-coverage-partial);
+  border-left-color: var(--pyTooling-coverage-partial-marker);
+}
+div.report-coverage-listing span.report-line-uncovered {
+  background: var(--pyTooling-coverage-uncovered);
+  border-left-color: var(--pyTooling-coverage-uncovered-marker);
+}
+div.report-coverage-listing span.report-line-excluded {
+  background: var(--pyTooling-coverage-excluded);
+  border-left-color: var(--pyTooling-coverage-excluded-marker);
+}
+div.report-coverage-listing span.linenos {
+  display: inline-block;
+  min-width: 3em;
+  text-align: right;
+  user-select: none;
+}
+div.report-coverage-listing span.linenos.report-hits {
+  min-width: 4em;
+  opacity: 0.7;
+}
+div.report-coverage-listing div.report-coverage-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.3em 1.5em;
+  padding: 0.4em 0.8em;
+  border-bottom: var(--pyTooling-coverage-header-border);
+  font-size: 90%;
+}
+div.report-coverage-listing span.report-coverage-path {
+  font-family: monospace;
+  font-weight: bold;
+}
+div.report-coverage-listing span.report-coverage-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3em 1em;
+}
+div.report-coverage-listing span.report-coverage-legend > span::before {
+  content: "";
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  margin-right: 0.35em;
+  vertical-align: -0.1em;
+  border-left: var(--pyTooling-coverage-marker-width) solid transparent;
+}
+div.report-coverage-listing span.report-coverage-legend-covered::before {
+  background: var(--pyTooling-coverage-covered);
+  border-left-color: var(--pyTooling-coverage-covered-marker);
+}
+div.report-coverage-listing span.report-coverage-legend-partial::before {
+  background: var(--pyTooling-coverage-partial);
+  border-left-color: var(--pyTooling-coverage-partial-marker);
+}
+div.report-coverage-listing span.report-coverage-legend-uncovered::before {
+  background: var(--pyTooling-coverage-uncovered);
+  border-left-color: var(--pyTooling-coverage-uncovered-marker);
+}
+div.report-coverage-listing span.report-coverage-legend-excluded::before {
+  background: var(--pyTooling-coverage-excluded);
+  border-left-color: var(--pyTooling-coverage-excluded-marker);
+}
+div.report-coverage-listing span.report-coverage-legend-none::before {
+  border-left-color: var(--pyTooling-coverage-none-marker);
 }
