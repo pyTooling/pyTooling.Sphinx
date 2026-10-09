@@ -94,9 +94,10 @@ LINE_STATES = {
 @export
 def tokenClass(tokenType: _TokenType) -> str:
 	"""
-	Return the short CSS class Pygments writes for a token type - e.g. ``k`` for a keyword -, as its HTML formatter does.
+	Return the short CSS class Pygments writes for a token type, as its HTML formatter does.
 
-	A token type without a class of its own gets its nearest parent's class, extended by the names below it.
+	A keyword gets ``k``. A token type without a class of its own gets its nearest parent's class, extended by the names
+	below it.
 
 	:param tokenType: The token type.
 	:returns:         The CSS class; empty for plain text.
