@@ -119,7 +119,9 @@ class Abbreviation(nodes.abbreviation):
 @export
 class Landscape(nodes.container):
 	"""
-	A container whose content LaTeX puts on landscape pages, e.g. a wide table; HTML writes the content only.
+	A container whose content LaTeX puts on landscape pages; HTML writes the content only.
+
+	A wide table is such content.
 
 	LaTeX's ``landscape`` environment needs package ``pdflscape``, which :func:`~pyTooling.Sphinx.setup` requests. The
 	report tables of domain ``report`` are what this node holds.
