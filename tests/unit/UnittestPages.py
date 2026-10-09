@@ -263,6 +263,9 @@ class Pages(PagesProject):
 		self.assertEqual({}, domainData["tc"])
 		self.assertEqual({}, domainData["ts"])
 		self.assertNotIn("report-tc", self._html("index"))
+		self.assertFalse(UnittestReportPages.HasPages("ut"))
+		with self.assertRaises(KeyError):
+			UnittestReportPages.GetPages("ut")
 
 	@testcase("Unreadable report")
 	def UnreadableReport(self) -> None:
@@ -511,7 +514,10 @@ class Configuration(Project):
 		"""
 		self.assertEqual([], self._check("/unittests/ut/"))
 		self.assertEqual("unittests/ut", UnittestSummary._testSummaries["ut"]["pages"])
-		self.assertIsNotNone(UnittestReportPages.GetPages("ut"))
+		self.assertTrue(UnittestReportPages.HasPages("ut"))
+		docNames = UnittestReportPages.GetPages("ut").DocNames
+		self.assertIsInstance(docNames, tuple)
+		self.assertEqual("unittests/ut/pytest", docNames[0])
 
 	@testcase("Not a relative document name")
 	def Invalid(self) -> None:

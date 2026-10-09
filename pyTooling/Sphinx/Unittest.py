@@ -566,12 +566,15 @@ class UnittestSummary(BaseDirective):
 		"""
 		from pyTooling.Sphinx.UnittestPages import UnittestReportPages
 
-		if (pages := UnittestReportPages.GetPages(self._reportID)) is None or (entry := pages.Entry(entity)) is None:
-			return nodes.entry("", nodes.Text(f"{prefix}{entity.Name}"))
+		if UnittestReportPages.HasPages(self._reportID):
+			pages = UnittestReportPages.GetPages(self._reportID)
+			if (entry := pages.Entry(entity)) is not None:
+				# a reference has to be inside a text element; an inline keeps the cell free of a paragraph, as the
+				# others are
+				reference = pages.CreateReference(roleName, entry, self.env.docname)
+				return nodes.entry("", nodes.inline("", "", nodes.Text(prefix), reference))
 
-		# a reference has to be inside a text element; an inline keeps the cell free of a paragraph, as the others are
-		reference = pages.CreateReference(roleName, entry, self.env.docname)
-		return nodes.entry("", nodes.inline("", "", nodes.Text(prefix), reference))
+		return nodes.entry("", nodes.Text(f"{prefix}{entity.Name}"))
 
 	def _RenderSummary(self, tableBody: nodes.tbody, testsuiteSummary: TestsuiteSummary) -> None:
 		"""
@@ -634,7 +637,7 @@ class UnittestSummary(BaseDirective):
 
 		from pyTooling.Sphinx.UnittestPages import UnittestReportPages
 
-		if (pages := UnittestReportPages.GetPages(self._reportID)) is None:
+		if not UnittestReportPages.HasPages(self._reportID):
 			return [container]
 
-		return [container, pages.TableOfContents(self.env.docname)]
+		return [container, UnittestReportPages.GetPages(self._reportID).TableOfContents(self.env.docname)]

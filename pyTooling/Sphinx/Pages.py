@@ -187,14 +187,28 @@ class ReportPages(metaclass=ExtendedType, slots=True):
 		return "/".join(parts)
 
 	@classmethod
-	def GetPages(cls, reportID: str) -> Nullable[ReportPages]:
+	def HasPages(cls, reportID: str) -> bool:
+		"""
+		Check if a report has pages.
+
+		:param reportID: Identifier of the report.
+		:returns:        ``True``, if the report was declared with the key ``pages``.
+		"""
+		return reportID in cls._reportPages
+
+	@classmethod
+	def GetPages(cls, reportID: str) -> ReportPages:
 		"""
 		Return the pages of a report.
 
-		:param reportID: Identifier of the report.
-		:returns:        The report's pages, or ``None`` if the report has none.
+		:param reportID:  Identifier of the report.
+		:returns:         The report's pages.
+		:raises KeyError: If the report has no pages.
 		"""
-		return cls._reportPages.get(reportID, None)
+		try:
+			return cls._reportPages[reportID]
+		except KeyError as ex:
+			raise KeyError(f"Report '{reportID}' has no pages.") from ex
 
 	@classmethod
 	def GenerateAll(cls, sphinxApplication: Sphinx, env: BuildEnvironment, docnames: list[str]) -> None:
@@ -262,13 +276,13 @@ class ReportPages(metaclass=ExtendedType, slots=True):
 		return self._reportID
 
 	@readonly
-	def DocNames(self) -> list[str]:
+	def DocNames(self) -> tuple[str, ...]:
 		"""
 		Read-only property to return the names of the generated documents.
 
 		:returns: The document names, an object before its children.
 		"""
-		return list(self._documents)
+		return tuple(self._documents)
 
 	def Entry(self, entity: Any) -> Nullable[ReportEntry]:
 		"""
