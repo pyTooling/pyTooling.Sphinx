@@ -65,18 +65,17 @@ from xml.etree.ElementTree              import iterparse  # nosec B405 - reads t
 
 from docutils                           import nodes
 from docutils.parsers.rst.directives    import flag
-from sphinx.addnodes                    import pending_xref
 from sphinx.application                 import Sphinx
 from sphinx.config                      import Config
 from sphinx.util.logging                import getLogger
 
-from pyTooling.Common                   import getFullyQualifiedName
 from pyTooling.Decorators               import export
 
-from pyTooling.Sphinx                   import INDENTATION, BaseDirective, ReportDomain, ReportExtensionError
-from pyTooling.Sphinx                   import ReportsPackageMissingError, SphinxExtensionError, UnittestEntry, strip
-from pyTooling.Sphinx                   import stripAndNormalize
+from pyTooling.Sphinx                   import INDENTATION, BaseDirective, ReportExtensionError
+from pyTooling.Sphinx                   import ReportsPackageMissingError, SphinxExtensionError
+from pyTooling.Sphinx                   import strip, stripAndNormalize
 from pyTooling.Sphinx.Node              import Landscape
+from pyTooling.Sphinx.Pages             import ReportPages
 
 if TYPE_CHECKING:  # pragma: no cover
 	# pyEDAA.Reports is an optional dependency (extra 'reports'), imported where a report is read.
@@ -328,20 +327,8 @@ class UnittestSummary(BaseDirective):
 					f"{summaryName}.xml_report: Unittest report file '{xmlReport}' doesn't exist."
 				) from FileNotFoundError(xmlReport)
 
-			pages = testSummary.get("pages", None)
-			if pages is not None:
-				if not isinstance(pages, str):
-					ex = ReportExtensionError(f"{summaryName}.pages: Document name is not a string.")
-					ex.add_note(f"Got type '{getFullyQualifiedName(pages)}'.")
-					raise ex
-
-				parts = pages.strip("/").split("/")
-				if "\\" in pages or any(part in ("", ".", "..") for part in parts):
-					ex = ReportExtensionError(f"{summaryName}.pages: '{pages}' is not a relative document name.")
-					ex.add_note("Use a name like 'unittests/src', separated by '/', without '.' or '..'.")
-					raise ex
-
-				pages = "/".join(parts)
+			if (pages := testSummary.get("pages", None)) is not None:
+				pages = ReportPages.CheckPagesConfiguration(summaryName, pages)
 
 			cls._testSummaries[reportID] = {
 				"xml_report": xmlReport,
@@ -579,31 +566,15 @@ class UnittestSummary(BaseDirective):
 		"""
 		from pyTooling.Sphinx.UnittestPages import UnittestReportPages
 
-		if (pages := UnittestReportPages.GetPages(self._reportID)) is None or (entry := pages.Entry(entity)) is None:
-			return nodes.entry("", nodes.Text(f"{prefix}{entity.Name}"))
+		if UnittestReportPages.HasPages(self._reportID):
+			pages = UnittestReportPages.GetPages(self._reportID)
+			if (entry := pages.Entry(entity)) is not None:
+				# a reference has to be inside a text element; an inline keeps the cell free of a paragraph, as the
+				# others are
+				reference = pages.CreateReference(roleName, entry, self.env.docname)
+				return nodes.entry("", nodes.inline("", "", nodes.Text(prefix), reference))
 
-		# a reference has to be inside a text element; an inline keeps the cell free of a paragraph, as the others are
-		reference = self.CreateReference(roleName, entry, self.env.docname)
-		return nodes.entry("", nodes.inline("", "", nodes.Text(prefix), reference))
-
-	@staticmethod
-	def CreateReference(roleName: str, entry: UnittestEntry, docname: str) -> pending_xref:
-		"""
-		Create a reference to the page of a testsuite or testcase, showing its name.
-
-		:param roleName: The role referring to it: ``ts`` for a testsuite, ``tc`` for a testcase.
-		:param entry:    The testsuite or testcase.
-		:param docname:  Name of the document holding the reference.
-		:returns:        The reference, resolved by domain ``report``.
-		"""
-		reference = pending_xref(
-			"", refdomain=ReportDomain.name, reftype=roleName, reftarget=f"{entry.reportID}:{entry.QualifiedName}",
-			refexplicit=False, refwarn=True, refdoc=docname
-		)
-		classes = ["xref", ReportDomain.name, f"{ReportDomain.name}-{roleName}"]
-		reference += nodes.inline(entry.Name, entry.Name, classes=classes)
-
-		return reference
+		return nodes.entry("", nodes.Text(f"{prefix}{entity.Name}"))
 
 	def _RenderSummary(self, tableBody: nodes.tbody, testsuiteSummary: TestsuiteSummary) -> None:
 		"""
@@ -666,7 +637,7 @@ class UnittestSummary(BaseDirective):
 
 		from pyTooling.Sphinx.UnittestPages import UnittestReportPages
 
-		if (pages := UnittestReportPages.GetPages(self._reportID)) is None:
+		if not UnittestReportPages.HasPages(self._reportID):
 			return [container]
 
-		return [container, pages.TableOfContents(self.env.docname)]
+		return [container, UnittestReportPages.GetPages(self._reportID).TableOfContents(self.env.docname)]

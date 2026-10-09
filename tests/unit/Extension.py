@@ -44,7 +44,7 @@ from sphinx.util.console           import strip_colors
 
 from pyTooling.Testing             import Testcase, testsuite, testcase
 
-from pyTooling.Sphinx              import __version__, NODES, SUBSTITUTIONS, UNITTEST_ROLES, setup
+from pyTooling.Sphinx              import __version__, NODES, REPORT_ROLES, SUBSTITUTIONS, setup
 from pyTooling.Sphinx              import HTML, LaTeX
 from pyTooling.Sphinx.Abbreviation import ROLES as ABBREVIATION_ROLES, AbbreviationDomain
 from pyTooling.Sphinx.Node         import Landscape
@@ -171,7 +171,7 @@ class Registration(Project):
 		roles = {call.args[0] for call in app.add_role.call_args_list}
 		directives = {call.args[0] for call in app.add_directive.call_args_list}
 		self.assertEqual(
-			set(STYLE_ROLES) | set(BREAK_ROLES) | {PYTHON_CODE_ROLE} | set(ABBREVIATION_ROLES) | set(UNITTEST_ROLES), roles
+			set(STYLE_ROLES) | set(BREAK_ROLES) | {PYTHON_CODE_ROLE} | set(ABBREVIATION_ROLES) | set(REPORT_ROLES), roles
 		)
 		self.assertEqual(
 			{"condensed-class", "dependency-table", "xmlschema-graph", "shields", "tree", "abbreviations"},

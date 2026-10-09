@@ -37,43 +37,32 @@ testcase, named below that key's document name:
 * a testsuite: ``<pages>/<testsuite>/<testsuite>/...``, the names of the testsuites from the report's summary down;
 * a testcase: ``<pages>/<testsuite>/.../<testcase>``.
 
-A name's characters other than letters, digits, ``_``, ``-`` and ``.`` - e.g. the brackets of a parametrized pytest
-testcase - are replaced by ``_``, and a name colliding with a sibling's (also when differing only in case) gets the
-suffix ``-2``, ``-3``, ...
-
-The pages are built as docutils node trees from the report :class:`UnittestSummary` read, and handed to Sphinx as if
-they were read from a file: their names are registered when the builder is initialized and again before the
-documents are read - :meth:`sphinx.project.Project.discover` forgets them in between -, and the file Sphinx sees as
-their source is the report, so a changed report rebuilds them. A page carries the metadata ``:orphan:``; a testsuite's
-page links its testsuites and testcases in a hidden table of contents, as the directive ``report:unittest-summary``
-links the top-level testsuites, so the pages are in the navigation below the summary's document. A page's sections
-aren't listed there. Every testsuite and testcase with a page is an object of domain ``report``, referred to by the
-roles ``:ts:`` and ``:tc:``.
+The pages are built from the report :class:`~pyTooling.Sphinx.Unittest.UnittestSummary` read, by the machinery of
+:class:`~pyTooling.Sphinx.Pages.ReportPages`: a testsuite's page lists its testsuites and testcases in a hidden table
+of contents, as the directive ``report:unittest-summary`` lists the top-level testsuites, so the pages are in the
+navigation below the summary's document. Every testsuite and testcase with a page is an object of domain ``report``,
+referred to by the roles ``:ts:`` and ``:tc:``.
 
 .. seealso::
 
    :ref:`DIR/UnittestSummary/Pages`
       |rarr| The pages and the roles, with examples.
+   :mod:`pyTooling.Sphinx.Pages`
+      |rarr| The pages of a report: document names, registration, generation and navigation.
 """
 from __future__                 import annotations
 
-from re                         import compile as re_compile
 from textwrap                   import dedent
-from time                       import time_ns
 from typing                     import TYPE_CHECKING, ClassVar, Iterable, Optional as Nullable
 
 from docutils                   import nodes
-from docutils.utils             import DependencyList
-from sphinx                     import addnodes
 from sphinx.application         import Sphinx
-from sphinx.environment         import BuildEnvironment
-from sphinx.util.docutils       import new_document
 from sphinx.util.logging        import getLogger
 
-from pyTooling.Decorators       import export, readonly
-from pyTooling.MetaClasses      import ExtendedType
+from pyTooling.Decorators       import export
 
-from pyTooling.Sphinx           import ReportDomain, ReportExtensionError, UnittestEntry
+from pyTooling.Sphinx           import ReportExtensionError
+from pyTooling.Sphinx.Pages     import ReportPages
 from pyTooling.Sphinx.Unittest  import UnittestSummary
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -83,28 +72,16 @@ if TYPE_CHECKING:  # pragma: no cover
 	from pyEDAA.Reports.Unittesting import Testcase, Testsuite, TestsuiteSummary
 
 
-__all__ = ["UNSAFE_CHARACTERS"]
-
-#: Characters of a testsuite's or testcase's name, which are replaced in its document name.
-UNSAFE_CHARACTERS = re_compile(r"[^A-Za-z0-9_.\-]+")
-
-
 @export
-class UnittestReportPages(metaclass=ExtendedType, slots=True):
+class UnittestReportPages(ReportPages):
 	"""
-	The pages of one unit test report: a document name and an entry of domain ``report`` per testsuite and testcase.
-
-	The document names are computed once, when the report's pages are created, so the summary table, the roles and the
-	pages agree on them.
+	The pages of one unit test report: a page per testsuite and per testcase.
 	"""
 
-	_reportPages: ClassVar[dict[str, UnittestReportPages]] = {}  #: The pages of every report with pages, by report ID.
+	_reportPages: ClassVar[dict[str, ReportPages]] = {}  #: The pages of every unit test report with pages, by report ID.
+	_separator:   ClassVar[str] = "."                    #: Separator of the names in a qualified name.
 
-	_reportID:   str                                                #: Identifier of the report.
-	_xmlReport:  Path                                               #: The report file, the pages' source for Sphinx.
-	_summary:    TestsuiteSummary                                   #: The report's testsuite summary.
-	_entries:    dict[int, UnittestEntry]                           #: The entries, by the ``id()`` of their entity.
-	_documents:  dict[str, tuple[str, Testsuite | Testcase]]        #: Role name and entity, by document name.
+	_summary: TestsuiteSummary  #: The report's testsuite summary.
 
 	def __init__(self, reportID: str, prefix: str, xmlReport: Path, summary: TestsuiteSummary) -> None:
 		"""
@@ -118,60 +95,10 @@ class UnittestReportPages(metaclass=ExtendedType, slots=True):
 		:param xmlReport: The report file.
 		:param summary:   The report's testsuite summary.
 		"""
-		self._reportID =  reportID
-		self._xmlReport = xmlReport.resolve()
-		self._summary =   summary
-		self._entries =   {}
-		self._documents = {}
+		topLevel = [("ts", testsuite) for testsuite in sorted(summary._testsuites.values(), key=lambda item: item._name)]
+		super().__init__(reportID, prefix, xmlReport, topLevel)
 
-		qualifiedNames: dict[str, set[str]] = {"ts": set(), "tc": set()}
-
-		def addEntities(
-			entities: Iterable[Testsuite | Testcase],
-			roleName: str,
-			path: tuple[str, ...],
-			directory: str,
-			siblings: set[str]
-		) -> None:
-			"""
-			Nested function adding a document name and entry per testsuite or testcase, recursing into testsuites.
-
-			:param entities:  The testsuites or testcases of one parent.
-			:param roleName:  The role referring to them: ``ts`` or ``tc``.
-			:param path:      The parent's path below the summary.
-			:param directory: The parent's document name, the directory of its children's documents.
-			:param siblings:  The document names used below that directory so far, in lower case.
-			"""
-			for entity in sorted(entities, key=lambda item: item._name):
-				entityPath = (*path, entity._name)
-				qualifiedName = ".".join(entityPath)
-				if qualifiedName in qualifiedNames[roleName]:
-					getLogger(__name__).warning(
-						f"Unittest report '{reportID}': the qualified name '{qualifiedName}' is not unique, "
-						f"so the second one gets no page."
-					)
-					continue
-
-				qualifiedNames[roleName].add(qualifiedName)
-
-				baseName = UNSAFE_CHARACTERS.sub("_", entity._name).strip("_.") or "_"
-				fileName, counter = baseName, 1
-				while fileName.lower() in siblings:
-					counter += 1
-					fileName = f"{baseName}-{counter}"
-				siblings.add(fileName.lower())
-
-				docName = f"{directory}/{fileName}"
-				title = None if entity._title == entity._name else entity._title
-				self._entries[id(entity)] = UnittestEntry(docName, reportID, entityPath, title)
-				self._documents[docName] = (roleName, entity)
-
-				if roleName == "ts":
-					children: set[str] = set()
-					addEntities(entity._testsuites.values(), "ts", entityPath, docName, children)
-					addEntities(entity._testcases.values(), "tc", entityPath, docName, children)
-
-		addEntities(summary._testsuites.values(), "ts", (), prefix, set())
+		self._summary = summary
 
 	@classmethod
 	def CreatePages(cls, sphinxApplication: Sphinx) -> None:
@@ -202,177 +129,53 @@ class UnittestReportPages(metaclass=ExtendedType, slots=True):
 			cls._reportPages[reportID] = pages
 			pages.Register(sphinxApplication.env)
 
-	@classmethod
-	def GetPages(cls, reportID: str) -> Nullable[UnittestReportPages]:
+	def _Name(self, entity: Testsuite | Testcase) -> str:
 		"""
-		Return the pages of a report.
-
-		:param reportID: Identifier of the report.
-		:returns:        The report's pages, or ``None`` if the report has none.
-		"""
-		return cls._reportPages.get(reportID, None)
-
-	@classmethod
-	def GenerateAll(cls, sphinxApplication: Sphinx, env: BuildEnvironment, docnames: list[str]) -> None:
-		"""
-		Call-back for Sphinx' ``env-before-read-docs`` event: generate the pages of every report.
-
-		:param sphinxApplication: Sphinx application instance.
-		:param env:               The build environment.
-		:param docnames:          The documents to read, from which the generated pages are removed.
-		"""
-		for pages in cls._reportPages.values():
-			pages.Generate(sphinxApplication)
-
-			docnames[:] = [docname for docname in docnames if docname not in pages._documents]
-
-	@classmethod
-	def HideSource(
-		cls,
-		sphinxApplication: Sphinx,
-		pagename: str,
-		templatename: str,
-		context: dict[str, object],
-		doctree: Nullable[nodes.document]
-	) -> None:
-		"""
-		Call-back for Sphinx' ``html-page-context`` event: a generated page has no source to copy or link.
-
-		Without it, the HTML builder would copy the report file - the page's source for Sphinx - per page.
-
-		:param sphinxApplication: Sphinx application instance.
-		:param pagename:          Name of the page.
-		:param templatename:      Name of the page's template.
-		:param context:           The template's context.
-		:param doctree:           The page's doctree.
-		"""
-		if any(pagename in pages._documents for pages in cls._reportPages.values()):
-			context["sourcename"] = ""
-
-	@readonly
-	def ReportID(self) -> str:
-		"""
-		Read-only property to access the report's identifier (:attr:`_reportID`).
-
-		:returns: The identifier of the report.
-		"""
-		return self._reportID
-
-	@readonly
-	def DocNames(self) -> list[str]:
-		"""
-		Read-only property to return the names of the generated documents.
-
-		:returns: The document names, a testsuite before its testsuites and testcases.
-		"""
-		return list(self._documents)
-
-	def Entry(self, entity: Testsuite | Testcase) -> Nullable[UnittestEntry]:
-		"""
-		Return the entry of a testsuite or testcase of this report.
+		Return a testsuite's or testcase's name.
 
 		:param entity: The testsuite or testcase.
-		:returns:      Its entry, or ``None`` if it has no page.
+		:returns:      The name.
 		"""
-		return self._entries.get(id(entity), None)
+		return entity._name
 
-	def Register(self, env: BuildEnvironment) -> None:
+	def _Title(self, entity: Testsuite | Testcase) -> Nullable[str]:
 		"""
-		Register the document names, with the report file as their source.
+		Return a testsuite's or testcase's title written for a reader, if it differs from its name.
 
-		:param env: The build environment.
+		:param entity: The testsuite or testcase.
+		:returns:      The title, or ``None``.
 		"""
-		for docName in self._documents:
-			env.project.docnames.add(docName)
-			env.project._docname_to_path[docName] = self._xmlReport
+		return None if entity._title == entity._name else entity._title
 
-	def Generate(self, sphinxApplication: Sphinx) -> None:
+	def _Children(self, roleName: str, entity: Testsuite | Testcase) -> Iterable[tuple[str, Testsuite | Testcase]]:
 		"""
-		Build the doctree of every page, have the environment collect it, and store it as if it was read.
+		Return a testsuite's testsuites, then its testcases, each sorted by name; a testcase has none.
 
-		The event ``doctree-read`` is emitted per page, so the environment's collectors record its title, table of
-		contents and metadata.
-
-		:param sphinxApplication: Sphinx application instance.
-		"""
-		env = sphinxApplication.env
-		domain: ReportDomain = env.domains[ReportDomain.name]  # type: ignore[assignment]
-
-		self.Register(env)
-		for docName, (roleName, entity) in self._documents.items():
-			if roleName == "ts":
-				section = self._TestsuitePage(docName, entity)
-			else:
-				section = self._TestcasePage(docName, entity)
-
-			document = new_document(str(self._xmlReport))
-			document.settings.env = env
-			document.settings.record_dependencies = DependencyList()
-			document += nodes.docinfo("", nodes.field("", nodes.field_name("", "orphan"), nodes.field_body()))
-			document += section
-
-			env.prepare_settings(docName)
-			try:
-				sphinxApplication.events.emit("doctree-read", document)
-			finally:
-				env.prepare_settings("")
-				env.ref_context.clear()
-
-			# the navigation shows a page's testsuites and testcases, not its sections
-			pageEntry = env.tocs[docName][0]
-			for entries in pageEntry[1:]:
-				entries[:] = [entry for entry in entries if isinstance(entry, addnodes.toctree)]
-				if len(entries) == 0:
-					pageEntry.remove(entries)
-
-			env.all_docs[docName] = time_ns() // 1_000
-			domain.AddUnittestEntry(roleName, self._entries[id(entity)])
-			sphinxApplication.builder.write_doctree(docName, document)
-
-	def TableOfContents(self, docName: str) -> nodes.compound:
-		"""
-		Create the hidden table of contents of the report's top-level testsuites, for the document showing its summary.
-
-		The pages are then below that document in the navigation.
-
-		:param docName: Name of the document showing the report's summary.
-		:returns:       The table of contents.
-		"""
-		children = [
-			entry.docName
-			for testsuite in sorted(self._summary._testsuites.values(), key=lambda item: item._name)
-			if (entry := self.Entry(testsuite)) is not None
-		]
-		return self._TableOfContents(docName, children)
-
-	@staticmethod
-	def _TableOfContents(docName: str, children: list[str]) -> nodes.compound:
-		"""
-		Create a hidden table of contents listing pages.
-
-		:param docName:  Name of the document holding the table of contents.
-		:param children: Names of the listed pages' documents.
-		:returns:        The table of contents.
-		"""
-		toctree = addnodes.toctree(
-			parent=docName, entries=[(None, child) for child in children], includefiles=children, maxdepth=1,
-			caption=None, glob=False, hidden=True, includehidden=False, titlesonly=True, numbered=0
-		)
-		return nodes.compound("", toctree, classes=["toctree-wrapper"])
-
-	def _Reference(self, roleName: str, entity: Testsuite | Testcase, docName: str) -> nodes.Node:
-		"""
-		Create a reference to the page of a testsuite or testcase, or its name if it has no page.
-
-		:param roleName: The role referring to it: ``ts`` or ``tc``.
+		:param roleName: The role referring to the object: ``ts`` or ``tc``.
 		:param entity:   The testsuite or testcase.
-		:param docName:  Name of the document holding the reference.
-		:returns:        The reference, or the name as text.
+		:returns:        The children as ``(role name, object)`` pairs.
 		"""
-		if (entry := self.Entry(entity)) is None:
-			return nodes.Text(entity._name)
+		if roleName == "tc":
+			return []
 
-		return UnittestSummary.CreateReference(roleName, entry, docName)
+		return [
+			*(("ts", testsuite) for testsuite in sorted(entity._testsuites.values(), key=lambda item: item._name)),
+			*(("tc", testcase) for testcase in sorted(entity._testcases.values(), key=lambda item: item._name))
+		]
+
+	def _Page(self, docName: str, roleName: str, entity: Testsuite | Testcase) -> nodes.section:
+		"""
+		Build a testsuite's or testcase's page.
+
+		:param docName:  Name of the page's document.
+		:param roleName: The role referring to the object: ``ts`` or ``tc``.
+		:param entity:   The testsuite or testcase.
+		:returns:        The page's top section.
+		"""
+		if roleName == "ts":
+			return self._TestsuitePage(docName, entity)
+		else:
+			return self._TestcasePage(docName, entity)
 
 	def _PageSection(self, entity: Testsuite | Testcase) -> nodes.section:
 		"""
@@ -410,37 +213,6 @@ class UnittestReportPages(metaclass=ExtendedType, slots=True):
 					section += nodes.paragraph(text, text, classes=["report-unittest-description"])
 
 		return section
-
-	def _Field(self, fieldList: nodes.field_list, name: str, *content: nodes.Node) -> None:
-		"""
-		Add a field to a page's summary.
-
-		:param fieldList: The summary's field list.
-		:param name:      The field's name.
-		:param content:   The field's value.
-		"""
-		fieldList += nodes.field("", nodes.field_name(name, name), nodes.field_body("", nodes.paragraph("", "", *content)))
-
-	def _Table(self, columns: list[tuple[str, int]], classes: list[str]) -> tuple[nodes.table, nodes.tbody]:
-		"""
-		Create a table with a header row.
-
-		:param columns: One ``(title, width)`` pair per column.
-		:param classes: CSS classes of the table.
-		:returns:       The table, and its body the rows are added to.
-		"""
-		table = nodes.table("", classes=classes)
-		table += (tableGroup := nodes.tgroup(cols=len(columns)))
-		for _, width in columns:
-			tableGroup += nodes.colspec(colwidth=width)
-
-		tableGroup += (tableHeader := nodes.thead())
-		tableHeader += (headerRow := nodes.row())
-		for columnTitle, _ in columns:
-			headerRow += nodes.entry("", nodes.paragraph(columnTitle, columnTitle))
-
-		tableGroup += (tableBody := nodes.tbody())
-		return table, tableBody
 
 	def _TestcasePage(self, docName: str, testcase: Testcase) -> nodes.section:
 		"""

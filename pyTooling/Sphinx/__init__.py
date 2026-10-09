@@ -146,7 +146,7 @@ from pyTooling.Sphinx.Node   import Abbreviation, Landscape, RegisteredNode, Tre
 from pyTooling.Sphinx.Node   import TreeDescription
 
 
-__all__ = ["STYLESHEET", "SUBSTITUTIONS", "NODES", "INDENTATION", "UNITTEST_ROLES"]
+__all__ = ["STYLESHEET", "SUBSTITUTIONS", "NODES", "INDENTATION", "REPORT_ROLES"]
 
 #: Name of the stylesheet, in :mod:`pyTooling.Sphinx.Resources`.
 STYLESHEET = "pyTooling.css"
@@ -182,12 +182,6 @@ NODES: tuple[RegisteredNode, ...] = (
 #: The character a report table indents an entry by, per level of the hierarchy: an em quad, which HTML keeps.
 INDENTATION = "\u2001"
 
-#: The roles referring to a testcase or testsuite of a unit test report, mapping a role's name to the object type and
-#: the key of the domain data holding these objects.
-UNITTEST_ROLES = {
-	"tc": ("testcase",  "testcases"),
-	"ts": ("testsuite", "testsuites"),
-}
 
 
 _EnumType = TypeVar("_EnumType", bound=Enum)
@@ -583,18 +577,21 @@ def extendProlog(sphinx: Sphinx, config: Any) -> None:
 
 
 @export
-class UnittestEntry(NamedTuple):
-	"""A testsuite or testcase of a unit test report, which has a page of its own: where it is, and its names."""
+class ReportEntry(NamedTuple):
+	"""
+	An object of a report, which has a page of its own - a testcase, a source file, ...: where it is, and its names.
+	"""
 
-	docName:  str              #: Name of the generated document showing the testsuite or testcase.
-	reportID: str              #: Identifier of the report in ``pyTooling_Unittest_Testsuites``.
-	path:     tuple[str, ...]  #: Names of the testsuites below the report's summary, down to this entry's own name.
-	title:    Nullable[str]    #: Title of the testsuite or testcase written for a reader, if the report has one.
+	docName:   str              #: Name of the generated document showing the object.
+	reportID:  str              #: Identifier of the report in its configuration value.
+	path:      tuple[str, ...]  #: Names of the objects from the report's root down to this object's own name.
+	separator: str              #: Separator of the names in a qualified name, e.g. ``.`` or ``/``.
+	title:     Nullable[str]    #: Title of the object written for a reader, if the report has one.
 
 	@readonly
 	def Name(self) -> str:
 		"""
-		Read-only property to return the testsuite's or testcase's own name, the last element of :attr:`path`.
+		Read-only property to return the object's own name, the last element of :attr:`path`.
 
 		:returns: The name.
 		"""
@@ -603,26 +600,46 @@ class UnittestEntry(NamedTuple):
 	@readonly
 	def QualifiedName(self) -> str:
 		"""
-		Read-only property to return the qualified name: the names of :attr:`path` joined by ``.``.
+		Read-only property to return the qualified name: the names of :attr:`path` joined by :attr:`separator`.
 
 		:returns: The qualified name, e.g. ``pytest.tests.unit.Arithmetic.Addition.test_Positive``.
 		"""
-		return ".".join(self.path)
+		return self.separator.join(self.path)
 
 	def Matches(self, name: str) -> bool:
 		"""
-		Check whether a name is the qualified name or a suffix of it, which starts at the name of a testsuite.
+		Check whether a name is the qualified name or a suffix of it, which starts at an element of :attr:`path`.
 
 		:param name: The name as written in a reference, without a report ID.
 		:returns:    ``True`` if the name is the qualified name or one of its suffixes.
 		"""
-		return any(".".join(self.path[index:]) == name for index in range(len(self.path)))
+		return any(self.separator.join(self.path[index:]) == name for index in range(len(self.path)))
 
 
 @export
-class UnittestRole(XRefRole):
+class ReportRoleDefinition(NamedTuple):
 	"""
-	A role referring to a testcase (``tc``) or testsuite (``ts``) of a unit test report in domain ``report``.
+	What a role of domain ``report`` refers to: a kind of object of the reports declared in a configuration value.
+	"""
+
+	objectType:  str  #: The object type, as listed by the domain, e.g. ``testcase``.
+	configValue: str  #: The configuration value declaring the reports; its first report is the default one.
+	reports:     str  #: The reports, as a warning names them, e.g. ``unit test reports``.
+
+
+#: The roles referring to the objects of reports with pages, by role name.
+REPORT_ROLES = {
+	"tc": ReportRoleDefinition("testcase",  "pyTooling_Unittest_Testsuites", "unit test reports"),
+	"ts": ReportRoleDefinition("testsuite", "pyTooling_Unittest_Testsuites", "unit test reports"),
+}
+
+
+@export
+class ReportRole(XRefRole):
+	"""
+	A role of domain ``report`` referring to an object of a report with pages.
+
+	Role ``tc`` refers to a testcase, ``ts`` to a testsuite.
 
 	Sphinx registers a role outside a domain without one, so the reference would be resolved by nobody; this role puts
 	domain ``report`` on the reference, and uses its name as the reference's type. So it works as ``:report:tc:`` and
@@ -652,53 +669,54 @@ class ReportDomain(Domain):
 
 	Its directives are registered by :func:`setup`, and read their reports from the files declared in :file:`conf.py`.
 
-	A unit test report with generated pages contributes its testsuites and testcases as objects, which the roles
-	``:report:ts:`` and ``:report:tc:`` - also registered as ``:ts:`` and ``:tc:`` - refer to. A reference names an
-	object by its qualified name, or by a suffix of it, optionally preceded by the report's identifier and a colon;
-	without one, the first report of ``pyTooling_Unittest_Testsuites`` is meant.
+	A report with generated pages contributes an object per page - e.g. a unit test report its testsuites and
+	testcases -, which the roles of :data:`REPORT_ROLES` refer to, e.g. ``:report:tc:``, also registered as ``:tc:``. A
+	reference names an object by its qualified name, or by a suffix of it, optionally preceded by the report's
+	identifier and a colon; without one, the first report of the role's configuration value is meant.
 	"""
 
-	name =  "report"  #: Name of the domain, the prefix of its directives.
-	label = "rpt"     #: Name of the domain, as displayed.
+	name =         "report"  #: Name of the domain, the prefix of its directives.
+	label =        "rpt"     #: Name of the domain, as displayed.
+	data_version = 1         #: Version of the domain data's layout; a pickled environment of another version is dropped.
 
 	object_types = {
-		objectType: ObjType(objectType, roleName) for roleName, (objectType, _) in UNITTEST_ROLES.items()
-	}  #: The objects: testsuites and testcases of unit test reports with generated pages.
+		definition.objectType: ObjType(definition.objectType, roleName) for roleName, definition in REPORT_ROLES.items()
+	}  #: The objects: per role, the objects of the reports with generated pages.
 	initial_data: dict[str, Any] = {
-		dataKey: {} for _, dataKey in UNITTEST_ROLES.values()
-	}  #: The data of an empty documentation: no testsuite and no testcase.
+		roleName: {} for roleName in REPORT_ROLES
+	}  #: The data of an empty documentation: per role, no object.
 	roles = {
-		roleName: UnittestRole(innernodeclass=nodes.inline, warn_dangling=True) for roleName in UNITTEST_ROLES
+		roleName: ReportRole(innernodeclass=nodes.inline, warn_dangling=True) for roleName in REPORT_ROLES
 	}  #: The roles, also registered without the domain's prefix.
 	dangling_warnings = {
-		roleName: f"{objectType} '%(target)s' not found in the unit test reports"
-		for roleName, (objectType, _) in UNITTEST_ROLES.items()
-	}  #: The warning for a reference to an unknown testsuite or testcase, per role.
+		roleName: f"{definition.objectType} '%(target)s' not found in the {definition.reports}"
+		for roleName, definition in REPORT_ROLES.items()
+	}  #: The warning for a reference to an unknown object, per role.
 
-	def AddUnittestEntry(self, roleName: str, entry: UnittestEntry) -> None:
+	def AddEntry(self, roleName: str, entry: ReportEntry) -> None:
 		"""
-		Register a testsuite or testcase which has a generated page.
+		Register an object, which has a generated page.
 
-		:param roleName: The role referring to the object: ``tc`` for a testcase, ``ts`` for a testsuite.
-		:param entry:    The testsuite or testcase.
+		:param roleName: The role referring to the object, e.g. ``tc`` for a testcase.
+		:param entry:    The object.
 		"""
-		self.data[UNITTEST_ROLES[roleName][1]].setdefault(entry.reportID, {})[entry.QualifiedName] = entry
+		self.data[roleName].setdefault(entry.reportID, {})[entry.QualifiedName] = entry
 
-	def FindUnittestEntries(self, roleName: str, target: str) -> list[UnittestEntry]:
+	def FindEntries(self, roleName: str, target: str) -> list[ReportEntry]:
 		"""
-		Find the testsuites or testcases a reference's target names.
+		Find the objects a reference's target names.
 
 		A target is ``[<report ID>:]<name>``. If the part before the first colon isn't the identifier of a report, the
-		whole target is the name in the default report - the first one of ``pyTooling_Unittest_Testsuites`` -, as
-		e.g. a parametrized testcase's name may contain a colon. A name is a qualified name or a suffix of one (see
-		:meth:`UnittestEntry.Matches`); an exact qualified name wins over suffixes.
+		whole target is the name in the default report - the first one of the role's configuration value -, as e.g. a
+		parametrized testcase's name may contain a colon. A name is a qualified name or a suffix of one (see
+		:meth:`ReportEntry.Matches`); an exact qualified name wins over suffixes.
 
-		:param roleName: The role referring to the object: ``tc`` for a testcase, ``ts`` for a testsuite.
+		:param roleName: The role referring to the object, e.g. ``tc`` for a testcase.
 		:param target:   The reference's target.
 		:returns:        The matching entries: none, one, or several if the name is ambiguous.
 		"""
-		reports: dict[str, dict[str, UnittestEntry]] = self.data[UNITTEST_ROLES[roleName][1]]
-		configuredReports = list(self.env.config["pyTooling_Unittest_Testsuites"])
+		reports: dict[str, dict[str, ReportEntry]] = self.data[roleName]
+		configuredReports = list(self.env.config[REPORT_ROLES[roleName].configValue])
 
 		reportID, separator, name = target.partition(":")
 		if separator == "" or reportID not in configuredReports:
@@ -715,26 +733,26 @@ class ReportDomain(Domain):
 
 	def clear_doc(self, docname: str) -> None:
 		"""
-		Forget the testsuites and testcases of a document, before it is generated again.
+		Forget the objects of a document, before it is generated again.
 
 		:param docname: Name of the document.
 		"""
-		for _, dataKey in UNITTEST_ROLES.values():
-			for entries in self.data[dataKey].values():
+		for roleName in REPORT_ROLES:
+			for entries in self.data[roleName].values():
 				for qualifiedName in [name for name, entry in entries.items() if entry.docName == docname]:
 					del entries[qualifiedName]
 
 	def merge_domaindata(self, docnames: Iterable[str], otherdata: dict[str, Any]) -> None:
 		"""
-		Take over the testsuites and testcases a parallel reader collected for its documents.
+		Take over the objects a parallel reader collected for its documents.
 
 		:param docnames:  Names of the documents the other reader read.
 		:param otherdata: The other reader's domain data.
 		"""
 		documents = set(docnames)
-		for _, dataKey in UNITTEST_ROLES.values():
-			for reportID, entries in otherdata[dataKey].items():
-				ownEntries = self.data[dataKey].setdefault(reportID, {})
+		for roleName in REPORT_ROLES:
+			for reportID, entries in otherdata[roleName].items():
+				ownEntries = self.data[roleName].setdefault(reportID, {})
 				for qualifiedName, entry in entries.items():
 					if entry.docName in documents:
 						ownEntries[qualifiedName] = entry
@@ -750,31 +768,31 @@ class ReportDomain(Domain):
 		contnode: nodes.Element
 	) -> Nullable[nodes.Element]:
 		"""
-		Resolve a reference to a testsuite or testcase into a link to its page.
+		Resolve a reference to an object of a report into a link to its page.
 
-		The link shows the testsuite's or testcase's name, or the title written in the role; in HTML, its title written
-		for a reader - if the report has one - is shown on hover. An ambiguous name is warned about and shown as text.
+		The link shows the object's name, or the title written in the role; in HTML, its title written for a reader - if
+		the report has one - is shown on hover. An ambiguous name is warned about and shown as text.
 
 		:param env:         The build environment.
 		:param fromdocname: Name of the document holding the reference.
 		:param builder:     The builder writing the documents.
-		:param typ:         The role's name: ``tc`` or ``ts``.
-		:param target:      The testsuite or testcase referred to.
+		:param typ:         The role's name, e.g. ``tc``.
+		:param target:      The object referred to.
 		:param node:        The reference.
 		:param contnode:    The reference's text.
 		:returns:           The link, the text if the name is ambiguous or the builder doesn't write the page, or
 		                    ``None`` if nothing matches.
 		"""
-		if typ not in UNITTEST_ROLES:
+		if typ not in REPORT_ROLES:
 			return None
 
-		entries = self.FindUnittestEntries(typ, target)
+		entries = self.FindEntries(typ, target)
 		if len(entries) == 0:
 			return None
 		elif len(entries) > 1:
 			candidates = ", ".join(sorted(f"{entry.reportID}:{entry.QualifiedName}" for entry in entries))
 			getLogger(__name__).warning(
-				f"{UNITTEST_ROLES[typ][0]} '{target}' is ambiguous, candidates: {candidates}",
+				f"{REPORT_ROLES[typ].objectType} '{target}' is ambiguous, candidates: {candidates}",
 				location=node, type="ref", subtype=typ
 			)
 			return contnode
@@ -788,7 +806,7 @@ class ReportDomain(Domain):
 		try:
 			return make_refnode(builder, fromdocname, entry.docName, None, content, entry.title)
 		except NoUri:
-			# e.g. LaTeX writes only the documents of its toctree, so a link to a page becomes the name
+			# a builder may not write every document, so a link to a page becomes the name
 			return content
 
 	def resolve_any_xref(
@@ -801,7 +819,7 @@ class ReportDomain(Domain):
 		contnode: nodes.Element
 	) -> list[tuple[str, nodes.reference]]:
 		"""
-		Resolve a reference of role ``:any:`` to a testsuite or testcase with an unambiguous name.
+		Resolve a reference of role ``:any:`` to an object of a report with an unambiguous name.
 
 		:param env:         The build environment.
 		:param fromdocname: Name of the document holding the reference.
@@ -812,8 +830,8 @@ class ReportDomain(Domain):
 		:returns:           A role and link per kind of object the text names unambiguously.
 		"""
 		results: list[tuple[str, nodes.reference]] = []
-		for roleName in UNITTEST_ROLES:
-			if len(entries := self.FindUnittestEntries(roleName, target)) == 1:
+		for roleName in REPORT_ROLES:
+			if len(entries := self.FindEntries(roleName, target)) == 1:
 				entry = entries[0]
 				content = nodes.inline(entry.Name, entry.Name, classes=contnode["classes"])
 				reference = make_refnode(builder, fromdocname, entry.docName, None, content, entry.title)
@@ -823,18 +841,18 @@ class ReportDomain(Domain):
 
 	def get_objects(self) -> Iterator[tuple[str, str, str, str, str, int]]:
 		"""
-		Name the testsuites and testcases, for the search and for other documentations referring to them.
+		Name the objects of the reports, for the search and for other documentations referring to them.
 
-		An object's name is ``<report ID>:<qualified name>``. Testcases get a lower search priority than testsuites, as
-		a report may have thousands of them.
+		An object's name is ``<report ID>:<qualified name>``. A testcase gets a lower search priority than a testsuite,
+		as a report may have thousands of them.
 
 		:returns: A tuple per object: name, display name, type, document, anchor and search priority.
 		"""
-		for roleName, (objectType, dataKey) in UNITTEST_ROLES.items():
+		for roleName, definition in REPORT_ROLES.items():
 			priority = 2 if roleName == "tc" else 1
-			for reportID, entries in self.data[dataKey].items():
+			for reportID, entries in self.data[roleName].items():
 				for qualifiedName, entry in entries.items():
-					yield f"{reportID}:{qualifiedName}", entry.QualifiedName, objectType, entry.docName, "", priority
+					yield f"{reportID}:{qualifiedName}", entry.QualifiedName, definition.objectType, entry.docName, "", priority
 
 
 @export
@@ -923,9 +941,9 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	for roleName in ABBREVIATION_ROLES:
 		sphinx.add_role(roleName, AbbreviationRole(innernodeclass=nodes.inline, warn_dangling=True))
 
-	# the unit test roles outside their domain too: ':tc:', not only ':report:tc:'
-	for roleName in UNITTEST_ROLES:
-		sphinx.add_role(roleName, UnittestRole(innernodeclass=nodes.inline, warn_dangling=True))
+	# the report roles outside their domain too: ':tc:', not only ':report:tc:'
+	for roleName in REPORT_ROLES:
+		sphinx.add_role(roleName, ReportRole(innernodeclass=nodes.inline, warn_dangling=True))
 
 	sphinx.add_directive("condensed-class", CondensedClass)
 	sphinx.add_directive("dependency-table", DependencyTable)
