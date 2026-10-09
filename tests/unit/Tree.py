@@ -31,7 +31,10 @@
 """
 Unit tests for :mod:`pyTooling.Sphinx.Tree`: reading the directive's content, its descriptions, and its icon options.
 """
+from docutils              import nodes
+
 from pyTooling.Sphinx      import SphinxExtensionError
+from pyTooling.Sphinx.Node import TreeDescription, TreeLabel, TreeSeparator
 from pyTooling.Sphinx.Tree import Tree, icon, markerIcons
 from pyTooling.Testing     import Testcase, testsuite, testcase
 
@@ -291,6 +294,31 @@ class TreeDescriptions(Testcase):
 			Tree._ParseEntries(["- | description"])
 
 		self.assertEqual("'- | description' is an entry without text.", str(context.exception))
+
+	@testcase("Column width")
+	def ColumnWidth(self) -> None:
+		"""
+		The column is as wide as its widest entry, per level counted in character cells, icon and gap included.
+
+		Computes the width of two roots, a child with a wide icon and a variation selector, and a grandchild behind a
+		description, and checks the CSS expression: the description and its separator aren't counted, and the widest
+		entry per level is.
+		"""
+		labels = [
+			TreeLabel("", "", nodes.Text("root"), icon="", level=0),
+			TreeLabel("", "", nodes.Text("second root"), icon="", level=0),
+			TreeLabel("", "", nodes.Text("node"), icon="\U0001f4c1\ufe0f", level=1),
+			TreeLabel(
+				"", "", nodes.Text("leaf"), TreeSeparator("", " \u2013 "), TreeDescription("", "a long description"),
+				icon="", level=2
+			),
+		]
+
+		self.assertEqual(
+			"calc(var(--pyTooling-tree-expander-width) + max(11ch, calc(1 * var(--pyTooling-tree-level) + 7ch), "
+			"calc(2 * var(--pyTooling-tree-level) + 4ch)))",
+			Tree._ColumnWidth(labels)
+		)
 
 
 @testsuite("Tree icons")

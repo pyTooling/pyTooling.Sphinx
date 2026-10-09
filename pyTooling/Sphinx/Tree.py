@@ -52,6 +52,24 @@ draws the lines itself:
 **An entry is a line starting with a marker** and a space, and an entry indented deeper than the one above it is that
 entry's child. An entry's text is inline ReST, so a role such as ``:class:`` or ``:ref:`` links to what the entry names.
 
+.. rubric:: Descriptions
+
+**A** ``|`` **between spaces separates an entry's text from its description**, which is inline ReST too. HTML draws
+the descriptions as a second column: all of them start at the same horizontal position, whatever the entry's level.
+An entry without a description stays valid:
+
+.. code-block:: ReST
+
+   .. tree::
+
+      - CoverageSummary         | the report
+        - Directory             | e.g. ``myPackage/``
+          - File                | e.g. ``myPackage/Shapes.py``
+        - Package
+
+A ``|`` within a literal or a role's text, or escaped as ``\\|``, separates nothing, and neither does a substitution
+reference such as ``|br|``.
+
 .. rubric:: Roots, nodes and leaves
 
 An entry without a parent is a root, an entry with children is a node, and every other entry is a leaf. An entry
@@ -63,7 +81,8 @@ entry's kind is - e.g. a folder for an empty directory, which is a leaf.
 HTML draws an entry with children as a ``<details>`` element, so a reader folds and unfolds it without JavaScript;
 the stylesheet draws the lines and shows the expanded or the collapsed icon. Every other format - e.g. LaTeX - finds
 no visitor for :class:`~pyTooling.Sphinx.Node.TreeItem` and :class:`~pyTooling.Sphinx.Node.TreeLabel` and renders
-their base-classes instead: a nested bullet list without icons.
+their base-classes instead: a nested bullet list without icons, with a description behind its entry's text and an en
+dash.
 
 .. seealso::
 
@@ -74,6 +93,7 @@ their base-classes instead: a nested bullet list without icons.
 """
 from re                    import compile as re_compile
 from typing                import Any, Iterable, Optional as Nullable
+from unicodedata           import category, east_asian_width
 
 from docutils              import nodes
 from docutils.parsers.rst  import directives
@@ -81,10 +101,10 @@ from docutils.parsers.rst  import directives
 from pyTooling.Decorators  import export
 from pyTooling.Tree        import Node
 from pyTooling.Sphinx      import BaseDirective, SphinxExtensionError, strip
-from pyTooling.Sphinx.Node import TreeItem, TreeLabel
+from pyTooling.Sphinx.Node import TreeDescription, TreeItem, TreeLabel, TreeSeparator
 
 
-__all__ = ["DEFAULT_MARKER", "DEFAULT_ICONS", "CODE_POINT_PATTERN", "SEPARATOR_PATTERN"]
+__all__ = ["DEFAULT_MARKER", "DEFAULT_ICONS", "CODE_POINT_PATTERN", "SEPARATOR_PATTERN", "SEPARATOR"]
 
 #: The marker of an entry whose icon is the one of its kind.
 DEFAULT_MARKER = "-"
@@ -110,6 +130,9 @@ CODE_POINT_PATTERN = re_compile(r"U\+([0-9A-Fa-f]{1,6})")
 #: The other alternatives match what the separator isn't searched in - an escaped character, an inline literal, and
 #: interpreted text such as a role's -, so a ``|`` in them separates nothing.
 SEPARATOR_PATTERN = re_compile(r"\\.|``.*?``|`(?:\\.|[^`\\])*`|(?<=\s)(?P<separator>\|)(?=\s|$)")
+
+#: What a format without columns writes between an entry's text and its description: an en dash between spaces.
+SEPARATOR = " \u2013 "
 
 _Entry = Node[None, str, str, Any]
 """
@@ -188,6 +211,9 @@ class Tree(BaseDirective):
 	:meth:`_BuildItem` turns them into nested bullet lists of :class:`~pyTooling.Sphinx.Node.TreeItem` and
 	:class:`~pyTooling.Sphinx.Node.TreeLabel`. The options choose the icons and how many levels are expanded initially;
 	``:class:`` puts additional CSS classes on the tree.
+
+	If an entry has a description, every entry's text ends with a :class:`~pyTooling.Sphinx.Node.TreeDescription`, and
+	:meth:`_ColumnWidth` estimates how wide the column of the texts in front of the descriptions is.
 	"""
 
 	directiveName: str = "tree"  #: Name the directive is invoked by.
@@ -225,10 +251,16 @@ class Tree(BaseDirective):
 		icons = {name: self.options.get(name, default) for name, default in DEFAULT_ICONS.items()}
 		icons.update(markers)
 		expandedLevels = self.options.get("expanded-levels", None)
+		descriptionColumn = any(entry["description"] != "" for root in roots for entry in root.IteratePreOrder())
 
 		tree = nodes.bullet_list(classes=["pytooling-tree"] + self.options.get("class", "").split())
 		for root in roots:
-			tree += self._BuildItem(root, icons, expandedLevels)
+			tree += self._BuildItem(root, icons, expandedLevels, descriptionColumn)
+
+		if descriptionColumn:
+			columnWidth = self._ColumnWidth(tree.findall(TreeLabel))
+			for item in tree.children:
+				item["columnWidth"] = columnWidth
 
 		return [tree]
 
@@ -302,19 +334,28 @@ class Tree(BaseDirective):
 
 		return roots
 
-	def _BuildItem(self, entry: _Entry, icons: dict[str, str], expandedLevels: Nullable[int]) -> TreeItem:
+	def _BuildItem(
+		self,
+		entry: _Entry,
+		icons: dict[str, str],
+		expandedLevels: Nullable[int],
+		descriptionColumn: bool
+	) -> TreeItem:
 		"""
 		Build an entry and, below it, its children.
 
-		The entry's text is parsed as inline ReST at the line it was written on, so a message about a role in it points
-		to that line. Such messages follow the entry's text in the list item.
+		The entry's text and description are parsed as inline ReST at the line they were written on, so a message about
+		a role in them points to that line. Such messages follow the entry's text in the list item.
 
-		:param entry:          The entry, as :meth:`_ParseEntries` read it.
-		:param icons:          The icons, keyed by the option naming them, or by their marker.
-		:param expandedLevels: How many levels are expanded initially; ``None`` expands all.
-		:returns:              The entry as a list item, holding its text and a bullet list of its children.
+		:param entry:             The entry, as :meth:`_ParseEntries` read it.
+		:param icons:             The icons, keyed by the option naming them, or by their marker.
+		:param expandedLevels:    How many levels are expanded initially; ``None`` expands all.
+		:param descriptionColumn: Whether the tree has descriptions: then the entry's text ends with a description, empty
+		                          if the entry has none.
+		:returns:                 The entry as a list item, holding its text and a bullet list of its children.
 		"""
-		textNodes, messages = self.state.inline_text(entry.Value, self.content_offset + entry["index"] + 1)
+		line = self.content_offset + entry["index"] + 1
+		textNodes, messages = self.state.inline_text(entry.Value, line)
 
 		if entry.IsRoot:
 			kind = "root"
@@ -326,7 +367,18 @@ class Tree(BaseDirective):
 		entryIcon = icons[entry["marker"]] if entry["marker"] in icons else icons[f"{kind}-icon"]
 
 		item = TreeItem("", classes=[f"tree-{kind}"] + (["tree-expandable"] if entry.HasChildren else []))
-		item += (label := TreeLabel(entry.Value, "", *textNodes, icon=entryIcon))
+		item["columnWidth"] = None
+		item += (label := TreeLabel(entry.Value, "", *textNodes, icon=entryIcon, level=entry.Level))
+		if descriptionColumn:
+			description = TreeDescription(entry["description"])
+			if entry["description"] != "":
+				descriptionNodes, descriptionMessages = self.state.inline_text(entry["description"], line)
+				description += descriptionNodes
+				messages += descriptionMessages
+				label += TreeSeparator("", SEPARATOR)
+
+			label += description
+
 		item += messages
 
 		if not entry.HasChildren:
@@ -341,6 +393,43 @@ class Tree(BaseDirective):
 
 		item += (children := nodes.bullet_list())
 		for child in entry.GetChildren():
-			children += self._BuildItem(child, icons, expandedLevels)
+			children += self._BuildItem(child, icons, expandedLevels, descriptionColumn)
 
 		return item
+
+	@staticmethod
+	def _ColumnWidth(labels: Iterable[TreeLabel]) -> str:
+		"""
+		Estimate the width of the column of the entries' texts in a tree with descriptions, from the tree's left edge.
+
+		An entry needs its level's indentation, its expander, and its icon, a gap and its text. HTML renders the text
+		later, in a font chosen by the theme, so the text's width is estimated in character cells, CSS unit ``ch``: two
+		for a wide character, e.g. an emoji, none for a combining or format character, e.g. a variation selector, and
+		one for every other character. The gap counts as one cell.
+
+		The width is the widest entry's: per level, the indentation and the most cells at that level, and of these the
+		maximum, computed by the browser with CSS function ``max()``. The indentation is CSS custom property
+		``--pyTooling-tree-level``, so a project's indentation is accounted for.
+
+		:param labels: The entries' texts, with their level, icon and description.
+		:returns:      The width as a CSS length.
+		"""
+		cellsPerLevel: dict[int, int] = {}
+		for label in labels:
+			text = "".join(
+				child.astext() for child in label.children if not isinstance(child, (TreeSeparator, TreeDescription))
+			)
+			if label["icon"] != "":
+				text = f"{label['icon']} {text}"
+
+			cells = sum(
+				2 if east_asian_width(character) in ("W", "F") else 0 if category(character) in ("Mn", "Me", "Cf") else 1
+				for character in text
+			)
+			cellsPerLevel[label["level"]] = max(cells, cellsPerLevel.get(label["level"], 0))
+
+		widths = ", ".join(
+			f"{cells}ch" if level == 0 else f"calc({level} * var(--pyTooling-tree-level) + {cells}ch)"
+			for level, cells in sorted(cellsPerLevel.items())
+		)
+		return f"calc(var(--pyTooling-tree-expander-width) + max({widths}))"

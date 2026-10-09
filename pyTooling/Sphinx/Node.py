@@ -67,6 +67,8 @@ class TreeItem(nodes.list_item):
 	An entry of a tree: a list item, which HTML draws around a ``<details>`` element if the entry has children.
 
 	Attribute ``expanded`` states whether the entry is expanded initially, and is ``None`` if it has no children.
+	Attribute ``columnWidth`` holds the width of the column of the entries' texts as a CSS length, measured from the
+	tree's left edge, if the entry is a root of a tree with descriptions; else ``None``.
 	"""
 
 
@@ -76,7 +78,29 @@ class TreeLabel(nodes.paragraph):
 	An entry's text: a paragraph, which HTML draws as the ``<summary>`` of the entry's ``<details>`` element.
 
 	Attribute ``icon`` holds the icon of the entry's kind, ``expandedIcon`` and ``collapsedIcon`` the icons showing
-	whether the entry is expanded. Both are ``None`` if the entry has no children.
+	whether the entry is expanded. Both are ``None`` if the entry has no children. Attribute ``level`` holds the entry's
+	level, ``0`` for a root, and ``descriptionColumn`` whether the tree has descriptions: then HTML draws the entry as
+	a row of two columns, whether this entry has a description or not.
+
+	An entry's description follows its text, as a :class:`TreeSeparator` and a :class:`TreeDescription`.
+	"""
+
+
+@export
+class TreeSeparator(nodes.inline):
+	"""
+	The separator between an entry's text and its description: an en dash, which HTML skips.
+
+	HTML draws the description in a column of its own. Every other format - e.g. LaTeX - writes its base-class, so the
+	description follows the text in the same line: ``text – description``.
+	"""
+
+
+@export
+class TreeDescription(nodes.inline):
+	"""
+	An entry's description, which HTML draws in a column of its own: all descriptions of a tree start at the same
+	horizontal position, whatever the entry's level.
 	"""
 
 
