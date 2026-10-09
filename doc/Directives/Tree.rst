@@ -17,6 +17,9 @@ tree
       The **options** choose an icon per kind of entry or per marker, and how many levels are expanded initially. In
       HTML, every entry with children folds and unfolds on a click.
 
+      An entry may have a **description**, which HTML draws as a second column, as in a table - see
+      :ref:`DIR/Tree/Descriptions`.
+
    .. grid-item::
       :columns: 6
 
@@ -100,6 +103,7 @@ Content
 * The marker ``-`` gives an entry the icon of its kind. Every other marker is declared by :rst:dir:`tree:icons`, with
   its own icon, whatever the entry's kind is - e.g. a folder for an empty directory, which is a leaf.
 * An entry's text is inline ReST: roles, emphasis, literals and links.
+* A ``|`` between spaces separates the entry's text from its **description** - see :ref:`DIR/Tree/Descriptions`.
 
 .. code-block:: ReST
 
@@ -112,6 +116,76 @@ Content
         > empty directory
         * a leaf with a star
 
+
+.. _DIR/Tree/Descriptions:
+
+Descriptions
+************
+
+A ``|`` between spaces separates an entry's text from its description. HTML draws the descriptions as a second
+column: all of them start at the same horizontal position, whatever the entry's level, as in a table.
+
+* A description is inline ReST, as the entry's text is.
+* An entry without a description stays valid; so does a ``|`` at the line's end, which leaves the description empty.
+* Spaces around the ``|`` don't matter, so the separators may be aligned in the source.
+* A ``|`` in an inline literal, e.g. ``int | None``, or in a role's text separates nothing, and neither does a
+  substitution reference such as ``|br|``. Elsewhere, a ``|`` between spaces, which belongs to the text, is escaped as
+  ``\|``.
+* A line has at most one separator.
+
+.. code-block:: ReST
+
+   .. tree::
+
+      - CoverageSummary         | the report
+        - physical hierarchy    | built from the file paths the report names
+          - Directory           | e.g. ``myPackage/``
+            - File              | e.g. ``myPackage/Shapes.py``
+              - Line            | line number, ``LineCoverageStatus``, coverage count
+                - Branch        | ``LineCoverageStatus``, coverage count, target
+          - File
+        - logical hierarchy     | the language units the report names - each: file, first and last line
+          - Package             | e.g. ``myPackage``
+            - Module            | e.g. ``myPackage.Shapes``
+              - Class           | e.g. ``myPackage.Shapes.Circle``
+                - Method        | e.g. ``myPackage.Shapes.Circle.Area``
+              - Function        | e.g. ``myPackage.Shapes.Distance``
+            - SourceFile        | e.g. ``main.c`` - for languages, where the file is the unit
+              - Function        | e.g. ``main``
+
+This is how the example renders:
+
+.. tree::
+
+   - CoverageSummary         | the report
+     - physical hierarchy    | built from the file paths the report names
+       - Directory           | e.g. ``myPackage/``
+         - File              | e.g. ``myPackage/Shapes.py``
+           - Line            | line number, ``LineCoverageStatus``, coverage count
+             - Branch        | ``LineCoverageStatus``, coverage count, target
+       - File
+     - logical hierarchy     | the language units the report names - each: file, first and last line
+       - Package             | e.g. ``myPackage``
+         - Module            | e.g. ``myPackage.Shapes``
+           - Class           | e.g. ``myPackage.Shapes.Circle``
+             - Method        | e.g. ``myPackage.Shapes.Circle.Area``
+           - Function        | e.g. ``myPackage.Shapes.Distance``
+         - SourceFile        | e.g. ``main.c`` - for languages, where the file is the unit
+           - Function        | e.g. ``main``
+
+.. rubric:: How the column is laid out
+
+The directive estimates how wide the column of the entries' texts is, from the tree's left edge: per level, the
+indentation and the longest text with its icon, counted in characters. The browser computes the widest of these,
+using the indentation the stylesheet states. Each entry's text is then as wide as the column, less its own
+indentation, so every description starts at the same position.
+
+* A text is rendered in a font the theme chooses, e.g. a role's literal in a monospace font, so the estimate - in the
+  CSS unit ``ch``, the width of a digit - may be off. A text wider than estimated pushes its own description to the
+  right; it never overlaps it.
+* A text whose rendering differs from its source, e.g. a ``:ref:`` showing a section's title, is estimated by
+  what the role is given.
+* A description too narrow beside its text - on a narrow screen - wraps below the text.
 
 .. _DIR/Tree/Options:
 
@@ -202,6 +276,12 @@ replacing the stylesheet - in a stylesheet of its own, listed in ``html_css_file
    * - ``--pyTooling-tree-margin-bottom``
      - ``24px``
      - the space below the tree
+   * - ``--pyTooling-tree-column-gap``
+     - ``1.5em``
+     - the gap between the column of the texts and the descriptions
+   * - ``--pyTooling-tree-description-min-width``
+     - ``15em``
+     - how narrow a description gets beside its text, before it wraps below the text
 
 
 .. _DIR/Tree/Output:
@@ -214,7 +294,8 @@ Both expander icons are written, and the stylesheet shows the one matching the e
 screen reader.
 
 Every other format, e.g. LaTeX, renders the tree as nested bullet lists, without icons: a PDF can't fold, and
-pdfLaTeX stops at a character it has no definition for - which an emoji is.
+pdfLaTeX stops at a character it has no definition for - which an emoji is. A description follows its entry's text
+behind an en dash: ``Directory – e.g. myPackage/``.
 
 
 .. _DIR/Tree/Errors:
@@ -230,6 +311,7 @@ A mistake in the content is reported on the page, where the tree would be, and i
    tree: 'pyTooling' is not an entry, which starts with '- '.
    tree: '+ pyTooling' is not an entry, which starts with '- ', '> '.
    tree: '-' is an entry without text.
+   tree: '- a | b | c' has more than one separator ' | '; a '|' in a text is escaped as '\|'.
    tree: '- c' is indented less than the entry above, but not as deep as one of its ancestors.
 
 A mistake in an entry's text, e.g. an unknown role, is reported at the entry's line.
