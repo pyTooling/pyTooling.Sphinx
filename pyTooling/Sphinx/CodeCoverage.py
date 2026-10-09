@@ -160,13 +160,13 @@ def compactedName(entity: BaseWithPath) -> str:
 class PackageConfiguration(TypedDict):
 	"""An entry of ``pyTooling_CodeCoverage_Packages``, after :meth:`CodeCoverageBase.CheckConfiguration` read it."""
 
-	name:       str                                                #: Name of the measured project, the report's root.
-	report:     Path                                               #: The report file.
-	format:     str                                                #: The report's format, a value of :data:`REPORT_KEYS`.
-	sources:    Nullable[Path]                                     #: Directory the report's file paths are relative to.
-	pages:      Nullable[str]                                      #: Document name the pages are generated below.
-	fail_below: float                                              #: Coverage below which the package fails.
-	levels:     Union[str, dict[Union[int, str], dict[str, str]]]  #: Coverage levels, or the name of a palette.
+	name:      str                                                #: Name of the measured project, the report's root.
+	report:    Path                                               #: The report file.
+	format:    str                                                #: The report's format, a value of :data:`REPORT_KEYS`.
+	sources:   Nullable[Path]                                     #: Directory the report's file paths are relative to.
+	pages:     Nullable[str]                                      #: Document name the pages are generated below.
+	failBelow: float                                              #: Coverage below which the package fails.
+	levels:    Union[str, dict[Union[int, str], dict[str, str]]]  #: Coverage levels, or the name of a palette.
 
 
 @export
@@ -265,7 +265,7 @@ class CodeCoverageBase(BaseDirective):
 		"""
 		getLogger(__name__).info("[REPORT] Reading code coverage reports ...")
 
-		cls._reports = {}
+		cls._reports =    {}
 		cls._readErrors = {}
 		for reportID, packageConfiguration in cls._packageConfigurations.items():
 			try:
@@ -468,13 +468,13 @@ class CodeCoverageBase(BaseDirective):
 				raise ex
 
 			cls._packageConfigurations[reportID] = {
-				"name":       packageName,
-				"report":     reportFile,
-				"format":     REPORT_KEYS[reportKey],
-				"sources":    sources,
-				"pages":      pages,
-				"fail_below": failBelow,
-				"levels":     levelDefinition
+				"name":      packageName,
+				"report":    reportFile,
+				"format":    REPORT_KEYS[reportKey],
+				"sources":   sources,
+				"pages":     pages,
+				"failBelow": failBelow,
+				"levels":    levelDefinition
 			}
 
 	@staticmethod

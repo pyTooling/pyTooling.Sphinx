@@ -88,10 +88,10 @@ CONFIG_PREFIX = "pyTooling_DocCoverage"
 class PackageConfiguration(TypedDict):
 	"""An entry of ``pyTooling_DocCoverage_Packages``, after :meth:`DocCoverageBase.CheckConfiguration` read it."""
 
-	name:       str                                                #: Name of the Python package.
-	directory:  Path                                               #: The package's source directory.
-	fail_below: int                                                #: Coverage below which the package fails.
-	levels:     Union[str, dict[Union[int, str], dict[str, str]]]  #: Coverage levels, or the name of a palette.
+	name:      str                                                #: Name of the Python package.
+	directory: Path                                               #: The package's source directory.
+	failBelow: float                                              #: Coverage below which the package fails.
+	levels:    Union[str, dict[Union[int, str], dict[str, str]]]  #: Coverage levels, or the name of a palette.
 
 
 @export
@@ -300,10 +300,10 @@ class DocCoverageBase(BaseDirective):
 				raise ex
 
 			cls._packageConfigurations[reportID] = {
-				"name": packageName,
+				"name":      packageName,
 				"directory": directory,
-				"fail_below": failBelow,
-				"levels": levelDefinition
+				"failBelow": failBelow,
+				"levels":    levelDefinition
 			}
 
 	def _ConvertToColor(self, currentLevel: float, configKey: str) -> str:
@@ -352,7 +352,7 @@ class DocCoverage(DocCoverageBase):
 		packageConfiguration = self._packageConfigurations[self._reportID]
 		self._packageName = packageConfiguration["name"]
 		self._directory =   packageConfiguration["directory"]
-		self._failBelow =   packageConfiguration["fail_below"]
+		self._failBelow =   packageConfiguration["failBelow"]
 		self._levels =      packageConfiguration["levels"]
 
 	def _GenerateCoverageTable(self) -> nodes.table:

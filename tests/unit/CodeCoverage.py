@@ -107,7 +107,7 @@ class Configuration(ConfigurationTestcase):
 		self.assertEqual("coverage.py", package["format"])
 		self.assertIsNone(package["sources"])
 		self.assertIsNone(package["pages"])
-		self.assertEqual(0.8, package["fail_below"])
+		self.assertEqual(0.8, package["failBelow"])
 		self.assertEqual("report-cov-below100", package["levels"][100]["class"])
 
 	@testcase("Cobertura report with pages")
