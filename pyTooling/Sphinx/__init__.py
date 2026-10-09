@@ -206,7 +206,9 @@ class SphinxExtensionError(ExtensionError, DocumentationError):
 @export
 class ReportExtensionError(SphinxExtensionError):
 	"""
-	The exception raised by the ``report`` domain, e.g. for a mistake in its configuration values or options.
+	The exception raised by the ``report`` domain.
+
+	It is raised e.g. for a mistake in the domain's configuration values or options.
 	"""
 
 

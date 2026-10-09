@@ -122,8 +122,9 @@ class Project(Testcase):
 
 	def _warningLines(self) -> list[str]:
 		"""
-		Return the warnings of the last build, without the temporary directory's path - as given and as resolved, e.g.
-		below ``/private/var`` on macOS -, and with ``/`` as the separator of the remaining paths.
+		Return the warnings of the last build, without the temporary directory's path and with ``/`` as path separator.
+
+		The temporary directory is removed as given and as resolved, e.g. below ``/private/var`` on macOS.
 
 		:returns: One line per warning.
 		"""
