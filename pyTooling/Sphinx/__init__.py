@@ -637,7 +637,9 @@ REPORT_ROLES = {
 @export
 class ReportRole(XRefRole):
 	"""
-	A role of domain ``report`` referring to an object of a report with pages, e.g. a testcase (``tc``).
+	A role of domain ``report`` referring to an object of a report with pages.
+
+	Role ``tc`` refers to a testcase, ``ts`` to a testsuite.
 
 	Sphinx registers a role outside a domain without one, so the reference would be resolved by nobody; this role puts
 	domain ``report`` on the reference, and uses its name as the reference's type. So it works as ``:report:tc:`` and
