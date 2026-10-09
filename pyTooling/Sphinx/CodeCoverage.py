@@ -583,35 +583,36 @@ class CodeCoverage(CodeCoverageBase):
 		:param directory: The directory.
 		:param level:     The depth in the hierarchy of the directories and files.
 		"""
-		from pyTooling.Sphinx.CodeCoveragePages import CodeCoverageReportPages
-
-		pages = CodeCoverageReportPages.GetPages(self._reportID)
 		for name in sorted(directory._directories):
 			subdirectory = compactDirectory(directory._directories[name])
 			self._RenderRow(
-				tableBody, subdirectory, self._NameCell(pages, subdirectory, f"{INDENTATION * level}📁"), "report-directory"
+				tableBody, subdirectory, self._NameCell(subdirectory, f"{INDENTATION * level}📁"), "report-directory"
 			)
 			self._RenderDirectory(tableBody, subdirectory, level + 1)
 
 		for name in sorted(directory._files):
 			file = directory._files[name]
-			self._RenderRow(tableBody, file, self._NameCell(pages, file, f"{INDENTATION * level}📄"), "report-file")
+			self._RenderRow(tableBody, file, self._NameCell(file, f"{INDENTATION * level}📄"), "report-file")
 
-	def _NameCell(self, pages: Nullable[ReportPages], entity: BaseWithPath, prefix: str) -> nodes.Node:
+	def _NameCell(self, entity: BaseWithPath, prefix: str) -> nodes.Node:
 		"""
 		Create the content of the cell naming a directory or file, linked to its page if the report has pages.
 
-		:param pages:  The report's pages, if it has any.
 		:param entity: The directory or file.
 		:param prefix: The indentation and the icon written before the name.
 		:returns:      The cell's content.
 		"""
-		name = compactedName(entity)
-		if pages is None or (entry := pages.Entry(entity)) is None:
-			return nodes.Text(f"{prefix}{name}")
+		from pyTooling.Sphinx.CodeCoveragePages import CodeCoverageReportPages
 
-		# a reference has to be inside a text element; an inline keeps the cell free of a paragraph, as the others are
-		return nodes.inline("", "", nodes.Text(prefix), pages.CreateReference("cov", entry, self.env.docname, name))
+		name = compactedName(entity)
+		if CodeCoverageReportPages.HasPages(self._reportID):
+			pages = CodeCoverageReportPages.GetPages(self._reportID)
+			if (entry := pages.Entry(entity)) is not None:
+				# a reference has to be inside a text element; an inline keeps the cell free of a paragraph, as the
+				# others are
+				return nodes.inline("", "", nodes.Text(prefix), pages.CreateReference("cov", entry, self.env.docname, name))
+
+		return nodes.Text(f"{prefix}{name}")
 
 	def _RenderRow(self, tableBody: nodes.tbody, entity: BaseWithPath, name: nodes.Node, cssClass: str) -> None:
 		"""
@@ -674,10 +675,10 @@ class CodeCoverage(CodeCoverageBase):
 
 		from pyTooling.Sphinx.CodeCoveragePages import CodeCoverageReportPages
 
-		if (pages := CodeCoverageReportPages.GetPages(self._reportID)) is None:
+		if not CodeCoverageReportPages.HasPages(self._reportID):
 			return [container]
 
-		return [container, pages.TableOfContents(self.env.docname)]
+		return [container, CodeCoverageReportPages.GetPages(self._reportID).TableOfContents(self.env.docname)]
 
 
 @export
