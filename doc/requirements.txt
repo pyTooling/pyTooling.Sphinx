@@ -1,0 +1,19 @@
+-r ../requirements.txt
+
+# Enforce latest version on ReadTheDocs
+sphinx ~= 9.1
+docutils_stubs ~= 0.0.22
+
+# ReadTheDocs Theme
+sphinx_rtd_theme ~= 3.1
+
+# Sphinx Extenstions
+sphinxcontrib-mermaid ~= 2.1
+autoapi >= 2.0.1
+sphinx_design ~= 0.7.0
+sphinx-copybutton >= 0.5.2
+sphinx_autodoc_typehints ~= 3.13
+
+# Domain 'report': extra 'reports'
+pyEDAA.Reports @ git+https://github.com/edaa-org/pyEDAA.Reports.git@dev
+docstr_coverage ~= 2.3
