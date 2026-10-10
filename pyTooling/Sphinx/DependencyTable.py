@@ -1262,6 +1262,8 @@ class DependencyTable(BaseDirective):
 		"""
 		Render requirements as a bullet list, each item expanded by one more level.
 
+		An item whose own dependencies the depth limit cuts off gets a marker saying how many weren't expanded.
+
 		:param requirements: The requirements to list.
 		:param collector:    The build's collector.
 		:param depth:        Levels still to expand below this list.
@@ -1273,28 +1275,40 @@ class DependencyTable(BaseDirective):
 		for requirement in sorted(requirements, key=lambda item: item.name.lower()):
 			item = nodes.list_item()
 
-			# a leaf is resolved too when the line states a license - that is the whole point of stating it - but a
-			# ':dependency-format:' that prints no license has no reason to send the requests
+			# a leaf at the depth limit is resolved too: whether its tree goes on is what the limit marker states
 			project = collector.Project(requirement.name)
-			release = (
-				self._SelectRelease(project, requirement, collector)
-				if depth is None or depth > 0 or self._dependencyFormat.ShowsLicense
-				else None
-			)
+			release = self._SelectRelease(project, requirement, collector)
 
 			item += self._RequirementParagraph(requirement, project, release)
 
-			if (depth is None or depth > 0) and release is not None:
+			if release is not None:
 				nested = [
 					nestedRequirement for nestedRequirement in release.Requirements.get(None, [])
 					if nestedRequirement.name.lower() not in visited
 				]
-				if len(nested) > 0:
+				if len(nested) > 0 and (depth is None or depth > 0):
 					item += self._CreateBulletList(
 						nested, collector, _OneLevelDown(depth), visited | {requirement.name.lower()}
 					)
+				elif len(nested) > 0:
+					item += self._CreateLimitMarker(len(nested))
 
 			bulletList += item
+
+		return bulletList
+
+	@staticmethod
+	def _CreateLimitMarker(count: int) -> nodes.bullet_list:
+		"""
+		Render the marker of a tree the ``:depth:`` limit cut off: how many dependencies weren't expanded.
+
+		:param count: Number of the package's own dependencies, which weren't expanded.
+		:returns:     A bullet list with one item.
+		"""
+		text = f"… {count} more {'dependency' if count == 1 else 'dependencies'} not expanded"
+
+		bulletList = nodes.bullet_list()
+		bulletList += nodes.list_item("", nodes.paragraph("", "", nodes.emphasis(text=text)), classes=["dependency-limit"])
 
 		return bulletList
 

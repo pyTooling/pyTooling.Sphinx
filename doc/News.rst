@@ -22,6 +22,8 @@ Version 0.x (2026)
      :ref:`dependency-table <DIR/DependencyTable>`, :ref:`xmlschema-graph <DIR/XMLSchemaGraph>`,
      :ref:`shields <DIR/Shields>`, :ref:`tree <DIR/Tree>` and :ref:`abbreviations <DIR/Abbreviations>` with the
      abbreviation roles ``:acs:``, ``:acl:``, ``:acf:`` and their plurals.
+   * A :ref:`dependency-table <DIR/DependencyTable>` limited by ``:depth:`` marks each package whose dependencies
+     weren't expanded.
    * :class:`~pyTooling.Sphinx.SchemaGraph.DotGraph` is built on :mod:`pyTooling.Graph.GraphViz`.
    * Domain ``report`` from :gh:`sphinx-reports <pyTooling/sphinx-reports>` (v0.11.2), with the directives
      :ref:`report:unittest-summary <DIR/UnittestSummary>`, :ref:`report:code-coverage <DIR/CodeCoverage>` and
