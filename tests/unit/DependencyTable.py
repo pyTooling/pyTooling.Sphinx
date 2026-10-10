@@ -546,7 +546,7 @@ class DependencyTrees(Testcase):
 
 		Renders the tree with one level below 'a' and checks 'b' is followed by the marker for its two dependencies.
 		"""
-		self.assertEqual(["a", "b", "… 2 dependencies not expanded (depth limit)"], self._render(1))
+		self.assertEqual(["a", "b", "… 2 more dependencies not expanded"], self._render(1))
 
 	@testcase("Limited, one dependency")
 	def Limited_One(self) -> None:
@@ -555,7 +555,7 @@ class DependencyTrees(Testcase):
 
 		Renders the tree with two levels below 'a' and checks the marker of 'c', which requires 'e' only.
 		"""
-		self.assertEqual(["a", "b", "c", "… 1 dependency not expanded (depth limit)", "d"], self._render(2))
+		self.assertEqual(["a", "b", "c", "… 1 more dependency not expanded", "d"], self._render(2))
 
 	@testcase("Limited, leaf")
 	def Limited_Leaf(self) -> None:

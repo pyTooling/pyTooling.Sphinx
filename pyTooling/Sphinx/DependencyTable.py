@@ -1305,7 +1305,7 @@ class DependencyTable(BaseDirective):
 		:param count: Number of the package's own dependencies, which weren't expanded.
 		:returns:     A bullet list with one item.
 		"""
-		text = f"… {count} {'dependency' if count == 1 else 'dependencies'} not expanded (depth limit)"
+		text = f"… {count} more {'dependency' if count == 1 else 'dependencies'} not expanded"
 
 		bulletList = nodes.bullet_list()
 		bulletList += nodes.list_item("", nodes.paragraph("", "", nodes.emphasis(text=text)), classes=["dependency-limit"])

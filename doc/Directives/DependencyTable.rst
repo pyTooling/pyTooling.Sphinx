@@ -62,7 +62,7 @@ the list the override file answers.
       Levels of sub-dependencies to expand. Default: 0, which expands until the tree ends.
 
       A package whose own dependencies the limit cuts off says so below its line, e.g.
-      *… 2 dependencies not expanded (depth limit)*.
+      *… 2 more dependencies not expanded*.
 
    .. rst:directive:option:: simplified-versions: yes | no
 
