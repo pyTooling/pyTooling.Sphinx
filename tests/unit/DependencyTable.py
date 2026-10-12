@@ -43,12 +43,16 @@ from packaging.requirements           import Requirement
 from packaging.specifiers             import SpecifierSet
 from pytest                           import mark
 
-from pyTooling.Dependency             import UnknownLicenseWarning
+from pyTooling.Dependency             import BrokenRequirementWarning, UnknownLicenseWarning
 from pyTooling.Sphinx                 import SphinxExtensionError
 from pyTooling.Sphinx.DependencyTable import DependencyFormat, DependencyTable, VersionFormat, formatUnresolvedLicenses
 from pyTooling.Sphinx.DependencyTable import DependencyCollector, readEntrypoints
 from pyTooling.Testing                import Testcase, testsuite, testcase
 from pyTooling.Warning                import WarningCollector
+
+
+#: Name of the logger :mod:`pyTooling.Sphinx.DependencyTable` reports through, as Sphinx prefixes it.
+LOGGER_NAME = "sphinx.pyTooling.Sphinx.DependencyTable"
 
 
 if __name__ == "__main__":  # pragma: no cover
@@ -132,6 +136,54 @@ class Entrypoints(Testcase):
 			files = readEntrypoints({"unittest": {"file": "requirements.txt"}}, link)["unittest"].Files
 
 		self.assertEqual([real / "requirements.txt", real / "base.txt"], list(files))
+
+	@testcase("Broken requirement line")
+	def File_BrokenRequirement(self) -> None:
+		"""
+		A line that can't be parsed is reported as a Sphinx warning; the other requirements are read.
+
+		Writes a file of two packages with a broken line between them, reads the entrypoint, and checks the warning
+		names the entrypoint, the file and the line, and both packages are known.
+		"""
+		with TemporaryDirectory() as directory:
+			root = Path(directory).resolve()
+			self._write(root, "requirements.txt", """
+				pytest ~= 9.1
+				not a requirement
+				colorama ~= 0.4.6
+			""")
+
+			with self.assertLogs(LOGGER_NAME, level="WARNING") as logCapture:
+				entrypoints = readEntrypoints({"unittest": {"file": "requirements.txt"}}, root)
+
+		self.assertEqual(1, len(logCapture.records))
+		message = logCapture.records[0].getMessage()
+		self.assertIn("[unittest].file:", message)
+		self.assertIn(f"Requirement 'not a requirement' in '{root / 'requirements.txt'}' line 2", message)
+		self.assertEqual({"colorama", "pytest"}, set(entrypoints["unittest"].Requirements))
+
+	@testcase("Broken requirement line in an included file")
+	def File_Included_BrokenRequirement(self) -> None:
+		"""
+		A broken line in a file included with '-r' is reported with the included file's path.
+
+		Writes 'base.txt' with a broken line, includes it, and checks the warning names 'base.txt' and the package
+		before the broken line is known.
+		"""
+		with TemporaryDirectory() as directory:
+			root = Path(directory).resolve()
+			self._write(root, "base.txt", "colorama ~= 0.4.6\nnot a requirement\n")
+			self._write(root, "requirements.txt", """
+				-r base.txt
+				pytest ~= 9.1
+			""")
+
+			with self.assertLogs(LOGGER_NAME, level="WARNING") as logCapture:
+				entrypoints = readEntrypoints({"unittest": {"file": "requirements.txt"}}, root)
+
+		self.assertEqual(1, len(logCapture.records))
+		self.assertIn(f"in '{root / 'base.txt'}' line 2", logCapture.records[0].getMessage())
+		self.assertEqual({"colorama", "pytest"}, set(entrypoints["unittest"].Requirements))
 
 	@testcase("Package entrypoint")
 	def Package(self) -> None:
@@ -606,6 +658,43 @@ class UnresolvedLicenseCollection(Testcase):
 		collector.Details(_Release("sphinx-rtd-theme"))
 
 		self.assertEqual({"sphinx-rtd-theme": ("license: BSD",)}, collector.UnresolvedLicenses)
+
+
+class _BrokenRelease(_Release):
+	"""A release whose details name a requirement with a marker matching no declared extra."""
+
+	def DownloadDetails(self) -> None:
+		warning = BrokenRequirementWarning(
+			f"Package '{self.Package.Name}' has 1 requirement(s) whose marker matches no declared extra."
+		)
+		warning.add_note("Broken requirement: colorama; extra == 'terminal'")
+		WarningCollector.Raise(warning)
+
+
+@testsuite("Reporting broken requirements")
+class BrokenRequirementReport(Testcase):
+	"""A broken requirement in a release's details is reported as a Sphinx warning, not recorded as a license."""
+
+	@testcase("Broken requirement")
+	def BrokenRequirement(self) -> None:
+		"""
+		A release whose details warn about a broken requirement is reported and still described.
+
+		Details a release warning about a broken requirement, and checks the warning and its note are logged, the
+		release is returned, and no unresolved license is recorded.
+		"""
+		collector = DependencyCollector({}, "https://pypi.org", "https://pypi.org/pypi", None)
+		release = _BrokenRelease("pyTooling")
+
+		with self.assertLogs(LOGGER_NAME, level="WARNING") as logCapture:
+			described = collector.Details(release)
+
+		self.assertIs(release, described)
+		self.assertEqual(1, len(logCapture.records))
+		message = logCapture.records[0].getMessage()
+		self.assertIn("[dependency-table] Package 'pyTooling' has 1 requirement(s)", message)
+		self.assertIn("\n  Broken requirement: colorama; extra == 'terminal'", message)
+		self.assertEqual({}, collector.UnresolvedLicenses)
 
 
 class UnresolvedLicenseReport(Testcase):
