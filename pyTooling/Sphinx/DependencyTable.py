@@ -212,6 +212,21 @@ def _OneLevelDown(depth: Nullable[int]) -> Nullable[int]:
 	return None if depth is None else depth - 1
 
 
+def _ReportWarning(prefix: str, warning: BaseException) -> None:
+	"""
+	Report a warning collected from :mod:`pyTooling.Dependency` as a Sphinx warning.
+
+	Each of the warning's notes follows the message on a line of its own.
+
+	:param prefix:  Text the message starts with, naming what the warning is about.
+	:param warning: The collected warning.
+	"""
+	lines = [f"{prefix} {warning}"]
+	lines.extend(f"  {note}" for note in getattr(warning, "__notes__", ()))
+
+	_logger.warning("\n".join(lines))
+
+
 #: The collector of each running build, by the id of its Sphinx application.
 #:
 #: It can't live on the build environment, which Sphinx pickles between runs - an open HTTP session and the locks
@@ -478,6 +493,10 @@ class DependencyCollector(metaclass=ExtendedType, slots=True):
 		differently - is remembered as unusable and answered with ``None``. Handing back the release itself would
 		be worse than useless: its lazily loaded properties would each retry the download and raise.
 
+		An :class:`~pyTooling.Dependency.UnknownLicenseWarning` is recorded in :attr:`UnresolvedLicenses`. Every other
+		warning, e.g. a :class:`~pyTooling.Dependency.BrokenRequirementWarning` for a requirement whose marker names no
+		extra the release declares, is reported as a Sphinx warning.
+
 		:param release:                 The release to fill in.
 		:returns:                       The release with its details, or ``None`` if the index can't describe it.
 		:raises MissingDependencyError: If the 'pypi' extra isn't installed.
@@ -508,6 +527,8 @@ class DependencyCollector(metaclass=ExtendedType, slots=True):
 				# the warning's notes are what the index published, which is the reason an override is needed; keyed by the
 				# canonical name, which is the override file's spelling, so two spellings of one package are one entry
 				self._unresolved[canonicalize_name(release.Package.Name)] = warning.Notes
+			else:
+				_ReportWarning("[dependency-table]", warning)
 
 		return None if key in self._undescribed else release
 
@@ -604,6 +625,9 @@ def _FileEntrypoint(
 	Several files are read as several trees and flattened in the order they are declared, so a later file's
 	statement wins - the rule a single file's ``-r`` references already follow.
 
+	A line that can't be parsed as a requirement - a :class:`~pyTooling.Dependency.BrokenRequirementWarning` - is
+	reported as a Sphinx warning naming the file and line; the file's other requirements are read.
+
 	:param identifier:              Identifier of the entrypoint.
 	:param location:                Where in :file:`conf.py` this came from.
 	:param files:                   The declared paths.
@@ -628,10 +652,15 @@ def _FileEntrypoint(
 		if not path.is_absolute():
 			path = confDirectory / path
 
+		warnings: list[BaseException] = []
 		try:
-			requirementsFile = RequirementsFile(path)
+			with WarningCollector(warnings):
+				requirementsFile = RequirementsFile(path)
 		except (DependencyError, OSError, UnicodeDecodeError) as cause:
 			raise SphinxExtensionError(f"{location}: Requirements file '{path}' can't be read: {cause}") from cause
+
+		for warning in warnings:
+			_ReportWarning(f"{location}:", warning)
 
 		# the tree knows every file it was read from; walking it here would be a second answer to one question
 		readFiles.extend(requirementsFile.AnalyzedRequirementFiles)
