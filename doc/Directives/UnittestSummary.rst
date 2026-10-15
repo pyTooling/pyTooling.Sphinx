@@ -37,7 +37,8 @@ This is how the example renders, from a report of five testcases. The report is 
 .. report:unittest-summary::
    :reportid: example
 
-The documentation's own :doc:`unit test report <../unittests/index>` is rendered by this directive too.
+The documentation's own :doc:`unit test report <../unittests/index>` is rendered by this directive too, with a page
+per testsuite and testcase.
 
 
 .. _DIR/UnittestSummary/Setup:

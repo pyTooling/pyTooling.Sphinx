@@ -67,7 +67,8 @@ The same directive renders a Cobertura report of a VHDL design:
 .. report:code-coverage::
    :reportid: vhdl
 
-The documentation's own :doc:`code coverage report <../CodeCoverage>` is rendered by these directives too.
+The documentation's own :doc:`code coverage report <../coverage/index>` is rendered by these directives too, with a
+page per directory and source file.
 
 
 .. _DIR/CodeCoverage/Configuration:
