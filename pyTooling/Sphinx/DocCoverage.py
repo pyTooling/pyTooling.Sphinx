@@ -32,9 +32,10 @@
 Directives rendering the documentation coverage of a Python package as a table: per package and module.
 
 Unlike the other reports, there is no report file: the package's source directory is analyzed with
-`docstr_coverage <https://github.com/HunterMcGushion/docstr_coverage>`__ (via :mod:`pyEDAA.Reports`) when the
-directive runs. The packages are declared in :file:`conf.py` under ``pyTooling_DocCoverage_Packages``, each with an
-identifier a directive names in its ``:reportid:`` option:
+`docstr_coverage <https://github.com/HunterMcGushion/docstr_coverage>`__ (via :mod:`pyEDAA.Reports`) once per build,
+when the builder is initialized. The packages are declared in :file:`conf.py` under ``pyTooling_DocCoverage_Packages``,
+each with an identifier a directive names in its ``:reportid:`` option. An entry with the key ``pages`` gets a page
+per package and module, generated below that document name (see :mod:`pyTooling.Sphinx.DocCoveragePages`):
 
 .. code-block:: Python
 
@@ -43,6 +44,7 @@ identifier a directive names in its ``:reportid:`` option:
      "src": {
        "name":       "myPackage",
        "directory":  "../myPackage",
+       "pages":      "doccoverage/src",
        "fail_below": 80,
        "levels":     "default"
      }
@@ -55,16 +57,19 @@ The coverage levels - limits, descriptions and CSS classes - are declared under 
 
    :ref:`DIR/DocCoverage`
       |rarr| The directives' options and configuration, with examples.
+   :mod:`pyTooling.Sphinx.DocCoveragePages`
+      |rarr| The pages per package and module, and the role ``:doccov:``.
 """
 from __future__                                    import annotations
 
 from pathlib                                       import Path
-from typing                                        import TYPE_CHECKING, Any, ClassVar, Generator, Mapping, TypedDict
-from typing                                        import Union
+from typing                                        import TYPE_CHECKING, Any, ClassVar, Generator, Mapping
+from typing                                        import Optional as Nullable, TypedDict, Union
 
 from docutils                                      import nodes
 from sphinx.application                            import Sphinx
 from sphinx.config                                 import Config
+from sphinx.util.logging                           import getLogger
 
 from pyTooling.Common                              import getFullyQualifiedName
 from pyTooling.Decorators                          import export
@@ -72,9 +77,11 @@ from pyTooling.Decorators                          import export
 from pyTooling.Sphinx                              import INDENTATION, BaseDirective, LegendStyle, ReportExtensionError
 from pyTooling.Sphinx                              import ReportsPackageMissingError, SphinxExtensionError, strip
 from pyTooling.Sphinx                              import stripAndNormalize
+from pyTooling.Sphinx.Pages                        import ReportPages
 
 if TYPE_CHECKING:  # pragma: no cover
 	# pyEDAA.Reports is an optional dependency (extra 'reports'), imported where the coverage is computed.
+	from docstr_coverage                             import ResultCollection
 	from pyEDAA.Reports.DocumentationCoverage.Python import AggregatedCoverage, PackageCoverage
 
 
@@ -90,6 +97,7 @@ class PackageConfiguration(TypedDict):
 
 	name:      str                                                #: Name of the Python package.
 	directory: Path                                               #: The package's source directory.
+	pages:     Nullable[str]                                      #: Document name the pages are generated below.
 	failBelow: float                                              #: Coverage below which the package fails.
 	levels:    Union[str, dict[Union[int, str], dict[str, str]]]  #: Coverage levels, or the name of a palette.
 
@@ -99,7 +107,8 @@ class DocCoverageBase(BaseDirective):
 	"""
 	Base-class of the documentation coverage directives: the shared options, the configuration and the coverage levels.
 
-	The configuration is read once per build by :meth:`CheckConfiguration`, into class variables every directive reads.
+	The configuration is checked and the packages are analyzed once per build - by :meth:`CheckConfiguration` and
+	:meth:`AnalyzePackages` -, into class variables every directive reads.
 	"""
 
 	option_spec: dict[str, Any] = {  # type: ignore[misc]
@@ -132,6 +141,9 @@ class DocCoverageBase(BaseDirective):
 
 	_coverageLevelDefinitions: ClassVar[dict[str, dict[Union[int, str], dict[str, str]]]] = {}  #: Palettes, by name.
 	_packageConfigurations:    ClassVar[dict[str, PackageConfiguration]] = {}  #: Package configurations, by report ID.
+	_reports:                  ClassVar[dict[str, PackageCoverage]] = {}       #: Packages analyzed, by report ID.
+	_results:                  ClassVar[dict[str, ResultCollection]] = {}      #: docstr_coverage's results, by report ID.
+	_analysisErrors:           ClassVar[dict[str, Exception]] = {}             #: Why a package wasn't analyzed, by ID.
 
 	_cssClasses: list[str]                              #: Additional CSS classes of the table.
 	_reportID:   str                                    #: Identifier of the package in the configuration.
@@ -159,6 +171,66 @@ class DocCoverageBase(BaseDirective):
 		"""
 		cls._CheckLevelsConfiguration(sphinxConfiguration)
 		cls._CheckPackagesConfiguration(sphinxConfiguration)
+
+	@classmethod
+	def AnalyzePackages(cls, sphinxApplication: Sphinx) -> None:
+		"""
+		Analyze every configured package, once per build.
+
+		A package that can't be analyzed keeps the exception, which a directive or a package's pages show when they need
+		it.
+
+		:param sphinxApplication: Sphinx application instance.
+		"""
+		getLogger(__name__).info("[REPORT] Analyzing documentation coverage ...")
+
+		cls._reports =        {}
+		cls._results =        {}
+		cls._analysisErrors = {}
+		for reportID, packageConfiguration in cls._packageConfigurations.items():
+			try:
+				cls._reports[reportID], cls._results[reportID] = cls._AnalyzePackage(packageConfiguration)
+			except Exception as ex:
+				cls._analysisErrors[reportID] = ex
+
+	@classmethod
+	def GetReport(cls, reportID: str) -> PackageCoverage:
+		"""
+		Return a package analyzed by :meth:`AnalyzePackages`.
+
+		:param reportID:              Identifier of the package.
+		:returns:                     The package's coverage, aggregated.
+		:raises ReportExtensionError: If the package wasn't analyzed, chained to the exception analyzing it raised.
+		"""
+		try:
+			return cls._reports[reportID]
+		except KeyError:
+			cause = cls._analysisErrors.get(reportID, None)
+			raise ReportExtensionError(f"Documentation coverage of '{reportID}' wasn't analyzed.") from cause
+
+	@staticmethod
+	def _AnalyzePackage(packageConfiguration: PackageConfiguration) -> tuple[PackageCoverage, ResultCollection]:
+		"""
+		Analyze a package's source directory with docstr_coverage, and convert the result to pyEDAA.Reports' model.
+
+		:param packageConfiguration:        The package's configuration.
+		:returns:                           The package's coverage, aggregated, and docstr_coverage's results per
+		                                    expected doc-string, which a module's listing marks.
+		:raises ReportsPackageMissingError: If pyEDAA.Reports or docstr_coverage isn't installed.
+		"""
+		try:
+			from pyEDAA.Reports.DocumentationCoverage.Python import DocStrCoverage as DocStrCovAnalyzer
+		except ImportError as cause:
+			raise ReportsPackageMissingError(
+				"Analyzing the documentation coverage", "'pyEDAA.Reports' and 'docstr_coverage'"
+			) from cause
+
+		docStrCov = DocStrCovAnalyzer(packageConfiguration["name"], packageConfiguration["directory"])
+		results = docStrCov.Analyze()
+		coverage = docStrCov.Convert()
+		coverage.Aggregate()
+
+		return coverage, results
 
 	@classmethod
 	def _CheckLevelsConfiguration(cls, sphinxConfiguration: Config) -> None:
@@ -230,6 +302,9 @@ class DocCoverageBase(BaseDirective):
 		:raises ReportExtensionError: If a package configuration has no ``name``.
 		:raises ReportExtensionError: If a package configuration has no ``directory``.
 		:raises ReportExtensionError: If the ``directory`` doesn't exist.
+		:raises ReportExtensionError: If ``pages`` isn't a string.
+		:raises ReportExtensionError: If ``pages`` isn't a relative document name. |br|
+		                              Use a name like 'doccoverage/src', separated by '/', without '.' or '..'.
 		:raises ReportExtensionError: If a package configuration has no ``fail_below``.
 		:raises ReportExtensionError: If ``fail_below`` isn't an integer, or is out of range.
 		:raises ReportExtensionError: If a package configuration has no ``levels``.
@@ -238,6 +313,7 @@ class DocCoverageBase(BaseDirective):
 		:raises ReportExtensionError: If ``levels`` is neither a palette's name nor a dictionary.
 		"""
 		variableName = f"{CONFIG_PREFIX}_Packages"
+		cls._packageConfigurations = {}
 
 		try:
 			allPackages: dict[str, PackageConfiguration] = sphinxConfiguration[variableName]
@@ -261,6 +337,9 @@ class DocCoverageBase(BaseDirective):
 				raise ReportExtensionError(
 					f"{configurationName}.directory: Directory '{directory}' doesn't exist."
 				) from FileNotFoundError(directory)
+
+			if (pages := packageConfiguration.get("pages", None)) is not None:
+				pages = ReportPages.CheckPagesConfiguration(configurationName, pages)
 
 			try:
 				failBelow = int(packageConfiguration["fail_below"]) / 100
@@ -302,32 +381,47 @@ class DocCoverageBase(BaseDirective):
 			cls._packageConfigurations[reportID] = {
 				"name":      packageName,
 				"directory": directory,
+				"pages":     pages,
 				"failBelow": failBelow,
 				"levels":    levelDefinition
 			}
 
-	def _ConvertToColor(self, currentLevel: float, configKey: str) -> str:
+	@staticmethod
+	def LevelOf(levels: dict[Union[int, str], dict[str, str]], coverage: float, configKey: str) -> str:
 		"""
 		Look up the coverage level a coverage falls into, and return one of its fields.
+
+		:param levels:    The coverage levels.
+		:param coverage:  The coverage, in range 0.0..1.0; a negative value selects level ``error``.
+		:param configKey: The field to return: ``class`` or ``desc``.
+		:returns:         The field's value of the first level whose limit is above the coverage.
+		"""
+		if coverage < 0.0:
+			return levels["error"][configKey]
+
+		for levelLimit, levelConfig in levels.items():
+			if isinstance(levelLimit, int) and (coverage * 100) < levelLimit:
+				return levelConfig[configKey]
+
+		return levels[100][configKey]
+
+	def _ConvertToColor(self, currentLevel: float, configKey: str) -> str:
+		"""
+		Look up the coverage level a coverage falls into, in the package's levels, and return one of its fields.
 
 		:param currentLevel: The coverage, in range 0.0..1.0; a negative value selects level ``error``.
 		:param configKey:    The field to return: ``class`` or ``desc``.
 		:returns:            The field's value of the first level whose limit is above the coverage.
 		"""
-		if currentLevel < 0.0:
-			return self._levels["error"][configKey]
-
-		for levelLimit, levelConfig in self._levels.items():
-			if isinstance(levelLimit, int) and (currentLevel * 100) < levelLimit:
-				return levelConfig[configKey]
-
-		return self._levels[100][configKey]
+		return self.LevelOf(self._levels, currentLevel, configKey)
 
 
 @export
 class DocCoverage(DocCoverageBase):
 	"""
 	Base-class of the ``report:doc-coverage`` directive: the table, without an analyzer.
+
+	A package with pages links every package and module to its page.
 	"""
 
 	directiveName: str = "doc-coverage"  #: Name the directive is invoked by.
@@ -419,7 +513,7 @@ class DocCoverage(DocCoverageBase):
 		"""
 		tableBody += nodes.row(
 			"",
-			nodes.entry("", nodes.Text(f"{INDENTATION * level}📦{packageCoverage.Name}")),
+			nodes.entry("", self._NameCell(packageCoverage, f"{INDENTATION * level}📦")),
 			nodes.entry("", nodes.Text(f"{packageCoverage.Expected}")),
 			nodes.entry("", nodes.Text(f"{packageCoverage.Covered}")),
 			nodes.entry("", nodes.Text(f"{packageCoverage.Uncovered}")),
@@ -436,7 +530,7 @@ class DocCoverage(DocCoverageBase):
 		for module in self._SortedValues(packageCoverage._modules):
 			tableBody += nodes.row(
 				"",
-				nodes.entry("", nodes.Text(f"{INDENTATION * (level + 1)}{INDENTATION}⚙️{module.Name}")),
+				nodes.entry("", self._NameCell(module, f"{INDENTATION * (level + 1)}{INDENTATION}⚙️")),
 				nodes.entry("", nodes.Text(f"{module.Expected}")),
 				nodes.entry("", nodes.Text(f"{module.Covered}")),
 				nodes.entry("", nodes.Text(f"{module.Uncovered}")),
@@ -448,6 +542,26 @@ class DocCoverage(DocCoverageBase):
 			)
 
 
+	def _NameCell(self, unit: AggregatedCoverage, prefix: str) -> nodes.Node:
+		"""
+		Create the content of the cell naming a package or module, linked to its page if the package has pages.
+
+		:param unit:   The package or module.
+		:param prefix: The indentation and the icon written before the name.
+		:returns:      The cell's content.
+		"""
+		from pyTooling.Sphinx.DocCoveragePages import DocCoverageReportPages
+
+		if DocCoverageReportPages.HasPages(self._reportID):
+			pages = DocCoverageReportPages.GetPages(self._reportID)
+			if (entry := pages.Entry(unit)) is not None:
+				# a reference has to be inside a text element; an inline keeps the cell free of a paragraph, as the
+				# others are
+				return nodes.inline("", "", nodes.Text(prefix), pages.CreateReference("doccov", entry, self.env.docname))
+
+		return nodes.Text(f"{prefix}{unit.Name}")
+
+
 @export
 class DocStrCoverage(DocCoverage):
 	"""
@@ -456,9 +570,11 @@ class DocStrCoverage(DocCoverage):
 
 	def run(self) -> list[nodes.Node]:
 		"""
-		Analyze the configured package and return its documentation coverage as a table.
+		Return the configured package's documentation coverage as a table, and - if the package has pages - a hidden
+		table of contents of its page.
 
-		:returns: A container holding the table, or the error message.
+		:returns: A container holding the table, or the error message; then the table of contents, if the package has
+		          pages.
 		"""
 		container = nodes.container()
 
@@ -469,24 +585,20 @@ class DocStrCoverage(DocCoverage):
 			return self._internalError(container, __name__, message, ex)
 
 		try:
-			from pyEDAA.Reports.DocumentationCoverage.Python import DocStrCoverage as DocStrCovAnalyzer
-		except ImportError as cause:
-			ex = ReportsPackageMissingError(
-				"Analyzing the documentation coverage", "'pyEDAA.Reports' and 'docstr_coverage'"
-			)
-			ex.__cause__ = cause
-			message = f"Caught {ex.__class__.__name__} when analyzing package '{self._packageName}'."
-			return self._internalError(container, __name__, message, ex)
-
-		# Assemble a list of Python source files
-		docStrCov = DocStrCovAnalyzer(self._packageName, self._directory)
-		docStrCov.Analyze()
-		self._coverage = docStrCov.Convert()
-		self._coverage.Aggregate()
+			self._coverage = self.GetReport(self._reportID)
+		except ReportExtensionError as ex:
+			cause = ex if ex.__cause__ is None else ex.__cause__
+			message = f"Caught {cause.__class__.__name__} when analyzing package '{self._packageName}'."
+			return self._internalError(container, __name__, message, cause)
 
 		container += self._GenerateCoverageTable()
 
-		return [container]
+		from pyTooling.Sphinx.DocCoveragePages import DocCoverageReportPages
+
+		if not DocCoverageReportPages.HasPages(self._reportID):
+			return [container]
+
+		return [container, DocCoverageReportPages.GetPages(self._reportID).TableOfContents(self.env.docname)]
 
 
 @export

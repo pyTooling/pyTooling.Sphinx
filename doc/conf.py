@@ -321,9 +321,17 @@ pyTooling_DocCoverage_Packages = {
 	"src": {
 		"name":       f"{pythonProject}",
 		"directory":  f"../{directoryName}",
+		"pages":      "doccoverage/src",
 		"fail_below": 80,
 		"levels":     "default"
-	}
+	},
+	"example": {
+		"name":       "myPackage",
+		"directory":  "../tests/data/DocCoverage/myPackage",
+		"pages":      "doccoverage/example",
+		"fail_below": 80,
+		"levels":     "default"
+	},
 }
 
 

@@ -85,7 +85,8 @@ document of every project. This extension declares them once:
   * :rst:dir:`report:code-coverage` and :rst:dir:`report:code-coverage-legend` - a code coverage report and its
     coverage levels;
   * :rst:dir:`report:doc-coverage` and :rst:dir:`report:doc-coverage-legend` - a package's documentation coverage
-    and its coverage levels.
+    and its coverage levels; a package declared with ``pages`` gets a page per package and module
+    (:mod:`~pyTooling.Sphinx.DocCoveragePages`), which the role ``:doccov:`` refers to.
 
 * the **nodes** the directives emit, listed in :data:`NODES` with their visitors per output format.
 
@@ -140,12 +141,14 @@ from pyTooling.Documentation import DocumentationError
 from pyTooling.Sphinx        import Resources as SphinxResources
 from pyTooling.Sphinx.HTML   import translateLandscape as translateLandscapeAsHTML
 from pyTooling.Sphinx.HTML   import translateCoverageListing as translateCoverageListingAsHTML
+from pyTooling.Sphinx.HTML   import translateDocCoverageListing as translateDocCoverageListingAsHTML
 from pyTooling.Sphinx.HTML   import translateAbbreviation, translateTreeItem, translateTreeLabel, translateTreeSeparator
 from pyTooling.Sphinx.HTML   import translateTreeDescription, translateTreeLegend, translateTreeLegendItem
 from pyTooling.Sphinx.LaTeX  import translateLandscape as translateLandscapeAsLaTeX
 from pyTooling.Sphinx.LaTeX  import translateCoverageListing as translateCoverageListingAsLaTeX
+from pyTooling.Sphinx.LaTeX  import translateDocCoverageListing as translateDocCoverageListingAsLaTeX
 from pyTooling.Sphinx.Node   import Abbreviation, Landscape, RegisteredNode, TreeItem, TreeLabel, TreeSeparator
-from pyTooling.Sphinx.Node   import CoverageListing, TreeDescription, TreeLegend, TreeLegendItem
+from pyTooling.Sphinx.Node   import CoverageListing, DocCoverageListing, TreeDescription, TreeLegend, TreeLegendItem
 
 
 __all__ = ["STYLESHEET", "SUBSTITUTIONS", "NODES", "INDENTATION", "LINE_ANCHOR", "REPORT_ROLES"]
@@ -171,17 +174,19 @@ SUBSTITUTIONS = """
 #: A format without visitors of its own - e.g. LaTeX for the tree's nodes - writes a node with the visitors of its
 #: base-class.
 NODES: tuple[RegisteredNode, ...] = (
-	{"name": "TreeItem",        "node": TreeItem,        "html": translateTreeItem},
-	{"name": "TreeLabel",       "node": TreeLabel,       "html": translateTreeLabel},
-	{"name": "TreeSeparator",   "node": TreeSeparator,   "html": translateTreeSeparator},
-	{"name": "TreeDescription", "node": TreeDescription, "html": translateTreeDescription},
-	{"name": "TreeLegend",      "node": TreeLegend,      "html": translateTreeLegend},
-	{"name": "TreeLegendItem",  "node": TreeLegendItem,  "html": translateTreeLegendItem},
-	{"name": "Abbreviation",    "node": Abbreviation,    "html": translateAbbreviation},
-	{"name": "Landscape",       "node": Landscape,       "html": translateLandscapeAsHTML,
+	{"name": "TreeItem",           "node": TreeItem,           "html": translateTreeItem},
+	{"name": "TreeLabel",          "node": TreeLabel,          "html": translateTreeLabel},
+	{"name": "TreeSeparator",      "node": TreeSeparator,      "html": translateTreeSeparator},
+	{"name": "TreeDescription",    "node": TreeDescription,    "html": translateTreeDescription},
+	{"name": "TreeLegend",         "node": TreeLegend,         "html": translateTreeLegend},
+	{"name": "TreeLegendItem",     "node": TreeLegendItem,     "html": translateTreeLegendItem},
+	{"name": "Abbreviation",       "node": Abbreviation,       "html": translateAbbreviation},
+	{"name": "Landscape",          "node": Landscape,          "html": translateLandscapeAsHTML,
 	 "latex": translateLandscapeAsLaTeX},
-	{"name": "CoverageListing", "node": CoverageListing, "html": translateCoverageListingAsHTML,
+	{"name": "CoverageListing",    "node": CoverageListing,    "html": translateCoverageListingAsHTML,
 	 "latex": translateCoverageListingAsLaTeX},
+	{"name": "DocCoverageListing", "node": DocCoverageListing, "html": translateDocCoverageListingAsHTML,
+	 "latex": translateDocCoverageListingAsLaTeX},
 )
 
 
@@ -641,9 +646,10 @@ LINE_ANCHOR = re_compile(r"#(\d+)$")
 
 #: The roles referring to the objects of reports with pages, by role name.
 REPORT_ROLES = {
-	"tc":  ReportRoleDefinition("testcase",  "pyTooling_Unittest_Testsuites",   "unit test reports"),
-	"ts":  ReportRoleDefinition("testsuite", "pyTooling_Unittest_Testsuites",   "unit test reports"),
-	"cov": ReportRoleDefinition("source",    "pyTooling_CodeCoverage_Packages", "code coverage reports", True),
+	"tc":     ReportRoleDefinition("testcase",  "pyTooling_Unittest_Testsuites",   "unit test reports"),
+	"ts":     ReportRoleDefinition("testsuite", "pyTooling_Unittest_Testsuites",   "unit test reports"),
+	"cov":    ReportRoleDefinition("source",    "pyTooling_CodeCoverage_Packages", "code coverage reports", True),
+	"doccov": ReportRoleDefinition("module",    "pyTooling_DocCoverage_Packages",  "documentation coverage reports"),
 }
 
 
@@ -690,7 +696,7 @@ class ReportDomain(Domain):
 
 	name =         "report"  #: Name of the domain, the prefix of its directives.
 	label =        "rpt"     #: Name of the domain, as displayed.
-	data_version = 1         #: Version of the domain data's layout; a pickled environment of another version is dropped.
+	data_version = 2         #: Version of the domain data's layout; a pickled environment of another version is dropped.
 
 	object_types = {
 		definition.objectType: ObjType(definition.objectType, roleName) for roleName, definition in REPORT_ROLES.items()
@@ -904,18 +910,23 @@ def checkReportConfiguration(sphinx: Sphinx, config: Config) -> None:
 @export
 def readReports(sphinx: Sphinx) -> None:
 	"""
-	Call-back for Sphinx' ``builder-inited`` event, reading the report files and registering the unit test reports' pages.
+	Call-back for Sphinx' ``builder-inited`` event, reading the report files, analyzing the documented packages, and
+	registering the reports' pages.
 
 	:param sphinx: The Sphinx application.
 	"""
 	from pyTooling.Sphinx.CodeCoverage      import CodeCoverageBase
 	from pyTooling.Sphinx.CodeCoveragePages import CodeCoverageReportPages
+	from pyTooling.Sphinx.DocCoverage       import DocCoverageBase
+	from pyTooling.Sphinx.DocCoveragePages  import DocCoverageReportPages
 	from pyTooling.Sphinx.Unittest          import UnittestSummary
 	from pyTooling.Sphinx.UnittestPages     import UnittestReportPages
 
 	CodeCoverageBase.ReadReports(sphinx)
+	DocCoverageBase.AnalyzePackages(sphinx)
 	UnittestSummary.ReadReports(sphinx)
 	CodeCoverageReportPages.CreatePages(sphinx)
+	DocCoverageReportPages.CreatePages(sphinx)
 	UnittestReportPages.CreatePages(sphinx)
 
 
@@ -940,6 +951,7 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	from pyTooling.Sphinx.DependencyTable   import CONFIG_PREFIX, DependencyTable, prepareEntrypoints, reportBuildTime
 	from pyTooling.Sphinx.DocCoverage       import CONFIG_PREFIX as DOC_COVERAGE_PREFIX
 	from pyTooling.Sphinx.DocCoverage       import DocCoverageBase, DocCoverageLegend, DocStrCoverage
+	from pyTooling.Sphinx.DocCoveragePages  import DocCoverageReportPages
 	from pyTooling.Sphinx.Roles             import BREAK_ROLES, PYTHON_CODE_ROLE, STYLE_ROLES
 	from pyTooling.Sphinx.Roles             import breakRole, pythonCodeRole, styleRole
 	from pyTooling.Sphinx.Shields           import Shields
@@ -1018,7 +1030,7 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	sphinx.connect("config-inited", prepareEntrypoints)
 	sphinx.connect("config-inited", checkReportConfiguration)
 	sphinx.connect("builder-inited", readReports)
-	for reportPages in (CodeCoverageReportPages, UnittestReportPages):
+	for reportPages in (CodeCoverageReportPages, DocCoverageReportPages, UnittestReportPages):
 		sphinx.connect("env-before-read-docs", reportPages.GenerateAll)
 		sphinx.connect("html-page-context", reportPages.HideSource)
 	sphinx.connect("build-finished", reportBuildTime)

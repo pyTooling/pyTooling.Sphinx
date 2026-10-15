@@ -40,7 +40,7 @@ than letters, digits, ``_``, ``-`` and ``.`` - e.g. the brackets of a parametriz
 The pages are built as docutils node trees and handed to Sphinx as if they were read from a file: their names are
 registered when the builder is initialized and again before the documents are read -
 :meth:`sphinx.project.Project.discover` forgets them in between -, and the file Sphinx sees as their source is the
-report, so a changed report rebuilds them.
+report - or a file a derived class names per page, e.g. a module's source -, so a changed report rebuilds them.
 A page carries the metadata ``:orphan:``. A page with children lists them in a hidden table of contents, as the
 directive showing the report's summary lists the top-level pages, so the pages are in the navigation below that
 directive's document; a page's own sections aren't listed there. Every object with a page is an object of domain
@@ -297,13 +297,13 @@ class ReportPages(metaclass=ExtendedType, slots=True):
 
 	def Register(self, env: BuildEnvironment) -> None:
 		"""
-		Register the document names, with the report file as their source.
+		Register the document names, each with its source (see :meth:`_Source`).
 
 		:param env: The build environment.
 		"""
-		for docName in self._documents:
+		for docName, (_, entity) in self._documents.items():
 			env.project.docnames.add(docName)
-			env.project._docname_to_path[docName] = self._reportFile
+			env.project._docname_to_path[docName] = self._Source(entity)
 
 	def Generate(self, sphinxApplication: Sphinx) -> None:
 		"""
@@ -320,7 +320,7 @@ class ReportPages(metaclass=ExtendedType, slots=True):
 
 		self.Register(env)
 		for docName, (roleName, entity) in self._documents.items():
-			document = new_document(str(self._reportFile))
+			document = new_document(str(self._Source(entity)))
 			document.settings.env = env
 			document.settings.record_dependencies = DependencyList()
 			document += nodes.docinfo("", nodes.field("", nodes.field_name("", "orphan"), nodes.field_body()))
@@ -433,6 +433,16 @@ class ReportPages(metaclass=ExtendedType, slots=True):
 		:returns:    The path elements.
 		"""
 		return (name, )
+
+	def _Source(self, entity: Any) -> Path:
+		"""
+		Return the file Sphinx regards as the source of an object's page: the report file, unless a derived class names
+		another one.
+
+		:param entity: The object.
+		:returns:      The page's source file.
+		"""
+		return self._reportFile
 
 	@abstractmethod
 	def _Title(self, entity: Any) -> Nullable[str]:

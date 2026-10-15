@@ -1,0 +1,519 @@
+# ==================================================================================================================== #
+#             _____           _ _               ____        _     _                                                    #
+#  _ __  _   |_   _|__   ___ | (_)_ __   __ _  / ___| _ __ | |__ (_)_ __ __  __                                        #
+# | '_ \| | | || |/ _ \ / _ \| | | '_ \ / _` | \___ \| '_ \| '_ \| | '_ \\ \/ /                                        #
+# | |_) | |_| || | (_) | (_) | | | | | | (_| |_ ___) | |_) | | | | | | | |>  <                                         #
+# | .__/ \__, ||_|\___/ \___/|_|_|_| |_|\__, (_)____/| .__/|_| |_|_|_| |_/_/\_\                                        #
+# |_|    |___/                          |___/        |_|                                                               #
+# ==================================================================================================================== #
+# Authors:                                                                                                             #
+#   Patrick Lehmann                                                                                                    #
+#                                                                                                                      #
+# License:                                                                                                             #
+# ==================================================================================================================== #
+# Copyright 2026-2026 Patrick Lehmann - Bötzingen, Germany                                                             #
+#                                                                                                                      #
+# Licensed under the Apache License, Version 2.0 (the "License");                                                      #
+# you may not use this file except in compliance with the License.                                                     #
+# You may obtain a copy of the License at                                                                              #
+#                                                                                                                      #
+#   http://www.apache.org/licenses/LICENSE-2.0                                                                         #
+#                                                                                                                      #
+# Unless required by applicable law or agreed to in writing, software                                                  #
+# distributed under the License is distributed on an "AS IS" BASIS,                                                    #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.                                             #
+# See the License for the specific language governing permissions and                                                  #
+# limitations under the License.                                                                                       #
+#                                                                                                                      #
+# SPDX-License-Identifier: Apache-2.0                                                                                  #
+# ==================================================================================================================== #
+#
+"""
+Unit tests for :mod:`pyTooling.Sphinx.DocCoveragePages`: pages per package and module, the condensed listing, and role
+``:doccov:``, each built in a small Sphinx project.
+"""
+from pathlib                           import Path
+from textwrap                          import dedent
+from typing                            import Any
+
+from docutils                          import nodes
+from sphinx                            import addnodes
+from sphinx.testing.util               import SphinxTestApp
+
+from pyTooling.Testing                 import testsuite, testcase
+
+from pyTooling.Sphinx                  import ReportDomain
+from pyTooling.Sphinx.DocCoverage      import DocCoverageBase
+from pyTooling.Sphinx.DocCoveragePages import CondensedSource, DocCoverageReportPages
+
+from tests.unit.Extension              import Project
+
+
+if __name__ == "__main__":  # pragma: no cover
+	print("ERROR: you called a testcase declaration file as an executable module.")
+	print("Use: 'python -m unittest <testcase module>'")
+	exit(1)
+
+
+PACKAGE = Path(__file__).parent.parent / "data" / "DocCoverage" / "myPackage"
+"""Directory of the fixture package, which the testcases analyze."""
+
+PAGES = "doccov/myPackage"
+"""Document name of the generated page of the fixture package."""
+
+
+class DocCoverageProject(Project):
+	"""Base-class of the testcases: a project analyzing the fixture package 'myPackage'."""
+
+	def _buildPages(self, index: str, builder: str = "html", pages: Any = "doccov") -> SphinxTestApp:
+		"""
+		Write the document and build the project, with the fixture package declared with pages.
+
+		:param index:   Content of the document ``index``.
+		:param builder: Optional, name of the builder. Default: ``"html"``.
+		:param pages:   Optional, the value of the key ``pages``. Default: ``"doccov"``.
+		:returns:       The Sphinx application after the build.
+		"""
+		packages = {
+			"doc": {"name": "myPackage", "directory": str(PACKAGE), "pages": pages, "fail_below": 80, "levels": "default"}
+		}
+		return self._build(index, builder, pyTooling_DocCoverage_Packages=packages)
+
+	def _body(self, name: str) -> str:
+		"""
+		Read the body of a built page, without the navigation.
+
+		:param name: Name of the document.
+		:returns:    The page's body.
+		"""
+		html = self._html(name)
+		return html[html.index('<div class="body"'):html.index('<div class="sphinxsidebar"')]
+
+
+@testsuite("Generated pages")
+class Pages(DocCoverageProject):
+	"""The pages per package and module, generated for a package declared with the key 'pages'."""
+
+	@testcase("Document names")
+	def DocNames(self) -> None:
+		"""
+		A page's document name is the 'pages' prefix followed by the package's and module's names.
+
+		Builds the project and checks the written files.
+		"""
+		self._buildPages("Index\n#####\n")
+
+		self.assertEqual([], self._warningLines())
+		html = self._path / "build" / "html"
+		for docName in (PAGES, f"{PAGES}/Shapes", f"{PAGES}/Units", f"{PAGES}/Units/Length"):
+			with self.subTest(docName=docName):
+				self.assertTrue((html / f"{docName}.html").exists())
+
+	@testcase("Package page")
+	def PackagePage(self) -> None:
+		"""
+		A package's page shows its counters - its '__init__.py' and overall -, tables of its packages and modules linked
+		to their pages, and its '__init__.py' condensed.
+
+		Builds the project and checks the page of 'myPackage'.
+		"""
+		self._buildPages("Index\n#####\n")
+
+		body = self._body(PAGES)
+		self.assertIn("<h1>myPackage", body)
+		self.assertIn("<h2>Packages", body)
+		self.assertIn("<h2>Modules", body)
+		self.assertIn('class="report-doccov-table report-doccov-summary docutils', body)
+		self.assertIn('<tr class="report-cov-below100 row-even"><td><p>__init__.py</p></td>', body)
+		self.assertIn('<tr class="report-summary report-cov-below60 row-odd"><td><p>Overall (4 files)</p></td>', body)
+		self.assertIn('href="myPackage/Units.html"><span class="xref report report-doccov">Units</span>', body)
+		self.assertIn('href="myPackage/Shapes.html"><span class="xref report report-doccov">Shapes</span>', body)
+		self.assertIn('<span class="report-coverage-path">myPackage/__init__.py</span>', body)
+
+	@testcase("Module page")
+	def ModulePage(self) -> None:
+		"""
+		A module's page shows its package, its doc-string's state, its counters and its condensed listing with a legend.
+
+		Builds the project and checks the page of 'Shapes'.
+		"""
+		self._buildPages("Index\n#####\n")
+
+		body = self._body(f"{PAGES}/Shapes")
+		self.assertIn("<h1>Shapes", body)
+		self.assertIn('href="../myPackage.html"', body)
+		self.assertIn("<p>documented</p>", body)
+		self.assertIn(
+			'<tr class="report-cov-below60 row-even"><td><p>Shapes.py</p></td>\n<td><p>10</p></td>\n<td><p>5</p></td>\n'
+			'<td><p>5</p></td>\n<td><p>50.0%</p></td>', body
+		)
+		self.assertIn('<div class="highlight-default notranslate report-coverage-listing', body)
+		self.assertIn(
+			'<div class="report-coverage-header"><span class="report-coverage-path">myPackage/Shapes.py</span>'
+			'<span class="report-coverage-legend"><span class="report-coverage-legend-documented">documented</span>', body
+		)
+		self.assertIn('<span class="report-coverage-legend-none">not counted</span></span></div>', body)
+		self.assertNotIn("<h2>Modules", body)
+
+	@testcase("Undocumented module doc-string")
+	def UndocumentedDocString(self) -> None:
+		"""
+		A module without doc-string has a summary saying so.
+
+		Builds the project and checks the page of 'Units', whose '__init__.py' has no doc-string.
+		"""
+		self._buildPages("Index\n#####\n")
+
+		self.assertIn("<p>undocumented</p>", self._body(f"{PAGES}/Units"))
+
+	@testcase("Summary table")
+	def SummaryTable(self) -> None:
+		"""
+		The table of 'report:doc-coverage' links every package and module to its page.
+
+		Builds the project with the table and checks its links.
+		"""
+		self._buildPages("Index\n#####\n\n.. report:doc-coverage::\n   :reportid: doc\n")
+
+		self.assertEqual([], self._warningLines())
+		body = self._body("index")
+		for docName, name in (
+			(PAGES, "myPackage"), (f"{PAGES}/Units", "Units"), (f"{PAGES}/Units/Length", "Length"),
+			(f"{PAGES}/Shapes", "Shapes")
+		):
+			with self.subTest(docName=docName):
+				self.assertIn(f'href="{docName}.html"><span class="xref report report-doccov">{name}</span>', body)
+
+	@testcase("Dotted root name")
+	def DottedRootName(self) -> None:
+		"""
+		A root package with a dotted name - e.g. a namespace package's sub-package - keeps it as one name.
+
+		Builds the table of the fixture package named 'tests.myPackage' and a reference to one of its modules.
+		"""
+		self._build(
+			"Index\n#####\n\n.. report:doc-coverage::\n   :reportid: doc\n\n* :doccov:`tests.myPackage.Shapes`\n",
+			pyTooling_DocCoverage_Packages={"doc": {
+				"name": "tests.myPackage", "directory": str(PACKAGE), "pages": "doccov", "fail_below": 80, "levels": "default"
+			}}
+		)
+
+		self.assertEqual([], self._warningLines())
+		body = self._body("index")
+		for href, text in (("doccov/tests.myPackage.html", "tests.myPackage"), ("doccov/tests.myPackage/Shapes.html", "Shapes")):
+			with self.subTest(text=text):
+				self.assertIn(f'href="{href}"><span class="xref report report-doccov">{text}</span>', body)
+		self.assertIn("<h1>tests.myPackage", self._body("doccov/tests.myPackage"))
+
+	@testcase("Navigation")
+	def Navigation(self) -> None:
+		"""
+		The table's directive lists the package's page, a package's page its children; sections aren't listed.
+
+		Builds the project and checks the environment's table of contents.
+		"""
+		app = self._buildPages("Index\n#####\n\n.. report:doc-coverage::\n   :reportid: doc\n")
+
+		self.assertEqual([PAGES], app.env.toctree_includes["index"])
+		self.assertEqual([f"{PAGES}/Units", f"{PAGES}/Shapes"], app.env.toctree_includes[PAGES])
+		toc = app.env.tocs[f"{PAGES}/Shapes"]
+		self.assertEqual(1, len(list(toc.findall(nodes.reference))))
+		self.assertNotIn("Summary", toc.astext())
+		self.assertEqual(1, len(list(app.env.tocs[PAGES].findall(addnodes.toctree))))
+
+	@testcase("Source of a page")
+	def Source(self) -> None:
+		"""
+		Sphinx regards a module's file as its page's source, a package's '__init__.py' as the package's.
+
+		Builds the project and checks the registered paths.
+		"""
+		app = self._buildPages("Index\n#####\n")
+
+		self.assertEqual(PACKAGE.resolve() / "Shapes.py", app.env.doc2path(f"{PAGES}/Shapes"))
+		self.assertEqual(PACKAGE.resolve() / "Units" / "__init__.py", app.env.doc2path(f"{PAGES}/Units"))
+
+	@testcase("LaTeX")
+	def LaTeX(self) -> None:
+		"""
+		A LaTeX build writes a listing as Sphinx writes highlighted code, each line's number colored by its state.
+
+		Builds the table as LaTeX.
+		"""
+		self._buildPages("Index\n#####\n\n.. report:doc-coverage::\n   :reportid: doc\n", "latex")
+
+		self.assertEqual([], self._warningLines())
+		latex = next((self._path / "build" / "latex").glob("*.tex")).read_text(encoding="utf-8")
+		self.assertIn("\\sphinxcode{myPackage/Shapes.py}\\hfill{}", latex)
+		self.assertIn("\\textcolor{green!50!black}{\\texttt{+}}~documented", latex)
+		self.assertIn("\\textcolor{red}{39 -} ", latex)
+		self.assertIn("\\textcolor{gray}{    } ", latex)
+		self.assertIn("\\PYG{k}{class}", latex)
+
+
+@testsuite("Condensed listing")
+class Listing(DocCoverageProject):
+	"""A module's source condensed to headers, doc-strings, fields and variables, each line marked by its state."""
+
+	@testcase("Signatures and doc-strings")
+	def Signatures(self) -> None:
+		"""
+		A class or function keeps its decorators, its header - a signature spanning lines too - and its doc-string, all
+		marked by its state.
+
+		Builds the project and checks the listing of 'Shapes'.
+		"""
+		self._buildPages("Index\n#####\n")
+
+		body = self._body(f"{PAGES}/Shapes")
+		for number in range(32, 39):
+			with self.subTest(line=number):
+				self.assertIn(f'<span class="report-line report-line-documented"><span class="linenos">{number}</span>', body)
+		self.assertIn('<span class="c1"># keeps the circle</span>', body)
+		self.assertIn("Initialize a circle.", body)
+		self.assertIn('<span class="report-line report-line-documented"><span class="linenos">48</span>', body)
+		self.assertIn('<span class="report-line report-line-undocumented"><span class="linenos">29</span>', body)
+		self.assertIn('<span class="report-line report-line-undocumented"><span class="linenos">39</span>', body)
+
+	@testcase("Elided bodies")
+	def ElidedBodies(self) -> None:
+		"""
+		A body is elided to one '...' line at its indentation, without a line number; imports are elided too.
+
+		Builds the project and checks the listing of 'Shapes'.
+		"""
+		self._buildPages("Index\n#####\n")
+
+		body = self._body(f"{PAGES}/Shapes")
+		ellipsis = '<span class="o">.</span><span class="o">.</span><span class="o">.</span>'
+		self.assertIn(f'<span class="report-line report-line-elided"><span class="linenos"></span>{ellipsis}', body)
+		self.assertIn(f'<span class="report-line report-line-elided"><span class="linenos"></span>\t\t{ellipsis}', body)
+		self.assertIn(f'<span class="report-line report-line-elided"><span class="linenos"></span>\t\t\t{ellipsis}', body)
+		self.assertNotIn("Negative radius.", body)
+		self.assertNotIn('<span class="linenos">25</span>', body)
+		self.assertNotIn('<span class="kn">import</span>', body)
+
+	@testcase("Fields and variables")
+	def FieldsAndVariables(self) -> None:
+		"""
+		Fields and variables are kept as written - with their '#:' comments and doc-string literals -, and unmarked, as
+		docstr_coverage doesn't count them.
+
+		Builds the project and checks the listing of 'Shapes'.
+		"""
+		self._buildPages("Index\n#####\n")
+
+		body = self._body(f"{PAGES}/Shapes")
+		for number in (5, 6, 8, 9, 15, 17):
+			with self.subTest(line=number):
+				self.assertIn(f'<span class="report-line"><span class="linenos">{number}</span>', body)
+		self.assertIn("#: The number of shapes created.", body)
+		self.assertIn("The unit of a shape's dimensions.", body)
+
+	@testcase("One-line definitions")
+	def OneLiners(self) -> None:
+		"""
+		A definition written in one line is kept as written.
+
+		Builds the project and checks the listing of 'Shapes'.
+		"""
+		self._buildPages("Index\n#####\n")
+
+		body = self._body(f"{PAGES}/Shapes")
+		self.assertIn('<span class="report-line report-line-undocumented"><span class="linenos">46</span>', body)
+		self.assertIn('<span class="report-line report-line-undocumented"><span class="linenos">54</span>', body)
+		self.assertIn('<span class="k">return</span>', body)
+
+	@testcase("Compound statement")
+	def Compound(self) -> None:
+		"""
+		A statement holding functions is kept as written, its functions condensed and marked.
+
+		Builds the project and checks the listing of 'Length'.
+		"""
+		self._buildPages("Index\n#####\n")
+
+		body = self._body(f"{PAGES}/Units/Length")
+		self.assertIn('<span class="report-line"><span class="linenos">4</span><span class="k">if</span>', body)
+		self.assertIn('<span class="report-line report-line-documented"><span class="linenos">5</span>', body)
+		self.assertIn('<span class="report-line"><span class="linenos">8</span><span class="k">else</span>', body)
+		self.assertIn('<span class="report-line report-line-undocumented"><span class="linenos">9</span>', body)
+		self.assertIn('<span class="report-line"><span class="linenos">15</span>', body)
+
+
+@testsuite("Condensed source")
+class Condensing(DocCoverageProject):
+	"""The condensing of a module's source, without Sphinx."""
+
+	@staticmethod
+	def _module() -> Any:
+		"""
+		Create a module's coverage of pyEDAA.Reports' model, holding no states.
+
+		:returns: The module's coverage.
+		"""
+		from pyEDAA.Reports.DocumentationCoverage.Python import ModuleCoverage
+
+		return ModuleCoverage("m", Path("m.py"))
+
+	@testcase("Lines")
+	def Lines(self) -> None:
+		"""
+		The condensed lines are numbered and marked; an elided body has no number, but its indentation.
+
+		Condenses a module with a documented function.
+		"""
+		source = 'import sys\n\ndef f(a: int) -> int:\n\t"""Doc."""\n\tb = a\n\treturn b\n'
+		expected = [("module docstring", "undocumented"), ("f", "documented")]
+
+		self.assertEqual(
+			[(None, "", ""), (2, "", ""), (3, "documented", ""), (4, "documented", ""), (None, "", "\t")],
+			CondensedSource(source, "m.py", expected, self._module()).Lines
+		)
+
+	@testcase("States of fields and variables from the model")
+	def ModelStates(self) -> None:
+		"""
+		A variable or field is marked by the state the model holds for it: a module's variables, a class' fields.
+
+		Condenses a module whose model holds a state of a variable and of a field.
+		"""
+		from pyEDAA.Reports.DocumentationCoverage        import CoverageState
+		from pyEDAA.Reports.DocumentationCoverage.Python import ClassCoverage
+
+		module = self._module()
+		module.Variables["X"] = CoverageState.Covered
+		ClassCoverage("A", parent=module).Fields["y"] = CoverageState.Undocumented
+		source = "X = 1\nZ = 2\n\nclass A:\n\ty: int\n"
+
+		lines = CondensedSource(source, "m.py", [("A", "undocumented")], module).Lines
+		self.assertIn((1, "documented", ""), lines)
+		self.assertIn((2, "", ""), lines)
+		self.assertIn((5, "undocumented", ""), lines)
+
+	@testcase("Analysis not matching the source")
+	def Mismatch(self) -> None:
+		"""
+		An analysis naming other classes and functions than the source has is warned about; nothing is marked.
+
+		Condenses a module with a function the analysis doesn't name.
+		"""
+		with self.assertLogs("sphinx.pyTooling.Sphinx.DocCoveragePages", "WARNING") as logs:
+			lines = CondensedSource("def f():\n\tpass\n", "m.py", [("g", "documented")], self._module()).Lines
+
+		self.assertEqual([(1, "", ""), (None, "", "\t")], lines)
+		self.assertIn("The documentation coverage analysis of 'm.py' doesn't match the source", logs.output[0])
+
+
+@testsuite("Role ':doccov:'")
+class Role(DocCoverageProject):
+	"""The role referring to a package or module, by dotted name or a suffix of it."""
+
+	@testcase("Resolution")
+	def Resolution(self) -> None:
+		"""
+		A reference names a dotted name or a suffix of it, with or without report ID.
+
+		Builds the document and checks every link.
+		"""
+		self._buildPages(dedent("""\
+			Index
+			#####
+
+			* :doccov:`Shapes`
+			* :doccov:`doc:myPackage.Units`
+			* :report:doccov:`Units.Length`
+			* :doccov:`the package <myPackage>`
+			"""))
+
+		self.assertEqual([], self._warningLines())
+		body = self._body("index")
+		for href, text in (
+			(f"{PAGES}/Shapes.html", "Shapes"),
+			(f"{PAGES}/Units.html", "Units"),
+			(f"{PAGES}/Units/Length.html", "Length"),
+			(f"{PAGES}.html", "the package"),
+		):
+			with self.subTest(text=text):
+				self.assertIn(f'href="{href}"><span class="xref report report-doccov">{text}</span>', body)
+
+	@testcase("Unknown")
+	def Unknown(self) -> None:
+		"""
+		An unknown name is warned about.
+
+		Builds a document referring to a module the package doesn't have.
+		"""
+		self._buildPages("Index\n#####\n\n* :doccov:`Missing`\n")
+
+		warnings = self._warningLines()
+		self.assertEqual(1, len(warnings))
+		self.assertIn("module 'Missing' not found in the documentation coverage reports", warnings[0])
+
+	@testcase("Domain objects")
+	def DomainObjects(self) -> None:
+		"""
+		Every package and module with a page is an object of type 'module', named by report ID and dotted name.
+
+		Builds the project and checks the domain's objects.
+		"""
+		app = self._buildPages("Index\n#####\n")
+		domain: ReportDomain = app.env.domains[ReportDomain.name]
+
+		objects = {name: (objectType, docName) for name, _, objectType, docName, _, _ in domain.get_objects()}
+		self.assertEqual(("module", f"{PAGES}/Units/Length"), objects["doc:myPackage.Units.Length"])
+		self.assertEqual(4, sum(1 for name in objects if name.startswith("doc:")))
+
+
+@testsuite("Configuration key 'pages'")
+class Configuration(DocCoverageProject):
+	"""The key 'pages' of a package's configuration."""
+
+	@testcase("Normalized")
+	def Normalized(self) -> None:
+		"""
+		Surrounding slashes are removed from the document name.
+
+		Checks the loaded configuration after a build with '/doccov/'.
+		"""
+		self._buildPages("Index\n#####\n", pages="/doccov/")
+
+		self.assertEqual([], self._warningLines())
+		self.assertEqual("doccov", DocCoverageBase._packageConfigurations["doc"]["pages"])
+		self.assertEqual(PAGES, DocCoverageReportPages.GetPages("doc").DocNames[0])
+
+	@testcase("Not a relative document name")
+	def Invalid(self) -> None:
+		"""
+		A document name with '..' is logged as an error.
+
+		Builds a project with 'doccov/../src'.
+		"""
+		self._buildPages("Index\n#####\n", pages="doccov/../src")
+
+		self.assertEqual(
+			[
+				"ERROR: Caught ReportExtensionError when checking configuration variables.",
+				"  conf.py: pyTooling_DocCoverage_Packages:[doc].pages: 'doccov/../src' is not a relative document name."
+			],
+			self._warningLines()
+		)
+
+	@testcase("Without pages")
+	def WithoutPages(self) -> None:
+		"""
+		A package without the key 'pages' gets no pages, and its table no links.
+
+		Builds a project with the table of a package declared without 'pages'.
+		"""
+		self._build(
+			"Index\n#####\n\n.. report:doc-coverage::\n   :reportid: doc\n",
+			pyTooling_DocCoverage_Packages={
+				"doc": {"name": "myPackage", "directory": str(PACKAGE), "fail_below": 80, "levels": "default"}
+			}
+		)
+
+		self.assertEqual([], self._warningLines())
+		self.assertFalse(DocCoverageReportPages.HasPages("doc"))
+		self.assertNotIn("report-doccov\">", self._body("index"))
+		self.assertFalse((self._path / "build" / "html" / "doccov").exists())
