@@ -353,6 +353,12 @@ pyTooling_Dependency_PackageOverrides = "Dependency.PackageOverrides.yaml"
 
 
 # ==============================================================================
+# pyTooling.Sphinx - external link icons
+# ==============================================================================
+pyTooling_ExternalLink_Icons = "all"
+
+
+# ==============================================================================
 # Sphinx_Design
 # ==============================================================================
 # sd_fontawesome_latex = True
