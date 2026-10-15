@@ -939,3 +939,19 @@ a.pytooling-link-icon-sphinx[target="_blank"]::after {
   content: "";
   content: "" / "(external link, Sphinx, opens in a new tab)";
 }
+
+/* sphinx_rtd_theme draws a download glyph of its own before the text of a download link, and sets the text's first
+   <span> in its icon font: a marked link shows its icon behind the text only, and the text as any other link's. */
+a.pytooling-download-link code.download span:first-child {
+  display: inline;
+  margin: 0;
+  font: inherit;
+  text-rendering: inherit;
+  -webkit-font-smoothing: inherit;
+  -moz-osx-font-smoothing: inherit;
+}
+
+a.pytooling-download-link code.download span:first-child::before {
+  content: none;
+  margin: 0;
+}
