@@ -742,3 +742,23 @@ a.pytooling-link-icon-python::after {
   content: "";
   content: "" / "(external link, Python)";
 }
+
+a.pytooling-link-icon-external[target="_blank"]::after {
+  content: "";
+  content: "" / "(external link, opens in a new tab)";
+}
+
+a.pytooling-link-icon-github[target="_blank"]::after {
+  content: "";
+  content: "" / "(external link, GitHub, opens in a new tab)";
+}
+
+a.pytooling-link-icon-gitlab[target="_blank"]::after {
+  content: "";
+  content: "" / "(external link, GitLab, opens in a new tab)";
+}
+
+a.pytooling-link-icon-python[target="_blank"]::after {
+  content: "";
+  content: "" / "(external link, Python, opens in a new tab)";
+}

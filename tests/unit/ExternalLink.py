@@ -195,7 +195,7 @@ class IconPerTarget(Testcase):
 
 @testsuite("External link configuration")
 class Configuration(Testcase):
-	"""Reading the configuration values 'pyTooling_ExternalLink_Icons' and 'pyTooling_ExternalLink_Hosts'."""
+	"""Reading the configuration values 'pyTooling_ExternalLink_Icons', '..._NewTab' and '..._Hosts'."""
 
 	@testcase("Values read")
 	def Values(self) -> None:
@@ -205,12 +205,14 @@ class Configuration(Testcase):
 		Checks a configuration with a selection and two hosts, one without an icon, which gets the generic one.
 		"""
 		config = {
-			"pyTooling_ExternalLink_Icons": "all",
-			"pyTooling_ExternalLink_Hosts": {"GitLab.example.org": "gitlab", "pypi.org": None},
+			"pyTooling_ExternalLink_Icons":  "all",
+			"pyTooling_ExternalLink_NewTab": False,
+			"pyTooling_ExternalLink_Hosts":  {"GitLab.example.org": "gitlab", "pypi.org": None},
 		}
 		checkExternalLinkConfiguration(None, config)
 
 		self.assertIs(ExternalLinkIcons.All, config["pyTooling_ExternalLink_Icons"])
+		self.assertFalse(config["pyTooling_ExternalLink_NewTab"])
 		self.assertEqual(
 			{"gitlab.example.org": LinkIcon.GitLab, "pypi.org": LinkIcon.External}, config["pyTooling_ExternalLink_Hosts"]
 		)
@@ -218,14 +220,19 @@ class Configuration(Testcase):
 	@testcase("Defaults")
 	def Defaults(self) -> None:
 		"""
-		Without values, the links written with their URI get an icon, and no host is added.
+		Without values, the links written with their URI get an icon and open in a new tab; no host is added.
 
 		Checks the configuration values' defaults.
 		"""
-		config = {"pyTooling_ExternalLink_Icons": None, "pyTooling_ExternalLink_Hosts": {}}
+		config = {
+			"pyTooling_ExternalLink_Icons":  None,
+			"pyTooling_ExternalLink_NewTab": True,
+			"pyTooling_ExternalLink_Hosts":  {},
+		}
 		checkExternalLinkConfiguration(None, config)
 
 		self.assertIs(ExternalLinkIcons.Explicit, config["pyTooling_ExternalLink_Icons"])
+		self.assertTrue(config["pyTooling_ExternalLink_NewTab"])
 		self.assertEqual({}, config["pyTooling_ExternalLink_Hosts"])
 
 	@testcase("Errors")
@@ -235,23 +242,29 @@ class Configuration(Testcase):
 
 		Checks the message and the notes per malformed value.
 		"""
-		for icons, hosts, message, notes in (
+		for icons, hosts, message, notes, newTab in (
 			("some",     {},              "conf.py: pyTooling_ExternalLink_Icons: 'some' is not a selection of links.",
-			 ["Allowed values: none, explicit, all."]),
+			 ["Allowed values: none, explicit, all."], True),
 			(True,       {},              "conf.py: pyTooling_ExternalLink_Icons: Value is not of type 'str'.",
-			 ["Got type 'bool'."]),
+			 ["Got type 'bool'."], True),
 			("explicit", ["github.com"],  "conf.py: pyTooling_ExternalLink_Hosts: Value is not a dictionary.",
-			 ["Got type 'list'."]),
+			 ["Got type 'list'."], True),
 			("explicit", {1: "github"},   "conf.py: pyTooling_ExternalLink_Hosts: Host '1' is not of type 'str'.",
-			 ["Got type 'int'."]),
+			 ["Got type 'int'."], True),
 			("explicit", {"": "github"},  "conf.py: pyTooling_ExternalLink_Hosts: A host is empty.",
-			 []),
+			 [], True),
 			("explicit", {"a.org": 1},    "conf.py: pyTooling_ExternalLink_Hosts: Icon of host 'a.org' is not of type 'str'.",
-			 ["Got type 'int'."]),
+			 ["Got type 'int'."], True),
 			("explicit", {"a.org": "hg"}, "conf.py: pyTooling_ExternalLink_Hosts: Icon 'hg' of host 'a.org' is not an icon.",
-			 ["Allowed values: external, mail, github, gitlab, python."]),
+			 ["Allowed values: external, mail, github, gitlab, python."], True),
+			("explicit", {},              "conf.py: pyTooling_ExternalLink_NewTab: Value is not of type 'bool'.",
+			 ["Got type 'str'."], "yes"),
 		):
-			config = {"pyTooling_ExternalLink_Icons": icons, "pyTooling_ExternalLink_Hosts": hosts}
+			config = {
+				"pyTooling_ExternalLink_Icons":  icons,
+				"pyTooling_ExternalLink_NewTab": newTab,
+				"pyTooling_ExternalLink_Hosts":  hosts,
+			}
 			with self.subTest(message=message):
 				with self.assertRaises(SphinxExtensionError) as context:
 					checkExternalLinkConfiguration(None, config)
@@ -311,21 +324,23 @@ class Rendering(Project):
 			**config
 		)
 
-	def _assertExplicitLinks(self, html: str) -> None:
+	def _assertExplicitLinks(self, html: str, newTab: bool = True) -> None:
 		"""
 		Check the links written with their URI are marked, each with its icon, and the others aren't.
 
-		:param html: The page's HTML.
+		:param html:   The page's HTML.
+		:param newTab: Optional, whether a marked link opens in a new tab. Default: ``True``.
 		"""
+		attributes = ' rel="noopener noreferrer" target="_blank">' if newTab else ">"
 		for link in (
 			'<a class="pytooling-external-link pytooling-link-icon-external reference external" '
-			'href="https://www.sphinx-doc.org/">',
+			'href="https://www.sphinx-doc.org/"' + attributes,
 			'<a class="pytooling-external-link pytooling-link-icon-python reference external" '
-			'href="https://PyPI.org/project/pyTooling">',
+			'href="https://PyPI.org/project/pyTooling"' + attributes,
 			'<a class="pytooling-external-link pytooling-link-icon-gitlab reference external" '
-			'href="https://gitlab.com/group/project">',
+			'href="https://gitlab.com/group/project"' + attributes,
 			'<a class="extlink-gh pytooling-external-link pytooling-link-icon-github reference external" '
-			'href="https://GitHub.com/pyTooling/pyTooling">',
+			'href="https://GitHub.com/pyTooling/pyTooling"' + attributes,
 			'<a class="pytooling-external-link pytooling-link-icon-mail reference external" href="mailto:',
 			'<a class="reference external" href="license.html">',
 			'<a class="reference internal" href="genindex.html">',
@@ -372,6 +387,33 @@ class Rendering(Project):
 			'href="../local/api.html#Local.Thing"', html
 		)
 
+	@testcase("Same tab")
+	def SameTab(self) -> None:
+		"""
+		With 'pyTooling_ExternalLink_NewTab' set to False, the marked links open in the same tab.
+
+		Builds the document and checks no link has a target.
+		"""
+		self._buildLinks(pyTooling_ExternalLink_NewTab=False)
+
+		self.assertEqual([], self._warningLines())
+		html = self._html("index")
+		self._assertExplicitLinks(html, newTab=False)
+		self.assertNotIn('target="_blank"', html)
+
+	@testcase("E-mail address in the same tab")
+	def MailSameTab(self) -> None:
+		"""
+		An e-mail address never opens in a new tab: a browser would open an empty one beside the mail program.
+
+		Builds the document and checks the e-mail address' link has no target.
+		"""
+		self._buildLinks()
+
+		html = self._html("index")
+		start = html.index("pytooling-link-icon-mail")
+		self.assertNotIn("target=", html[start:html.index(">", start)])
+
 	@testcase("No links")
 	def Disabled(self) -> None:
 		"""
@@ -398,11 +440,11 @@ class Rendering(Project):
 		html = self._html("index")
 		self.assertIn(
 			'<a class="pytooling-external-link pytooling-link-icon-gitlab reference external" '
-			'href="https://www.sphinx-doc.org/">', html
+			'href="https://www.sphinx-doc.org/"', html
 		)
 		self.assertIn(
 			'<a class="pytooling-external-link pytooling-link-icon-external reference external" '
-			'href="https://PyPI.org/project/pyTooling">', html
+			'href="https://PyPI.org/project/pyTooling"', html
 		)
 
 	@testcase("Other formats")

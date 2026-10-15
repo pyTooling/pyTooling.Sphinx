@@ -19,6 +19,9 @@ External link icons
       :mod:`sphinx.ext.extlinks` role such as ``:gh:``. The configuration value ``pyTooling_ExternalLink_Icons`` adds
       the links to other projects' documentations, or disables the icons - see :ref:`LINK/External/Configuration`.
 
+      A marked link **opens in a new browser tab**, unless ``pyTooling_ExternalLink_NewTab`` is ``False``; an e-mail
+      address opens the mail program, as before.
+
    .. grid-item::
       :columns: 6
 
@@ -118,6 +121,11 @@ Configuration
           The links written with their URI, also those of an extlinks role.
        ``all``
           These, and the links resolved to another project's documentation, e.g. by intersphinx.
+   * - ``pyTooling_ExternalLink_NewTab``
+     - ``True``
+     - Whether a link with an icon opens in a new browser tab: it gets ``target="_blank"`` and
+       ``rel="noopener noreferrer"``. An e-mail address never does; a browser would open an empty tab beside the mail
+       program. A screen reader announces the new tab with the icon, e.g. "external link, opens in a new tab".
    * - ``pyTooling_ExternalLink_Hosts``
      - ``{}``
      - More hosts, each with the name of its icon: ``external``, ``mail``, ``github``, ``gitlab`` or ``python``.
@@ -127,8 +135,9 @@ Configuration
 .. code-block:: Python
 
    # doc/conf.py
-   pyTooling_ExternalLink_Icons = "all"
-   pyTooling_ExternalLink_Hosts = {
+   pyTooling_ExternalLink_Icons =  "all"
+   pyTooling_ExternalLink_NewTab = False                # links open in the same tab
+   pyTooling_ExternalLink_Hosts =  {
      "gitlab.example.org": "gitlab",     # a GitLab instance of one's own
      "pypi.org":           "external",   # no Python logo for the package index
    }
@@ -194,7 +203,8 @@ Two post-transforms mark the links in HTML, for every builder of the HTML family
       href="https://GitHub.com/pyTooling/pyTooling.Sphinx">pyTooling/pyTooling.Sphinx</a>
 
 * The icon is drawn by the link's ``::after`` pseudo-element, so it stays on the line of the link's last word.
-* A screen reader reads the icon's alternative text instead, e.g. *(external link)* or *(e-mail address)*.
+* A screen reader reads the icon's alternative text instead, e.g. *(external link, opens in a new tab)* or
+  *(e-mail address)*.
 * In a forced-colours mode, e.g. Windows' high contrast themes, the icon keeps the link's colour.
 
 Every other format - e.g. LaTeX - writes the links as before, without a mark.

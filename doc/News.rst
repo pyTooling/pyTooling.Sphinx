@@ -53,7 +53,8 @@ Version 0.x (2026)
    * :ref:`External link icons <LINK/External>`: in HTML, an icon behind each external link, chosen by its target -
      GitHub's mark, GitLab's tanuki, Python's logo, an envelope for an e-mail address, or a square with an arrow. The
      configuration value ``pyTooling_ExternalLink_Icons`` adds the intersphinx links or disables the icons, and
-     ``pyTooling_ExternalLink_Hosts`` adds hosts.
+     ``pyTooling_ExternalLink_Hosts`` adds hosts. A link with an icon opens in a new browser tab, unless
+     ``pyTooling_ExternalLink_NewTab`` is ``False``.
 
    .. rubric:: Changes compared to sphinx-reports
 

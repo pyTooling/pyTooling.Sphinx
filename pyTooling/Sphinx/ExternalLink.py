@@ -37,13 +37,16 @@ square with an arrow pointing out of it.
 Two post-transforms mark the links, for HTML only: :class:`MarkExternalLinks` before Sphinx resolves the references,
 so it sees the links written with their URI - also those of a :mod:`sphinx.ext.extlinks` role -, and
 :class:`MarkIntersphinxLinks` after, so it sees the links Sphinx resolved to another project's documentation - e.g. by
-:mod:`sphinx.ext.intersphinx`. A marked link gets a CSS class naming its icon, which the stylesheet draws.
+:mod:`sphinx.ext.intersphinx`. A marked link gets a CSS class naming its icon, which the stylesheet draws, and opens
+in a new browser tab - unless configuration value ``pyTooling_ExternalLink_NewTab`` is ``False``, or the link is an
+e-mail address.
 
 .. code-block:: Python
 
    # doc/conf.py
-   pyTooling_ExternalLink_Icons = "all"
-   pyTooling_ExternalLink_Hosts = {
+   pyTooling_ExternalLink_Icons =  "all"
+   pyTooling_ExternalLink_NewTab = True
+   pyTooling_ExternalLink_Hosts =  {
      "gitlab.example.org": "gitlab",
    }
 
@@ -149,6 +152,7 @@ def checkExternalLinkConfiguration(sphinx: Sphinx, config: Config) -> None:
 	:param config:                The configuration, after :file:`conf.py` was read.
 	:raises SphinxExtensionError: If ``pyTooling_ExternalLink_Icons`` is not a string.
 	:raises SphinxExtensionError: If ``pyTooling_ExternalLink_Icons`` names no member of :class:`ExternalLinkIcons`.
+	:raises SphinxExtensionError: If ``pyTooling_ExternalLink_NewTab`` is not a boolean.
 	:raises SphinxExtensionError: If ``pyTooling_ExternalLink_Hosts`` is not a dictionary.
 	:raises SphinxExtensionError: If a host of ``pyTooling_ExternalLink_Hosts`` is not a string.
 	:raises SphinxExtensionError: If a host of ``pyTooling_ExternalLink_Hosts`` is empty.
@@ -167,6 +171,11 @@ def checkExternalLinkConfiguration(sphinx: Sphinx, config: Config) -> None:
 		ex = SphinxExtensionError(f"conf.py: {CONFIG_PREFIX}_Icons: '{icons}' is not a selection of links.")
 		ex.add_note(f"Allowed values: {', '.join(ExternalLinkIcons)}.")
 		raise ex from cause
+
+	if not isinstance(newTab := config[f"{CONFIG_PREFIX}_NewTab"], bool):
+		ex = SphinxExtensionError(f"conf.py: {CONFIG_PREFIX}_NewTab: Value is not of type 'bool'.")
+		ex.add_note(f"Got type '{getFullyQualifiedName(newTab)}'.")
+		raise ex
 
 	hosts = config[f"{CONFIG_PREFIX}_Hosts"]
 	if not isinstance(hosts, Mapping):
@@ -205,6 +214,10 @@ class BaseExternalLinkTransform(SphinxPostTransform):
 
 	A marked link gets the CSS class :attr:`linkClass`, and the CSS class ``pytooling-link-icon-<icon>`` naming the icon
 	:meth:`LinkIcon.FromURI` chooses for it. A link holding an image - e.g. a badge - isn't marked.
+
+	If ``pyTooling_ExternalLink_NewTab`` is ``True``, a marked link opens in a new browser tab: it gets the attributes
+	``target="_blank"`` and ``rel="noopener noreferrer"``, which Sphinx' HTML writer copies into the ``<a>`` element. An
+	e-mail address doesn't, as a browser would open an empty tab beside the mail program.
 	"""
 
 	formats =   ("html", )                               #: Output formats the transform runs for.
@@ -214,12 +227,14 @@ class BaseExternalLinkTransform(SphinxPostTransform):
 	#: The configuration values of the external links' icons, as ``name: (default, rebuild, types)``. Each is
 	#: registered with :data:`CONFIG_PREFIX` as prefix, e.g. ``pyTooling_ExternalLink_Icons``.
 	#:
-	#: ``Icons`` names a member of :class:`ExternalLinkIcons`; ``None`` is its ``DEFAULT``. ``Hosts`` maps a host's
-	#: domain name to the name of a member of :class:`LinkIcon`, adding to :data:`HOST_ICONS` or replacing its icon.
-	#: Both are ``"html"``-rebuilt: the marks are written into the pages, never into the environment.
+	#: ``Icons`` names a member of :class:`ExternalLinkIcons`; ``None`` is its ``DEFAULT``. ``NewTab`` states whether a
+	#: marked link opens in a new browser tab. ``Hosts`` maps a host's domain name to the name of a member of
+	#: :class:`LinkIcon`, adding to :data:`HOST_ICONS` or replacing its icon. All are ``"html"``-rebuilt: the marks are
+	#: written into the pages, never into the environment.
 	configValues: ClassVar[dict[str, tuple[Any, Literal["html"], Any]]] = {
-		"Icons": (None, "html", (str, ExternalLinkIcons)),
-		"Hosts": ({},   "html", dict),
+		"Icons":  (None, "html", (str, ExternalLinkIcons)),
+		"NewTab": (True, "html", bool),
+		"Hosts":  ({},   "html", dict),
 	}
 
 	def run(self, **kwargs: Any) -> None:
@@ -233,6 +248,7 @@ class BaseExternalLinkTransform(SphinxPostTransform):
 
 		hosts = HOST_ICONS.copy()
 		hosts.update(self.config[f"{CONFIG_PREFIX}_Hosts"])
+		newTab = self.config[f"{CONFIG_PREFIX}_NewTab"]
 		for reference in self.document.findall(nodes.reference):
 			if "refuri" not in reference or not self._Selects(reference):
 				continue
@@ -241,6 +257,9 @@ class BaseExternalLinkTransform(SphinxPostTransform):
 
 			icon = LinkIcon.FromURI(reference["refuri"], hosts)
 			reference["classes"] += [self.linkClass, f"pytooling-link-icon-{icon}"]
+			if newTab and icon is not LinkIcon.Mail:
+				reference["target"] = "_blank"
+				reference["rel"] =    "noopener noreferrer"
 
 	def _Selects(self, reference: nodes.reference) -> bool:
 		"""

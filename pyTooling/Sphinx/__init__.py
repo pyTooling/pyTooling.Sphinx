@@ -93,8 +93,8 @@ document of every project. This extension declares them once:
 * the **nodes** the directives emit, listed in :data:`NODES` with their visitors per output format.
 
 * the **external link icons** - in HTML, an icon behind each external link, chosen by its target -, with the
-  configuration values ``pyTooling_ExternalLink_Icons`` and ``pyTooling_ExternalLink_Hosts``
-  (:mod:`~pyTooling.Sphinx.ExternalLink`).
+  configuration values ``pyTooling_ExternalLink_Icons``, ``pyTooling_ExternalLink_NewTab`` and
+  ``pyTooling_ExternalLink_Hosts`` (:mod:`~pyTooling.Sphinx.ExternalLink`).
 
 Two classes aren't registered, because they are base-classes for a project's own directives:
 :class:`~pyTooling.Sphinx.BaseDirective` offers typed option access and table construction
