@@ -158,21 +158,46 @@ class Blocks(Testcase):
 
 		self.assertEqual("<block_quote>\n    <paragraph>\n        quoted", tree(converted))
 
-	@testcase("Alert")
-	def Alert(self) -> None:
+	@testcase("Alerts")
+	def Alerts(self) -> None:
 		"""
-		A GitHub alert is a block quote, marked by classes, whose first paragraph names the alert's kind.
+		A GitHub alert of each kind is the admonition of that kind, marked by class ``github-alert``; its title isn't
+		written into it, as the admonition has its own.
 		"""
-		converted = convert("> [!WARNING]\n> Careful.\n")
+		for kind, admonition in (
+			("NOTE",      nodes.note),
+			("TIP",       nodes.tip),
+			("IMPORTANT", nodes.important),
+			("WARNING",   nodes.warning),
+			("CAUTION",   nodes.caution),
+		):
+			with self.subTest(kind=kind):
+				converted = convert(f"> [!{kind}]\n> Careful *now*.\n>\n> - item\n")
 
-		self.assertEqual(dedent("""\
-			<block_quote classes="github-alert github-alert-warning">
-			    <paragraph classes="github-alert-title">
-			        <strong>
-			            Warning
-			    <paragraph>
-			        Careful."""
-		), tree(converted))
+				self.assertEqual(1, len(converted))
+				self.assertIsInstance(converted[0], admonition)
+				self.assertEqual(["github-alert"], converted[0]["classes"])
+				self.assertEqual(["paragraph", "bullet_list"], [node.tagname for node in converted[0]])
+				self.assertEqual("Careful now.", converted[0][0].astext())
+
+	@testcase("Alert written in lower case")
+	def AlertLowerCase(self) -> None:
+		"""
+		An alert's kind is matched in any case, as GitHub does.
+		"""
+		converted = convert("> [!tip]\n> Hint.\n")
+
+		self.assertIsInstance(converted[0], nodes.tip)
+
+	@testcase("Not an alert")
+	def NotAlert(self) -> None:
+		"""
+		A block quote with an unknown kind stays a block quote, holding the marker as text.
+		"""
+		converted = convert("> [!HINT]\n> Hint.\n")
+
+		self.assertIsInstance(converted[0], nodes.block_quote)
+		self.assertEqual("[!HINT]\nHint.", converted[0].astext())
 
 	@testcase("Fenced code")
 	def FencedCode(self) -> None:

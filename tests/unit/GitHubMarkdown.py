@@ -571,6 +571,57 @@ class Rendering(Project):
 		self.assertIn("\\usepackage[normalem]{ulem}", latex)
 		self.assertIn(LATEX_PREAMBLE, latex)
 
+	_alerts = (
+		"Index\n#####\n\n"
+		".. markdown::\n\n"
+		"   > [!NOTE]\n   > N.\n\n"
+		"   > [!TIP]\n   > T.\n\n"
+		"   > [!IMPORTANT]\n   > I.\n\n"
+		"   > [!WARNING]\n   > W.\n\n"
+		"   > [!CAUTION]\n   > C.\n"
+	)
+
+	@testcase("Alerts in HTML")
+	def AlertsHTML(self) -> None:
+		"""
+		HTML writes each kind of alert as the admonition of that kind, titled by the kind.
+		"""
+		self._build(self._alerts, conf=self._conf)
+
+		self.assertEqual([], self._warningLines())
+		html = self._html("index")
+		for kind, title, text in (
+			("note",      "Note",      "N."),
+			("tip",       "Tip",       "T."),
+			("important", "Important", "I."),
+			("warning",   "Warning",   "W."),
+			("caution",   "Caution",   "C."),
+		):
+			with self.subTest(kind=kind):
+				self.assertIn(
+					f'<div class="github-alert admonition {kind}">\n<p class="admonition-title">{title}</p>\n<p>{text}</p>',
+					html
+				)
+
+	@testcase("Alerts in LaTeX")
+	def AlertsLaTeX(self) -> None:
+		"""
+		LaTeX writes each kind of alert as Sphinx' admonition environment of that kind.
+		"""
+		self._build(self._alerts, "latex", conf=self._conf)
+
+		self.assertEqual([], self._warningLines())
+		latex = next((self._path / "build" / "latex").glob("*.tex")).read_text(encoding="utf-8")
+		for kind, title, text in (
+			("note",      "Note",      "N."),
+			("tip",       "Tip",       "T."),
+			("important", "Important", "I."),
+			("warning",   "Warning",   "W."),
+			("caution",   "Caution",   "C."),
+		):
+			with self.subTest(kind=kind):
+				self.assertRegex(latex, rf"\\begin{{sphinxadmonition}}{{{kind}}}{{{title}:}}\s+\\sphinxAtStartPar\s+{text}")
+
 	@testcase("LaTeX preamble of the project")
 	def ProjectPreamble(self) -> None:
 		"""

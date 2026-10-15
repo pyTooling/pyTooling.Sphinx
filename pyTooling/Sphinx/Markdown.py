@@ -41,6 +41,11 @@ A heading must not change the sections of the page the Markdown is put into. A h
 higher level; a deeper heading inside the topic becomes a :class:`~docutils.nodes.rubric`, as does a heading inside a
 list or block quote.
 
+.. rubric:: Alerts
+
+A GitHub alert - ``> [!NOTE]`` - becomes the admonition of its kind (see :data:`ALERTS`), whose title the writer
+writes.
+
 .. rubric:: Raw HTML
 
 Markdown may hold HTML, which :class:`RawHTMLParser` reads. The elements with a docutils counterpart are translated
@@ -74,11 +79,20 @@ if TYPE_CHECKING:  # pragma: no cover
 	from pyTooling.Sphinx.GitHubMarkdown import GitHubMarkdown
 
 
-__all__ = ["IMAGE_CLASS", "HTML_ELEMENTS"]
+__all__ = ["IMAGE_CLASS", "ALERTS", "HTML_ELEMENTS"]
 
 #: The CSS class of every image the translator writes, by which
 #: :class:`~pyTooling.Sphinx.GitHubMarkdown.ReplaceSVGImages` finds them.
 IMAGE_CLASS = "github-image"
+
+#: The admonition each kind of GitHub alert becomes, by the kind as written: ``> [!NOTE]``.
+ALERTS: dict[str, type[nodes.Admonition]] = {
+	"NOTE":      nodes.note,
+	"TIP":       nodes.tip,
+	"IMPORTANT": nodes.important,
+	"WARNING":   nodes.warning,
+	"CAUTION":   nodes.caution,
+}
 
 #: The HTML elements with a docutils counterpart: the node class, and the CSS classes it gets. An element mapped to
 #: ``None`` is transparent: its content is kept, the element has no node of its own.
@@ -178,12 +192,22 @@ class MarkdownTranslator(metaclass=ExtendedType, slots=True):
 		"""
 		Translate the tokens of a Markdown document.
 
+		An alert's title is skipped: it is the alert's kind, which the admonition's writer writes as title.
+
 		:param tokens: The tokens of the block level, as ``MarkdownIt.parse()`` returns them.
 		:returns:      The nodes.
 		"""
-		for token in tokens:
+		iterator = iter(tokens)
+		for token in iterator:
 			if token.map is not None:
 				self._line = token.map[0] + 1
+
+			if token.type == "alert_title_open":
+				for titleToken in iterator:
+					if titleToken.type == "alert_title_close":
+						break
+
+				continue
 
 			self._TranslateToken(token)
 
@@ -274,11 +298,7 @@ class MarkdownTranslator(metaclass=ExtendedType, slots=True):
 			case "blockquote_open":
 				opened = self._Open(nodes.block_quote(), inline=False)
 			case "alert_open":
-				kind = token.meta["kind"].lower()
-				opened = self._Open(nodes.block_quote(classes=["github-alert", f"github-alert-{kind}"]), inline=False)
-			case "alert_title_open":
-				opened = self._Open(nodes.paragraph(classes=["github-alert-title"]), inline=False)
-				opened += self._Open(nodes.strong(), inline=True)
+				opened = self._Open(ALERTS[token.meta["kind"]](classes=["github-alert"]), inline=False)
 			case "hr":
 				if (target := self._BlockTarget()) is not None:
 					target.extend(nodes.raw("", written, format=writer) for writer, written in BREAK_ROLES["hr"].items())

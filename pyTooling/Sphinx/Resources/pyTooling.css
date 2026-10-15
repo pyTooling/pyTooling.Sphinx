@@ -64,12 +64,6 @@
 
   --pyTooling-github-topic-title-size:   1.15em;
   --pyTooling-github-topic-title-border: 1px solid #e1e4e5;
-  --pyTooling-github-alert-border-width: 4px;
-  --pyTooling-github-alert-note:         #0969da;
-  --pyTooling-github-alert-tip:          #1a7f37;
-  --pyTooling-github-alert-important:    #8250df;
-  --pyTooling-github-alert-warning:      #9a6700;
-  --pyTooling-github-alert-caution:      #d1242f;
 }
 
 span.bolditalic {
@@ -1079,8 +1073,7 @@ a.pytooling-download-link code.download span:first-child::before {
 
 /* Styles for converted GitHub Markdown, e.g. a release's notes.
 
-   A heading of the Markdown is a topic, which a theme draws as a box; here it reads as a heading of the text instead.
-   An alert is a block quote with a bar in the alert's color, as GitHub draws it. */
+   A heading of the Markdown is a topic, which a theme draws as a box; here it reads as a heading of the text instead. */
 aside.topic.github-topic {
   border: none;
   padding: 0;
@@ -1110,36 +1103,4 @@ table.github-table td.github-align-center {
 table.github-table th.github-align-right,
 table.github-table td.github-align-right {
   text-align: right;
-}
-
-blockquote.github-alert {
-  border-left: var(--pyTooling-github-alert-border-width) solid var(--pyTooling-github-alert-note);
-  padding-left: 1em;
-}
-blockquote.github-alert-tip {
-  border-left-color: var(--pyTooling-github-alert-tip);
-}
-blockquote.github-alert-important {
-  border-left-color: var(--pyTooling-github-alert-important);
-}
-blockquote.github-alert-warning {
-  border-left-color: var(--pyTooling-github-alert-warning);
-}
-blockquote.github-alert-caution {
-  border-left-color: var(--pyTooling-github-alert-caution);
-}
-blockquote.github-alert-note > div > p.github-alert-title {
-  color: var(--pyTooling-github-alert-note);
-}
-blockquote.github-alert-tip > div > p.github-alert-title {
-  color: var(--pyTooling-github-alert-tip);
-}
-blockquote.github-alert-important > div > p.github-alert-title {
-  color: var(--pyTooling-github-alert-important);
-}
-blockquote.github-alert-warning > div > p.github-alert-title {
-  color: var(--pyTooling-github-alert-warning);
-}
-blockquote.github-alert-caution > div > p.github-alert-title {
-  color: var(--pyTooling-github-alert-caution);
 }
