@@ -786,12 +786,13 @@ a.pytooling-intersphinx-link::after,
 a.pytooling-download-link::after {
   content: "";
   content: "" / "(external link)";
+  --pyTooling-link-icon-width: calc(var(--pyTooling-link-icon-size) * var(--pyTooling-link-icon-scale, 1));
   margin-left: var(--pyTooling-link-icon-gap);
-  padding-left: var(--pyTooling-link-icon-size);
+  padding-left: var(--pyTooling-link-icon-width);
   background-color: currentColor;
   forced-color-adjust: none;
-  -webkit-mask: var(--pyTooling-link-icon) center / var(--pyTooling-link-icon-size) no-repeat;
-  mask: var(--pyTooling-link-icon) center / var(--pyTooling-link-icon-size) no-repeat;
+  -webkit-mask: var(--pyTooling-link-icon) center / var(--pyTooling-link-icon-width) no-repeat;
+  mask: var(--pyTooling-link-icon) center / var(--pyTooling-link-icon-width) no-repeat;
 }
 
 a.pytooling-link-icon-external {
@@ -840,6 +841,7 @@ a.pytooling-link-icon-sphinx {
 
 a.pytooling-link-icon-download {
   --pyTooling-link-icon: var(--pyTooling-link-icon-download);
+  --pyTooling-link-icon-scale: 1.15;
 }
 
 a.pytooling-link-icon-archive {

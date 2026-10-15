@@ -266,8 +266,8 @@ class Rendering(Project):
 		"""
 		A download link gets the download icon and its size; a link to an archive the archive icon, its format and size.
 
-		A remote file without a pattern of 'pyTooling_ExternalLink_RemoteSizes' gets no size, and isn't asked for. Builds
-		the document and checks every link's classes and the text behind it.
+		A remote file without a pattern of 'pyTooling_ExternalLink_RemoteSizes' isn't asked for: an archive gets its format
+		only. Builds the document and checks every link's classes and the text behind it.
 		"""
 		html = self._buildDownloads()
 
@@ -284,15 +284,16 @@ class Rendering(Project):
 			'<span class="pre">sources</span></code></a> <span class="pytooling-download-size">(tar.gz, 2.0 kiB)</span>',
 			'<a class="pytooling-download-link pytooling-link-icon-archive pytooling-archive-zip reference download '
 			'external" download="" href="https://example.org/pkg-1.0.zip"><code class="xref download docutils literal '
-			'notranslate"><span class="pre">release</span></code></a></p></li>',
+			'notranslate"><span class="pre">release</span></code></a> <span class="pytooling-download-size">(ZIP)</span>'
+			'</p></li>',
 			'<a class="pytooling-external-link pytooling-link-icon-archive pytooling-archive-tar-gz reference external" '
 			'href="https://github.com/pyTooling/pyTooling/releases/download/v1.0/pkg-1.0.tar.gz" rel="noopener noreferrer" '
-			'target="_blank">release</a></p></li>',
+			'target="_blank">release</a> <span class="pytooling-download-size">(tar.gz)</span></p></li>',
 		):
 			with self.subTest(link=link):
 				self.assertIn(link, html)
 
-		self.assertEqual(3, html.count("pytooling-download-size"))
+		self.assertEqual(5, html.count("pytooling-download-size"))
 
 	@testcase("Sizes off")
 	def SizesOff(self) -> None:
@@ -382,7 +383,8 @@ class Rendering(Project):
 			with self.subTest(name=name):
 				self.assertIn('<span class="pytooling-download-size">(ZIP, 1.5 kiB)</span>', self._html(name))
 
-		requestSize.assert_called_once_with(uri, 5.0)
+		requestSize.assert_called_once()
+		self.assertEqual((uri, 5.0), requestSize.call_args.args[:2])
 
 
 class Server(ThreadingHTTPServer):
@@ -485,7 +487,7 @@ class RemoteSizes(Project):
 				)
 
 		self.assertIn('>redirected</a> <span class="pytooling-download-size">(tar.gz, 3.0 MiB)</span>', html)
-		self.assertIn('<span class="pre">other</span></code></a></p></li>', html)
+		self.assertIn('<span class="pre">other</span></code></a> <span class="pytooling-download-size">(ZIP)</span>', html)
 		self.assertEqual(["/pkg.zip", "/redirect.tar.gz", "/pkg-2.0.tar.gz"], self._server.requests)
 
 	@testcase("No pattern")
@@ -493,18 +495,18 @@ class RemoteSizes(Project):
 		"""
 		By default, no remote file is asked for.
 
-		Builds a document with a remote download and checks there was no request and no size.
+		Builds a document with a remote archive and checks there was no request, and the archive's format but no size.
 		"""
 		self._build(f"Index\n#####\n\n:download:`release <{self._base}/pkg.zip>`\n")
 
 		self.assertEqual([], self._warningLines())
 		self.assertEqual([], self._server.requests)
-		self.assertNotIn("pytooling-download-size", self._html("index"))
+		self.assertIn('<span class="pytooling-download-size">(ZIP)</span>', self._html("index"))
 
 	@testcase("Unknown sizes")
 	def Unknown(self) -> None:
 		"""
-		An answer without size, an HTTP error, and no answer within the timeout leave the link without size, and warn.
+		An answer without size, an HTTP error, and no answer within the timeout leave an archive's format only, and warn.
 
 		Builds a document with three such downloads and a timeout of 0.1 seconds, and checks the warnings and the page.
 		"""
@@ -528,7 +530,7 @@ class RemoteSizes(Project):
 			],
 			self._warningLines()
 		)
-		self.assertNotIn("pytooling-download-size", self._html("index"))
+		self.assertEqual(3, self._html("index").count('<span class="pytooling-download-size">(ZIP)</span>'))
 
 	@testcase("Unknown size linked twice")
 	def UnknownTwice(self) -> None:

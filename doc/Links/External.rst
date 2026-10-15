@@ -169,8 +169,8 @@ Files of the documentation
 ==========================
 
 The size of a file of the documentation is its size on disk when the documentation is built. Every download gets it,
-unless ``pyTooling_ExternalLink_DownloadSizes`` is ``False``. A file Sphinx doesn't find gets no size; Sphinx warns
-about it.
+unless ``pyTooling_ExternalLink_DownloadSizes`` is ``False``. A file Sphinx doesn't find gets no size - an archive its
+format only -; Sphinx warns about it.
 
 
 .. _LINK/External/Downloads/Remote:
@@ -179,9 +179,10 @@ Other sites' files
 ==================
 
 The extension asks another site for a file's size only if the file's URI matches a pattern of
-``pyTooling_ExternalLink_RemoteSizes`` - by default, it asks no site. It sends an HTTP ``HEAD`` request, follows
-redirections - e.g. of a GitHub release's asset to its storage -, and reads the answer's ``Content-Length``. Each URI is
-asked once per build, however often it is linked.
+``pyTooling_ExternalLink_RemoteSizes`` - by default, it asks no site; an archive gets its format only. It sends an HTTP
+``HEAD`` request with Sphinx' :mod:`sphinx.util.requests`, so Sphinx' configuration values ``user_agent``,
+``tls_verify`` and ``tls_cacerts`` apply. It follows redirections - e.g. of a GitHub release's asset to its storage -,
+and reads the answer's ``Content-Length``. Each URI is asked once per build, however often it is linked.
 
 * A pattern is a glob pattern, compared case-sensitively with the whole URI: ``*`` matches any characters - also
   ``/`` -, ``?`` one character, and ``[...]`` one of the characters listed.
@@ -198,8 +199,8 @@ asked once per build, however often it is linked.
    pyTooling_ExternalLink_RemoteSizeTimeout = 2.5
 
 If the size stays unknown - no answer within the time, an HTTP error, or an answer without ``Content-Length`` - the
-link gets no size, and Sphinx warns at the link, with the warning type ``pyTooling.download_size`` appended in
-brackets:
+link gets no size, an archive its format only, e.g. ``(ZIP)``, and Sphinx warns at the link, with the warning type
+``pyTooling.download_size`` appended in brackets:
 
 .. code-block:: text
 
@@ -304,6 +305,9 @@ in a stylesheet of its own, listed in ``html_css_files``:
    * - ``--pyTooling-link-icon-gap``
      - ``0.2em``
      - the gap between the link's text and the icon
+   * - ``--pyTooling-link-icon-scale``
+     - ``1``; ``1.15`` for ``download``
+     - a factor of an icon's size, set on the link's class, e.g. ``a.pytooling-link-icon-download``
    * - ``--pyTooling-link-icon-<icon>``
      - an SVG image
      - the icon's shape, e.g. ``--pyTooling-link-icon-github``

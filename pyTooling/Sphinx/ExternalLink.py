@@ -48,7 +48,7 @@ the archive icon instead, also a link written with its URI.
 A fourth post-transform, :class:`AddDownloadSizes`, writes the size of a download's file behind its link, and an
 archive's format, e.g. ``(ZIP, 1.2 MiB)``. The size of a file of the documentation is read from the file system; the
 size of another site's file is asked with an HTTP ``HEAD`` request, only if its URI matches a pattern of configuration
-value ``pyTooling_ExternalLink_RemoteSizes``.
+value ``pyTooling_ExternalLink_RemoteSizes``. An archive, whose size isn't known, gets its format only, e.g. ``(ZIP)``.
 
 .. code-block:: Python
 
@@ -70,22 +70,21 @@ value ``pyTooling_ExternalLink_RemoteSizes``.
       |rarr| The icons, the configuration values and the stylesheet's custom properties, with rendered examples.
 """
 from fnmatch                           import fnmatchcase
-from http.client                       import HTTPException
 from math                              import isfinite
 from pathlib                           import Path
 from typing                            import Any, ClassVar, Literal, Mapping, Self, Sequence
-from urllib.error                      import HTTPError, URLError
 from urllib.parse                      import urlsplit
-from urllib.request                    import Request, urlopen
 from weakref                           import WeakKeyDictionary
 
 from docutils                          import nodes
+from requests.exceptions               import HTTPError, RequestException, Timeout
 from sphinx.addnodes                   import download_reference
 from sphinx.application                import Sphinx
 from sphinx.config                     import Config
 from sphinx.environment                import BuildEnvironment
 from sphinx.transforms.post_transforms import SphinxPostTransform
 from sphinx.util.logging               import getLogger
+from sphinx.util.requests              import head
 
 from pyTooling.Common                  import StringEnum, getFullyQualifiedName
 from pyTooling.Decorators              import export
@@ -499,13 +498,13 @@ class AddDownloadSizes(SphinxPostTransform):
 	class :attr:`sizeClass`, e.g. ``(340.0 kiB)``, for an archive with its format's label of :data:`ARCHIVE_FORMATS`,
 	e.g. ``(ZIP, 1.2 MiB)``. A link holding an image gets none.
 
-	The size of a file of the documentation is read from the file system; a file Sphinx didn't find gets none, as Sphinx
-	warned about it. The size of another site's file is asked with an HTTP ``HEAD`` request, following redirections,
-	only if its URI is of scheme ``http`` or ``https`` and matches a pattern of ``pyTooling_ExternalLink_RemoteSizes``;
-	each URI is asked once per build. If the size is unknown - e.g. no answer within
-	``pyTooling_ExternalLink_RemoteSizeTimeout`` seconds, an HTTP error, or an answer without a ``Content-Length`` -, the
-	link gets no size, and Sphinx warns at the link with the warning type ``pyTooling.download_size``. No download gets
-	a size, if ``pyTooling_ExternalLink_DownloadSizes`` is ``False``.
+	The size of a file of the documentation is read from the file system. The size of another site's file is asked with
+	an HTTP ``HEAD`` request, following redirections, only if its URI is of scheme ``http`` or ``https`` and matches a
+	pattern of ``pyTooling_ExternalLink_RemoteSizes``; each URI is asked once per build. If the size is unknown - e.g. a
+	file Sphinx didn't find, no answer within ``pyTooling_ExternalLink_RemoteSizeTimeout`` seconds, an HTTP error, or an
+	answer without a ``Content-Length`` -, Sphinx warns at the link with the warning type ``pyTooling.download_size``.
+	A download, whose size isn't known, gets no size; an archive gets its format only, e.g. ``(ZIP)``. No download gets
+	a size or a format, if ``pyTooling_ExternalLink_DownloadSizes`` is ``False``.
 	"""
 
 	default_priority = 25                         #: After the post-transforms marking the links.
@@ -540,35 +539,40 @@ class AddDownloadSizes(SphinxPostTransform):
 
 				uri = reference["reftarget"]
 				try:
-					size = Path(self.env.relfn2path(uri, self.env.docname)[1]).stat().st_size
+					sizeText = self._FormatSize(Path(self.env.relfn2path(uri, self.env.docname)[1]).stat().st_size)
 				except OSError as ex:
 					self._WarnUnknownSize(reference, uri, ex.strerror)
-					continue
+					sizeText = ""
 			elif urlsplit(uri := reference.get("refuri", "")).scheme not in ("http", "https"):
 				continue
 			elif not isDownload and getArchiveExtension(uri) == "":
 				continue
 			elif not any(fnmatchcase(uri, pattern) for pattern in patterns):
-				continue
+				sizeText = ""
 			elif uri in sizes:
-				size = sizes[uri]
+				sizeText = self._FormatSize(sizes[uri])
 			elif uri in failures:
 				self._WarnUnknownSize(reference, uri, failures[uri])
-				continue
+				sizeText = ""
 			else:
 				try:
-					size = self._RequestSize(uri, timeout)
+					sizes[uri] = self._RequestSize(uri, timeout, self.config)
 				except DownloadSizeError as ex:
 					failures[uri] = ex
 					self._WarnUnknownSize(reference, uri, ex)
-					continue
+					sizeText = ""
+				else:
+					sizeText = self._FormatSize(sizes[uri])
 
-				sizes[uri] = size
-
-			if (extension := getArchiveExtension(uri)) == "":
-				text = f"({self._FormatSize(size)})"
+			extension = getArchiveExtension(uri)
+			if extension == "" and sizeText == "":
+				continue
+			elif extension == "":
+				text = f"({sizeText})"
+			elif sizeText == "":
+				text = f"({ARCHIVE_FORMATS[extension]})"
 			else:
-				text = f"({ARCHIVE_FORMATS[extension]}, {self._FormatSize(size)})"
+				text = f"({ARCHIVE_FORMATS[extension]}, {sizeText})"
 
 			reference.parent.insert(
 				reference.parent.index(reference) + 1, [nodes.Text(" "), nodes.inline("", text, classes=[self.sizeClass])]
@@ -590,34 +594,35 @@ class AddDownloadSizes(SphinxPostTransform):
 		)
 
 	@staticmethod
-	def _RequestSize(uri: str, timeout: float) -> int:
+	def _RequestSize(uri: str, timeout: float, config: Config) -> int:
 		"""
 		Ask a server for the size of a file, with an HTTP ``HEAD`` request.
 
-		The request follows redirections, e.g. of a GitHub release's asset to its storage.
+		The request is sent by :mod:`sphinx.util.requests`, so it follows Sphinx' configuration values ``user_agent``,
+		``tls_verify`` and ``tls_cacerts``. It follows redirections, e.g. of a GitHub release's asset to its storage.
 
 		:param uri:                The file's URI.
 		:param timeout:            Seconds to wait for an answer.
+		:param config:             Sphinx' configuration.
 		:returns:                  The file's size in bytes, as the answer's ``Content-Length`` states it.
 		:raises DownloadSizeError: If the server doesn't answer within ``timeout`` seconds, answers with an HTTP error, or
 		                           the request fails otherwise.
 		:raises DownloadSizeError: If the answer has no ``Content-Length``, or one that is no number.
 		"""
 		try:
-			with urlopen(Request(uri, method="HEAD"), timeout=timeout) as response:
-				length = response.headers.get("Content-Length", "")
-		except HTTPError as ex:
-			raise DownloadSizeError(f"the server answered {ex.code} {ex.reason}") from ex
-		except URLError as ex:
-			if isinstance(ex.reason, TimeoutError):
-				raise DownloadSizeError(f"no answer within {timeout} seconds") from ex
-
-			raise DownloadSizeError(f"{ex.reason}") from ex
-		except TimeoutError as ex:
+			response = head(
+				uri, allow_redirects=True, timeout=timeout, _user_agent=config.user_agent,
+				_tls_info=(config.tls_verify, config.tls_cacerts)
+			)
+			response.raise_for_status()
+		except Timeout as ex:
 			raise DownloadSizeError(f"no answer within {timeout} seconds") from ex
-		except (OSError, HTTPException, ValueError) as ex:
+		except HTTPError as ex:
+			raise DownloadSizeError(f"the server answered {ex.response.status_code} {ex.response.reason}") from ex
+		except RequestException as ex:
 			raise DownloadSizeError(f"{ex}") from ex
 
+		length = response.headers.get("Content-Length", "")
 		if length == "":
 			raise DownloadSizeError("the answer has no 'Content-Length'")
 		elif not length.isdecimal():
