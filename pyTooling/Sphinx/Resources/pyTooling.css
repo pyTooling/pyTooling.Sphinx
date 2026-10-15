@@ -58,6 +58,9 @@
   --pyTooling-coverage-header-border:    1px solid #e1e4e5;
   --pyTooling-coverage-marker-width:     4px;
   --pyTooling-coverage-tab-size:         4;
+
+  --pyTooling-link-icon-size: 0.8em;
+  --pyTooling-link-icon-gap:  0.2em;
 }
 
 span.bolditalic {
@@ -636,4 +639,430 @@ div.report-coverage-listing span.report-coverage-legend-ignored::before {
 }
 div.report-coverage-listing span.report-coverage-legend-none::before {
   border-left-color: var(--pyTooling-coverage-none-marker);
+}
+
+
+/* Styles for the icons behind external links, which the post-transforms of pyTooling.Sphinx.ExternalLink mark.
+
+   A marked link gets the class 'pytooling-link-icon-<icon>'. Its '::after' pseudo-element draws the icon: a mask in
+   the icon's shape, filled with the link's colour. Without text, the pseudo-element offers no line break opportunity,
+   so the icon stays on the line of the link's last word. A screen reader reads its alternative text instead. A link
+   to an archive also gets the class 'pytooling-archive-<extension>', e.g. 'pytooling-archive-tar-gz', whose
+   alternative text names the archive's format.
+
+   Each icon is an SVG image in a data URI, continued over several lines by escaped newlines, as a custom property a
+   project can redefine:
+   * 'external', 'mail', 'download' and 'archive' are drawn for pyTooling.Sphinx, as lines; their viewBox is cropped
+     to the drawing, so they fill their box like the brands' marks;
+   * the others are the brands' marks from Simple Icons 16.35.0 (https://simpleicons.org/, CC0 1.0 Universal); the
+     marks are trademarks of their owners. */
+:root {
+  --pyTooling-link-icon-external: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='3 2 19\
+    19' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 4\
+    H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4'/%3E%3Cpath d='M12 12l9-9M15 3h6v6'/%3E%3C/svg%3E");
+  --pyTooling-link-icon-mail: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='2 2 20 20'\
+    fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5'\
+    width='18' height='14' rx='2'/%3E%3Cpath d='m3 7 9 6 9-6'/%3E%3C/svg%3E");
+  --pyTooling-link-icon-download: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='2 2 20\
+    20' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3\
+    v12M7 10l5 5 5-5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2'/%3E%3C/svg%3E");
+  --pyTooling-link-icon-archive: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='2 2 20\
+    20' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 3\
+    H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7z'/%3E%3Cpath d='M15 3v4h4M11 3v1M11 7v1M11 11v1'/%3E%3Crect\
+    x='9' y='15' width='4' height='3' rx='1'/%3E%3C/svg%3E");
+  --pyTooling-link-icon-github: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24\
+    24'%3E%3Cpath d='M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01\
+    -1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729\
+    1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466\
+    -1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98\
+    -.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23\
+    1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0\
+    .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12'/%3E%3C/svg%3E");
+  --pyTooling-link-icon-gitlab: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24\
+    24'%3E%3Cpath d='m23.6004 9.5927-.0337-.0862L20.3.9814a.851.851 0 0 0-.3362-.405.8748.8748 0 0 0\
+    -.9997.0539.8748.8748 0 0 0-.29.4399l-2.2055 6.748H7.5375l-2.2057-6.748a.8573.8573 0 0 0-.29-.4412.8748.8748 0 0\
+    0-.9997-.0537.8585.8585 0 0 0-.3362.4049L.4332 9.5015l-.0325.0862a6.0657 6.0657 0 0 0 2.0119 7.0105\
+    l.0113.0087.03.0213 4.976 3.7264 2.462 1.8633 1.4995 1.1321a1.0085 1.0085 0 0 0 1.2197 0l1.4995-1.1321 2.4619\
+    -1.8633 5.006-3.7489.0125-.01a6.0682 6.0682 0 0 0 2.0094-7.003z'/%3E%3C/svg%3E");
+  --pyTooling-link-icon-python: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24\
+    24'%3E%3Cpath d='M14.25.18l.9.2.73.26.59.3.45.32.34.34.25.34.16.33.1.3.04.26.02.2-.01.13V8.5l-.05.63-.13.55\
+    -.21.46-.26.38-.3.31-.33.25-.35.19-.35.14-.33.1-.3.07-.26.04-.21.02H8.77l-.69.05-.59.14-.5.22-.41.27-.33.32\
+    -.27.35-.2.36-.15.37-.1.35-.07.32-.04.27-.02.21v3.06H3.17l-.21-.03-.28-.07-.32-.12-.35-.18-.36-.26-.36-.36-.35\
+    -.46-.32-.59-.28-.73-.21-.88-.14-1.05-.05-1.23.06-1.22.16-1.04.24-.87.32-.71.36-.57.4-.44.42-.33.42-.24.4-.16.36\
+    -.1.32-.05.24-.01h.16l.06.01h8.16v-.83H6.18l-.01-2.75-.02-.37.05-.34.11-.31.17-.28.25-.26.31-.23.38-.2.44-.18.51\
+    -.15.58-.12.64-.1.71-.06.77-.04.84-.02 1.27.05zm-6.3 1.98l-.23.33-.08.41.08.41.23.34.33.22.41.09.41-.09.33-.22.23\
+    -.34.08-.41-.08-.41-.23-.33-.33-.22-.41-.09-.41.09zm13.09 3.95\
+    l.28.06.32.12.35.18.36.27.36.35.35.47.32.59.28.73.21.88.14 1.04.05 1.23-.06 1.23-.16 1.04-.24.86-.32.71-.36.57\
+    -.4.45-.42.33-.42.24-.4.16-.36.09-.32.05-.24.02-.16-.01h-8.22v.82h5.84l.01 2.76.02.36-.05.34-.11.31-.17.29-.25.25\
+    -.31.24-.38.2-.44.17-.51.15-.58.13-.64.09-.71.07-.77.04-.84.01-1.27-.04-1.07-.14-.9-.2-.73-.25-.59-.3-.45-.33-.34\
+    -.34-.25-.34-.16-.33-.1-.3-.04-.25-.02-.2.01-.13v-5.34l.05-.64.13-.54.21-.46.26-.38.3-.32.33-.24.35-.2.35-.14.33\
+    -.1.3-.06.26-.04.21-.02.13-.01h5.84l.69-.05.59-.14.5-.21.41-.28.33-.32.27-.35.2-.36.15-.36.1-.35.07-.32.04-.28.02\
+    -.21V6.07h2.09l.14.01zm-6.47 14.25l-.23.33-.08.41.08.41.23.33.33.23.41.08.41-.08.33-.23.23-.33.08-.41-.08-.41-.23\
+    -.33-.33-.23-.41-.08-.41.08z'/%3E%3C/svg%3E");
+  --pyTooling-link-icon-numpy: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24\
+    24'%3E%3Cpath d='M10.315 4.876L6.3048 2.8517l-4.401 2.1965 4.1186 2.0683zm1.8381.9277l4.2045 2.1223-4.3622 2.1906\
+    -4.125-2.0718zm5.6153-2.9213l4.3193 2.1658-3.863 1.9402-4.2131-2.1252zm-1.859-.9329L12.021 0 8.1742 1.9193l4.0068\
+    2.0208zm-3.0401 16.7443V24l4.7107-2.3507-.0053-5.3085zm4.7037-4.2057l-.0052-5.2528-4.6985 2.3356v5.2546zm5.6553\
+    -.9845v5.327l-4.0178 2.0052-.0029-5.3028zm0-1.8626V6.4214l-4.0253 2.001.0034 5.2633zM11.2062 11.571L8.0333 9.9756\
+    v6.895s-3.8804-8.2564-4.2399-8.998c-.0463-.0957-.2371-.2007-.2858-.2262C2.8118 7.2812.773 6.2485.773 6.2485V18.43\
+    l2.8204 1.5076v-6.3674s3.8392 7.3775 3.878 7.458c.0389.0807.4245.8582.8362 1.1314.5485.363 2.8992 1.7766 2.8992\
+    1.7766z'/%3E%3C/svg%3E");
+  --pyTooling-link-icon-pypy: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24\
+    24'%3E%3Cpath d='M12.947 0c-.099 0-.2.005-.3.016a2.706 2.706 0 0 0-1.27.447c-.164.009-.324.038-.488.053-1.78.279\
+    -3.037 1.197-3.92 2.286-1.702 2.515-1.711 6.092-1.481 8.471a6.55 6.55 0 0 1 1.86-3.765c.069-.069.15-.136.22-.217\
+    l.034-.034c.09-.078.18-.154.272-.228a8.87 8.87 0 0 1 .416-.309c.028-.014.056-.027.084-.055l.436-.273.03-.016.068\
+    -.035a4.99 4.99 0 0 1 .478-.225c.029-.014.07-.029.098-.043.127-.056.268-.098.395-.14-.002-.003-.006-.004-.008\
+    -.006l.022-.008a2.162 2.162 0 0 0-.268-.238 1.827 1.827 0 0 0-.731-.268 3.248 3.248 0 0 0-.829-.041 4.37 4.37 0 0\
+    0-.799.115c.248-.102.497-.19.77-.242.279-.07.573-.111.88-.112.265 0 .55.036.82.135l.002.004\
+    c.028.014.042.015.07.03.07.028.155.069.225.11.01.006.017.013.026.018l.002.012c.14.084.268.196.394.323l.014.013\
+    c.004 0 .006 0 .01-.002a2.821 2.821 0 0 0 2.407.944l.254-.04h.041l.557-.114c1.867-.435 2.185-.507 3.135-1.036.4\
+    -.321.562-.548.63-.762.07-.217.055-.455.073-.797l-.002.01c-.001-.374-.282-.8-.696-1.22-.41-.417-.932-.824-1.366\
+    -1.196-.53-.374-.785-.718-1.031-.973a1.669 1.669 0 0 0-.63-.434A2.778 2.778 0 0 0 12.947 0zm2.362.934\
+    c.12.113.231.224.405.346l.008.004.005.006c.425.365.963.78 1.402 1.225.438.446.795.93.797 1.465v.004l-.002.006c\
+    -.017.319.008.589-.088.885-.096.297-.311.588-.754.94l-.012.01-.012.008a9.773 9.773 0 0 1-.584.303c1.232.485 2.467\
+    1.071 3.808 2.118v-.002c1.21.937 2.345 2.057 3.49 3.74-.105-5.25-3.649-9.647-8.463-11.058zM8.534.98a11.576 11.576\
+    0 0 0-2.155.897c-.07.038-.14.08-.209.12a11.768 11.768 0 0 0-5.942 10.02c.033 1.843.683 3.221 1.708 4.232 1.061\
+    1.048 2.528 1.703 4.109 2.034 1.585.333 3.247.442 4.743.362a6.236 6.236 0 0 1-1.92-.692 11.15 11.15 0 0 1-.55\
+    -.322 12.475 12.475 0 0 1-.45-.338l-.295-.252a1.697 1.697 0 0 1-.225-.225 6.776 6.776 0 0 1-1.237-1.702c-.028\
+    -.056-.056-.126-.084-.182a6.412 6.412 0 0 1-.318-.858c-.104-.294-.318-.938-.489-2.003v-.006c-.299-2.347-.525\
+    -6.536 1.464-9.467l.004-.006.004-.006A6.873 6.873 0 0 1 8.534.98zm4.776 3.853c.059-.001.12 0\
+    .182.004.492.043.87.282.856.55-.028.252-.434.436-.926.408-.492-.042-.872-.282-.858-.55.012-.233.336-.401.746-.412\
+    zm2.699 1.491c-.164.061-.451.142-.657.2 1.835 1.094 3.106 3.045 3.215 5.315l.004.068c.003.077.006.153.007.233v.04\
+    c0 .037-.005.072-.006.108.101 2.366-.31 3.562-1.291 5.62v.002c-.99 2.092-3.237 4.63-5.012 6.089 6.255-.14 11.293\
+    -5.145 11.494-11.384-1.22-1.9-2.408-3.086-3.696-4.084-1.43-1.117-2.725-1.7-4.058-2.207zm2.104 8.256c-.045.118\
+    -.087.238-.138.352-.029.056-.056.126-.084.182a6.537 6.537 0 0 1-1.462 1.927l-.295.252c-.14.112-.295.225-.45.338\
+    a5.13 5.13 0 0 1-.549.322c-.183.1-.375.185-.568.268v.002l-.016.006a6.555 6.555 0 0 1-.412.154c-2.013.742-5.2.867\
+    -8.166.244-1.63-.341-3.157-1.02-4.282-2.13a5.941 5.941 0 0 1-1.164-1.625C1.703 20.009 6.232 23.859 11.694 24c1.76\
+    -1.35 4.256-4.096 5.27-6.241v-.002c.598-1.253.97-2.146 1.15-3.178z'/%3E%3C/svg%3E");
+  --pyTooling-link-icon-pytest: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24\
+    24'%3E%3Cpath d='M2.6152 0v.8867h3.8399V0zm5.0215 0v.8867h3.8418V0zm4.957 0v.8867h3.8418V0zm4.9356 0v.8867h3.8418\
+    V0zM2.4473 1.8945a.935.935 0 0 0-.9356.9356c0 .517.4185.9375.9356.9375h19.1054c.5171 0 .9356-.4204.9356-.9375\
+    a.935.935 0 0 0-.9356-.9356zm.168 2.8477V24H6.455V4.7422zm5.0214 0V20.543h3.8418V4.7422zm4.957 0V15.291h3.8497\
+    V4.7422zm4.9356 0v6.4941h3.8418V4.7422z'/%3E%3C/svg%3E");
+  --pyTooling-link-icon-pydantic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24\
+    24'%3E%3Cpath d='m23.826 17.316-4.23-5.866-6.847-9.496c-.348-.48-1.151-.48-1.497 0l-6.845 9.494-4.233 5.868\
+    a.925.925 0 0 0 .46 1.417l11.078 3.626h.002a.92.92 0 0 0 .572 0h.002l11.077-3.626c.28-.092.5-.31.59-.592a.916.916\
+    0 0 0-.13-.825h.002ZM12.001 4.07l4.44 6.158-4.152-1.36c-.032-.01-.066-.008-.098-.016a.8.8 0 0 0-.096-.016c-.032\
+    -.004-.062-.016-.094-.016s-.062.012-.094.016a.74.74 0 0 0-.096.016c-.032.006-.066.006-.096.016L7.59 10.221l\
+    -.026.008 4.44-6.158h-.002Zm-6.273 8.7 4.834-1.583.516-.168v9.19L2.41 17.372l3.317-4.6Zm7.197 7.437V11.02l5.35\
+    1.752 3.316 4.598-8.666 2.838Z'/%3E%3C/svg%3E");
+  --pyTooling-link-icon-readthedocs: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0\
+    24 24'%3E%3Cpath d='M10.806 11.568a.573.573 0 0 0-.076 1.123s1.403.464 3.788.658c1.917.157 4.09-.135 4.09\
+    -.135.841-.028.678-1.318-.143-1.136 0 0-2.127.262-3.854.123-2.28-.186-3.52-.604-3.52-.604a.65.65 0 0 0-.285-.03m0\
+    -2.854a.573.573 0 0 0-.076 1.123s1.403.464 3.788.658c1.917.157 4.09-.135 4.09-.135.841-.028.678-1.318-.143-1.136\
+    0 0-2.127.263-3.854.123-2.28-.186-3.52-.604-3.52-.604a.65.65 0 0 0-.285-.03m0-2.854a.573.573 0 0 0-.076 1.123\
+    s1.403.464 3.788.66c1.917.155 4.09-.137 4.09-.137.841-.028.678-1.318-.143-1.136 0 0-2.127.263-3.854.123-2.28-.186\
+    -3.52-.603-3.52-.603a.65.65 0 0 0-.285-.03m0-2.85a.573.573 0 0 0-.076 1.123s1.403.465 3.788.66c1.917.155 4.09\
+    -.136 4.09-.136.841-.028.678-1.318-.143-1.136 0 0-2.127.262-3.854.122-2.28-.185-3.52-.603-3.52-.603a.6.6 0 0 0\
+    -.285-.03M6.81 0C3.812.021 2.693.941 2.693.941v22.39s1.09-.943 4.602-.799 4.234 1.378 8.55 1.46q.366.008.702.008\
+    c3.732 0 4.699-.668 4.699-.668l.06-22.825s-1.941.548-5.72.578S10.9.122 7.43.008A34 34 0 0 0 6.81 0m2.508 1.46\
+    s1.815.6 5.173.77c2.837.138 5.678-.28 5.678-.28v20.286s-1.44.756-5.036.5c-2.787-.2-5.857-1.255-5.857-1.255Zm\
+    -1.752.528c.718.052.718 1.105 0 1.157 0 0-.942.004-1.51.064-.964.097-1.618.447-1.618.447-.677.346-1.207-.658-.54\
+    -1.022 0 0 .852-.45 2.043-.57.688-.07 1.625-.076 1.625-.076m-.557 2.863c.32-.008.56 0 .56 0a.58.58 0 0 1 .001\
+    1.152s-.94.004-1.51.064c-.964.097-1.618.447-1.618.447-.662.294-1.155-.65-.536-1.026 0 0 .852-.45 2.043-.57.334\
+    -.038.74-.059 1.06-.067m.557 2.85c.71.06.71 1.097 0 1.156 0 0-.942-.004-1.51.051-.964.097-1.618.448-1.618.448\
+    -.665.3-1.162-.65-.537-1.026 0 0 .853-.452 2.044-.57.684-.064 1.62-.06 1.62-.06'/%3E%3C/svg%3E");
+  --pyTooling-link-icon-sphinx: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24\
+    24'%3E%3Cpath d='M16.284 19.861c0-.654.177-1.834.393-2.623.499-1.822.774-4.079.497-4.079-.116 0-.959.762-1.873\
+    1.694-3.472 3.54-7.197 5.543-10.312 5.543-1.778 0-2.987-.45-4.154-1.545C.128 18.186 0 17.858 0 16.703c0-1.188.117\
+    -1.468.909-2.175.718-.642 1.171-.813 2.157-.813.76.171 1.21.16 1.457.461.251.296.338 1.265.035 1.832-.162.303\
+    -.585.491-1.105.491-.49 0-.77-.116-.669-.278.315-.511-.135-.857-.713-.548-.699.374-.711 1.698-.021 2.322.969.878\
+    3.65 1.208 5.262.648 1.743-.605 4.022-2.061 5.841-3.732l1.6-1.469-2.088-.013c-2.186-.012-3.608-.273-8.211-1.506\
+    -1.531-.41-3.003-.765-3.271-.789-.304-.026-.503-.274-.487-.656.027-.646.378-1.127.793-1.308.249-.109 1.977-.274\
+    3.809-.761 7.136-1.898 7.569-1.629 12.323-.426 1.553.393 3.351.821 4.147.835 1.227.022 1.493.124\
+    1.74.666.16.351.291.686.291.745 0 .058-.695.424-1.545.813-3.12 1.428-4.104 2.185-3.088 3.635.421.602.412.666-.14\
+    1.052-.323.227-.59.687-.593 1.022-.009.908-.583 2.856-1.417 3.624l-.732.675v-1.189Zm1.594-8.328c1.242-.346 1.994\
+    -.738 3.539-1.562-1.272-.372-4.462-.895-4.462-.895-2.354-.472-2.108-.448-2.214.071a3.475 3.475 0 0 1-.45 1.105c\
+    -.541.848-2.521 1.026-3.656.483-.356-.171-.714-.821-.709-1.283.007-.65-.362-.801-.598-.714-.191.07-.813.079\
+    -2.179.448-4.514 1.217-5.132 1.078-2.189 1.495.353.05 2.223.572 3.136.815 2.239.597 2.658.641 5.556.581 2.015\
+    -.042 2.858-.163 4.226-.544ZM.732 6.258c.056-.577.088-.702 1.692-1.025.919-.185 3.185-.785 5.036-1.333 4.254-1.26\
+    5.462-1.263 9.873-.026 1.904.535 4.037.973 4.74.975 1.097.002 1.668.487 1.668.487.505 1.16.412 1.24-1.558 1.24\
+    -1.374 0-2.558-.232-4.385-.857-1.389-.476-3.369-.923-4.451-1.004-1.974-.149-1.971-.15-8.072 1.529-1.072.295\
+    -2.553.624-3.29.732l-1.342.196.089-.914Z'/%3E%3C/svg%3E");
+}
+
+a.pytooling-external-link::after,
+a.pytooling-intersphinx-link::after,
+a.pytooling-download-link::after {
+  content: "";
+  content: "" / "(external link)";
+  --pyTooling-link-icon-width: calc(var(--pyTooling-link-icon-size) * var(--pyTooling-link-icon-scale, 1));
+  margin-left: var(--pyTooling-link-icon-gap);
+  padding-left: var(--pyTooling-link-icon-width);
+  background-color: currentColor;
+  forced-color-adjust: none;
+  -webkit-mask: var(--pyTooling-link-icon) center / var(--pyTooling-link-icon-width) no-repeat;
+  mask: var(--pyTooling-link-icon) center / var(--pyTooling-link-icon-width) no-repeat;
+}
+
+a.pytooling-link-icon-external {
+  --pyTooling-link-icon: var(--pyTooling-link-icon-external);
+}
+
+a.pytooling-link-icon-mail {
+  --pyTooling-link-icon: var(--pyTooling-link-icon-mail);
+}
+
+a.pytooling-link-icon-github {
+  --pyTooling-link-icon: var(--pyTooling-link-icon-github);
+}
+
+a.pytooling-link-icon-gitlab {
+  --pyTooling-link-icon: var(--pyTooling-link-icon-gitlab);
+}
+
+a.pytooling-link-icon-python {
+  --pyTooling-link-icon: var(--pyTooling-link-icon-python);
+}
+
+a.pytooling-link-icon-numpy {
+  --pyTooling-link-icon: var(--pyTooling-link-icon-numpy);
+}
+
+a.pytooling-link-icon-pypy {
+  --pyTooling-link-icon: var(--pyTooling-link-icon-pypy);
+}
+
+a.pytooling-link-icon-pytest {
+  --pyTooling-link-icon: var(--pyTooling-link-icon-pytest);
+}
+
+a.pytooling-link-icon-pydantic {
+  --pyTooling-link-icon: var(--pyTooling-link-icon-pydantic);
+}
+
+a.pytooling-link-icon-readthedocs {
+  --pyTooling-link-icon: var(--pyTooling-link-icon-readthedocs);
+}
+
+a.pytooling-link-icon-sphinx {
+  --pyTooling-link-icon: var(--pyTooling-link-icon-sphinx);
+}
+
+a.pytooling-link-icon-download {
+  --pyTooling-link-icon: var(--pyTooling-link-icon-download);
+  --pyTooling-link-icon-scale: 1.15;
+}
+
+a.pytooling-link-icon-archive {
+  --pyTooling-link-icon: var(--pyTooling-link-icon-archive);
+}
+
+a.pytooling-link-icon-mail::after {
+  content: "";
+  content: "" / "(e-mail address)";
+}
+
+a.pytooling-link-icon-github::after {
+  content: "";
+  content: "" / "(external link, GitHub)";
+}
+
+a.pytooling-link-icon-gitlab::after {
+  content: "";
+  content: "" / "(external link, GitLab)";
+}
+
+a.pytooling-link-icon-python::after {
+  content: "";
+  content: "" / "(external link, Python)";
+}
+
+a.pytooling-link-icon-numpy::after {
+  content: "";
+  content: "" / "(external link, NumPy)";
+}
+
+a.pytooling-link-icon-pypy::after {
+  content: "";
+  content: "" / "(external link, PyPy)";
+}
+
+a.pytooling-link-icon-pytest::after {
+  content: "";
+  content: "" / "(external link, pytest)";
+}
+
+a.pytooling-link-icon-pydantic::after {
+  content: "";
+  content: "" / "(external link, Pydantic)";
+}
+
+a.pytooling-link-icon-readthedocs::after {
+  content: "";
+  content: "" / "(external link, Read the Docs)";
+}
+
+a.pytooling-link-icon-sphinx::after {
+  content: "";
+  content: "" / "(external link, Sphinx)";
+}
+
+a.pytooling-link-icon-download::after {
+  content: "";
+  content: "" / "(download)";
+}
+
+a.pytooling-link-icon-external[target="_blank"]::after {
+  content: "";
+  content: "" / "(external link, opens in a new tab)";
+}
+
+a.pytooling-link-icon-github[target="_blank"]::after {
+  content: "";
+  content: "" / "(external link, GitHub, opens in a new tab)";
+}
+
+a.pytooling-link-icon-gitlab[target="_blank"]::after {
+  content: "";
+  content: "" / "(external link, GitLab, opens in a new tab)";
+}
+
+a.pytooling-link-icon-python[target="_blank"]::after {
+  content: "";
+  content: "" / "(external link, Python, opens in a new tab)";
+}
+
+a.pytooling-link-icon-numpy[target="_blank"]::after {
+  content: "";
+  content: "" / "(external link, NumPy, opens in a new tab)";
+}
+
+a.pytooling-link-icon-pypy[target="_blank"]::after {
+  content: "";
+  content: "" / "(external link, PyPy, opens in a new tab)";
+}
+
+a.pytooling-link-icon-pytest[target="_blank"]::after {
+  content: "";
+  content: "" / "(external link, pytest, opens in a new tab)";
+}
+
+a.pytooling-link-icon-pydantic[target="_blank"]::after {
+  content: "";
+  content: "" / "(external link, Pydantic, opens in a new tab)";
+}
+
+a.pytooling-link-icon-readthedocs[target="_blank"]::after {
+  content: "";
+  content: "" / "(external link, Read the Docs, opens in a new tab)";
+}
+
+a.pytooling-link-icon-sphinx[target="_blank"]::after {
+  content: "";
+  content: "" / "(external link, Sphinx, opens in a new tab)";
+}
+
+a.pytooling-archive-zip::after {
+  content: "";
+  content: "" / "(external link, ZIP archive)";
+}
+
+a.pytooling-archive-tar-gz::after,
+a.pytooling-archive-tgz::after {
+  content: "";
+  content: "" / "(external link, tar.gz archive)";
+}
+
+a.pytooling-archive-tar-bz2::after {
+  content: "";
+  content: "" / "(external link, tar.bz2 archive)";
+}
+
+a.pytooling-archive-tar-xz::after {
+  content: "";
+  content: "" / "(external link, tar.xz archive)";
+}
+
+a.pytooling-archive-tar-zst::after {
+  content: "";
+  content: "" / "(external link, tar.zst archive)";
+}
+
+a.pytooling-archive-7z::after {
+  content: "";
+  content: "" / "(external link, 7z archive)";
+}
+
+a.pytooling-archive-zip[target="_blank"]::after {
+  content: "";
+  content: "" / "(external link, ZIP archive, opens in a new tab)";
+}
+
+a.pytooling-archive-tar-gz[target="_blank"]::after,
+a.pytooling-archive-tgz[target="_blank"]::after {
+  content: "";
+  content: "" / "(external link, tar.gz archive, opens in a new tab)";
+}
+
+a.pytooling-archive-tar-bz2[target="_blank"]::after {
+  content: "";
+  content: "" / "(external link, tar.bz2 archive, opens in a new tab)";
+}
+
+a.pytooling-archive-tar-xz[target="_blank"]::after {
+  content: "";
+  content: "" / "(external link, tar.xz archive, opens in a new tab)";
+}
+
+a.pytooling-archive-tar-zst[target="_blank"]::after {
+  content: "";
+  content: "" / "(external link, tar.zst archive, opens in a new tab)";
+}
+
+a.pytooling-archive-7z[target="_blank"]::after {
+  content: "";
+  content: "" / "(external link, 7z archive, opens in a new tab)";
+}
+
+a.pytooling-download-link.pytooling-archive-zip::after {
+  content: "";
+  content: "" / "(download, ZIP archive)";
+}
+
+a.pytooling-download-link.pytooling-archive-tar-gz::after,
+a.pytooling-download-link.pytooling-archive-tgz::after {
+  content: "";
+  content: "" / "(download, tar.gz archive)";
+}
+
+a.pytooling-download-link.pytooling-archive-tar-bz2::after {
+  content: "";
+  content: "" / "(download, tar.bz2 archive)";
+}
+
+a.pytooling-download-link.pytooling-archive-tar-xz::after {
+  content: "";
+  content: "" / "(download, tar.xz archive)";
+}
+
+a.pytooling-download-link.pytooling-archive-tar-zst::after {
+  content: "";
+  content: "" / "(download, tar.zst archive)";
+}
+
+a.pytooling-download-link.pytooling-archive-7z::after {
+  content: "";
+  content: "" / "(download, 7z archive)";
+}
+
+/* A download's size, and an archive's format, behind its link. */
+span.pytooling-download-size {
+  white-space: nowrap;
+}
+
+/* sphinx_rtd_theme draws a download glyph of its own before the text of a download link, and sets the text's first
+   <span> in its icon font: a marked link shows its icon behind the text only, and the text as any other link's. */
+a.pytooling-download-link code.download span:first-child {
+  display: inline;
+  margin: 0;
+  font: inherit;
+  text-rendering: inherit;
+  -webkit-font-smoothing: inherit;
+  -moz-osx-font-smoothing: inherit;
+}
+
+a.pytooling-download-link code.download span:first-child::before {
+  content: none;
+  margin: 0;
 }

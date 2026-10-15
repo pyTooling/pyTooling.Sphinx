@@ -104,6 +104,12 @@ Roles and Directives
 :ref:`report:doc-coverage <DIR/DocCoverage>`
   |rarr| A package's documentation coverage, per package and module, and a legend of its coverage levels.
 
+.. rubric:: Links
+
+:ref:`External link icons <LINK/External>`
+  |rarr| In HTML, an icon behind each external link, chosen by its target: e.g. GitHub's mark, Python's logo, an
+  envelope for an e-mail address.
+
 
 .. _CONSUMERS:
 
@@ -190,6 +196,12 @@ License
    Directives/UnittestSummary
    Directives/CodeCoverage
    Directives/DocCoverage
+
+.. toctree::
+   :caption: Links
+   :hidden:
+
+   Links/External
 
 .. raw:: latex
 

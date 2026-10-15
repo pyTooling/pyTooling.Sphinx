@@ -92,6 +92,11 @@ document of every project. This extension declares them once:
 
 * the **nodes** the directives emit, listed in :data:`NODES` with their visitors per output format.
 
+* the **external link icons** - in HTML, an icon behind each external link, chosen by its target, and the size behind
+  each download -, with the configuration values ``pyTooling_ExternalLink_Icons``, ``pyTooling_ExternalLink_NewTab``,
+  ``pyTooling_ExternalLink_Hosts``, ``pyTooling_ExternalLink_DownloadSizes``, ``pyTooling_ExternalLink_RemoteSizes``
+  and ``pyTooling_ExternalLink_RemoteSizeTimeout`` (:mod:`~pyTooling.Sphinx.ExternalLink`).
+
 Two classes aren't registered, because they are base-classes for a project's own directives:
 :class:`~pyTooling.Sphinx.BaseDirective` offers typed option access and table construction
 over the untyped mapping and the hand-assembled node trees docutils presents, and
@@ -964,6 +969,9 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	from pyTooling.Sphinx.DocCoverage       import CONFIG_PREFIX as DOC_COVERAGE_PREFIX
 	from pyTooling.Sphinx.DocCoverage       import DocCoverageBase, DocCoverageLegend, DocStrCoverage
 	from pyTooling.Sphinx.DocCoveragePages  import DocCoverageReportPages
+	from pyTooling.Sphinx.ExternalLink      import CONFIG_PREFIX as EXTERNAL_LINK_PREFIX, BaseExternalLinkTransform
+	from pyTooling.Sphinx.ExternalLink      import MarkDownloadLinks, MarkExternalLinks, MarkIntersphinxLinks
+	from pyTooling.Sphinx.ExternalLink      import AddDownloadSizes, checkExternalLinkConfiguration
 	from pyTooling.Sphinx.Roles             import BREAK_ROLES, PYTHON_CODE_ROLE, STYLE_ROLES
 	from pyTooling.Sphinx.Roles             import breakRole, pythonCodeRole, styleRole
 	from pyTooling.Sphinx.Shields           import Shields
@@ -1032,6 +1040,7 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 		(CODE_COVERAGE_PREFIX, CodeCoverageBase.configValues),
 		(DOC_COVERAGE_PREFIX,  DocCoverageBase.configValues),
 		(UNITTEST_PREFIX,      UnittestSummary.configValues),
+		(EXTERNAL_LINK_PREFIX, BaseExternalLinkTransform.configValues),
 	):
 		for configName, (default, rebuild, types) in configValues.items():
 			sphinx.add_config_value(f"{prefix}_{configName}", default, rebuild, types)
@@ -1039,11 +1048,18 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	for configName, (default, rebuild, types) in Abbreviations.configValues.items():
 		sphinx.add_config_value(f"{ABBREVIATION_PREFIX}_{configName}", default, rebuild, types)
 
+	# HTML only: the first marks the links written with their URI, the second the links resolved in between
+	sphinx.add_post_transform(MarkExternalLinks)
+	sphinx.add_post_transform(MarkIntersphinxLinks)
+	sphinx.add_post_transform(MarkDownloadLinks)
+	sphinx.add_post_transform(AddDownloadSizes)
+
 	sphinx.connect("config-inited", extendProlog)
 	# after the configuration values above are registered, and before any document is read - a requirements file
 	# that doesn't exist should end the build here rather than in the middle of a page
 	sphinx.connect("config-inited", prepareEntrypoints)
 	sphinx.connect("config-inited", checkReportConfiguration)
+	sphinx.connect("config-inited", checkExternalLinkConfiguration)
 	sphinx.connect("builder-inited", readReports)
 	for reportPages in (CodeCoverageReportPages, DocCoverageReportPages, UnittestReportPages):
 		sphinx.connect("env-before-read-docs", reportPages.GenerateAll)

@@ -50,6 +50,16 @@ Version 0.x (2026)
      decorators, signatures and doc-strings of its classes and functions - bodies elided to ``...`` - and its fields
      and variables, each marked by its documentation state. The role :ref:`:doccov: <DIR/DocCoverage/Role>` refers to
      a page.
+   * :ref:`External link icons <LINK/External>`: in HTML, an icon behind each external link, chosen by its target -
+     GitHub's mark, GitLab's tanuki, the logos of Python, NumPy, PyPy, pytest, Pydantic, Read the Docs and
+     Sphinx, an envelope for an e-mail address, or a square with an arrow; a link of the ``:download:`` role gets a
+     download icon, a link to an archive an archive icon. The configuration value ``pyTooling_ExternalLink_Icons``
+     adds the intersphinx links or disables the icons, and ``pyTooling_ExternalLink_Hosts`` adds hosts. A link with an
+     icon opens in a new browser tab, unless ``pyTooling_ExternalLink_NewTab`` is ``False``.
+   * :ref:`Download sizes <LINK/External/Downloads>`: a download's file size follows its link, for an archive with its
+     format, e.g. *(ZIP, 1.2 MiB)*; another site's file is asked for with an HTTP ``HEAD`` request, if its URI matches
+     a pattern of ``pyTooling_ExternalLink_RemoteSizes``. ``pyTooling_ExternalLink_DownloadSizes`` switches the sizes
+     off, ``pyTooling_ExternalLink_RemoteSizeTimeout`` sets the time to wait for an answer.
 
    .. rubric:: Changes compared to sphinx-reports
 
