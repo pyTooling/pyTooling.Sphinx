@@ -35,31 +35,36 @@ from setuptools          import setup
 
 from pathlib             import Path
 from pyTooling.Packaging import DescribePythonPackageHostedOnGitHub
+from pyTooling.Warning   import WarningCollector
 
 gitHubNamespace =        "pyTooling"
 packageName =            "pyTooling.Sphinx"
 packageDirectory =       packageName.replace(".", "/")
 packageInformationFile = Path(f"{packageDirectory}/__init__.py")
 
-setup(
-	**DescribePythonPackageHostedOnGitHub(
-		packageName=packageName,
-		description="More Sphinx roles, directives and domains.",
-		gitHubNamespace=gitHubNamespace,
-		unittestRequirementsFile=Path("tests/requirements.txt"),
-		sourceFileWithVersion=packageInformationFile,
-		developmentStatus="alpha",
-		pythonVersions=("3.12", "3.13", "3.14"),
-		additionalRequirements={
-			"reports": [
-				"pyEDAA.Reports @ git+https://github.com/edaa-org/pyEDAA.Reports.git@dev",
-				"docstr_coverage ~= 2.3",
-			],
-		},
-		dataFiles={
-			packageName:                ["py.typed"],
-			f"{packageName}.Resources": ["*.css", "*.js"]
-		},
-		debug=True
+with WarningCollector() as warnings:
+	setup(
+		**DescribePythonPackageHostedOnGitHub(
+			packageName=packageName,
+			description="More Sphinx roles, directives and domains.",
+			gitHubNamespace=gitHubNamespace,
+			unittestRequirementsFile=Path("tests/requirements.txt"),
+			sourceFileWithVersion=packageInformationFile,
+			developmentStatus="alpha",
+			pythonVersions=("3.12", "3.13", "3.14"),
+			additionalRequirements={
+				"reports": [
+					"pyEDAA.Reports ~= 0.20.0rc1",
+					"docstr_coverage ~= 2.3",
+				],
+			},
+			dataFiles={
+				packageName:                ["py.typed"],
+				f"{packageName}.Resources": ["*.css", "*.js"]
+			},
+			debug=True
+		)
 	)
-)
+
+for warning in warnings:
+	print(f"[setup.py] WARNING: {warning}")
