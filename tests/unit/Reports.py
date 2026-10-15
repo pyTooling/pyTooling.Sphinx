@@ -31,21 +31,22 @@
 """
 Unit tests for the domain ``report`` of :mod:`pyTooling.Sphinx`, each built in a small Sphinx project.
 """
-from os                            import environ
-from pathlib                       import Path
-from subprocess                    import run as subprocess_run
-from sys                           import executable
-from textwrap                      import dedent
-from unittest.mock                 import MagicMock
+from os                              import environ
+from pathlib                         import Path
+from subprocess                      import run as subprocess_run
+from sys                             import executable
+from textwrap                        import dedent
+from unittest.mock                   import MagicMock
 
-from pyTooling.Sphinx              import ReportDomain, setup
-from pyTooling.Sphinx.ExternalLink import AddDownloadSizes, MarkDownloadLinks, MarkExternalLinks, MarkIntersphinxLinks
-from pyTooling.Sphinx.Tree         import RemoveTreeLegends
-from pyTooling.Sphinx.UnicodeTable import RemoveUnicodeGlyphs
-from pyTooling.Sphinx.Workaround   import FixLatexTableWidths
-from pyTooling.Testing             import testsuite, testcase
+from pyTooling.Sphinx                import ReportDomain, setup
+from pyTooling.Sphinx.ExternalLink   import AddDownloadSizes, MarkDownloadLinks, MarkExternalLinks, MarkIntersphinxLinks
+from pyTooling.Sphinx.GitHubMarkdown import ReplaceSVGImages
+from pyTooling.Sphinx.Tree           import RemoveTreeLegends
+from pyTooling.Sphinx.UnicodeTable   import RemoveUnicodeGlyphs
+from pyTooling.Sphinx.Workaround     import FixLatexTableWidths
+from pyTooling.Testing               import testsuite, testcase
 
-from tests.unit.Extension          import Project
+from tests.unit.Extension            import Project
 
 
 if __name__ == "__main__":  # pragma: no cover
@@ -140,8 +141,8 @@ class Registration(ReportProject):
 		)
 		self.assertEqual(
 			[
-				FixLatexTableWidths, RemoveTreeLegends, RemoveUnicodeGlyphs, MarkExternalLinks, MarkIntersphinxLinks,
-				MarkDownloadLinks, AddDownloadSizes
+				FixLatexTableWidths, RemoveTreeLegends, RemoveUnicodeGlyphs, ReplaceSVGImages, MarkExternalLinks,
+				MarkIntersphinxLinks, MarkDownloadLinks, AddDownloadSizes
 			],
 			[call.args[0] for call in app.add_post_transform.call_args_list]
 		)

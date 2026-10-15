@@ -79,6 +79,7 @@ class Project(Testcase):
 		builder: str = "html",
 		documents: Nullable[dict[str, str]] = None,
 		parallel: int = 0,
+		conf: str = "",
 		**config: Any
 	) -> "SphinxTestApp":
 		"""
@@ -88,11 +89,12 @@ class Project(Testcase):
 		:param builder:   Optional, name of the builder. Default: ``"html"``.
 		:param documents: Optional, more documents, keyed by name; ``index`` lists them in a hidden toctree.
 		:param parallel:  Optional, number of processes reading in parallel; ``0`` reads serially.
+		:param conf:      Optional, Python code appended to :file:`conf.py`, e.g. a directive of the test. Default: ``""``.
 		:param config:    Configuration values overriding the defaults.
 		:returns:         The Sphinx application after the build.
 		"""
 		source = self._path / "src"
-		(source / "conf.py").write_text('extensions = ["pyTooling.Sphinx"]\n', encoding="utf-8")
+		(source / "conf.py").write_text(f'extensions = ["pyTooling.Sphinx"]\n{conf}', encoding="utf-8")
 		if documents is not None:
 			index += "\n.. toctree::\n   :hidden:\n\n" + "".join(f"   {name}\n" for name in documents)
 			for name, content in documents.items():

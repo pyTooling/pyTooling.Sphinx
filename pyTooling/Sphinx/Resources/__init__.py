@@ -39,4 +39,9 @@ Stylesheets:
 Scripts:
 
 * :file:`pyTooling.js` - copies a text into the clipboard, when a reader clicks a copy button of a Unicode table.
+
+Data:
+
+* :file:`GitHubEmoji.txt` - GitHub's emoji, their code points and shortcodes, which
+  :class:`~pyTooling.Sphinx.GitHubMarkdown.GitHubMarkdown` converts.
 """
