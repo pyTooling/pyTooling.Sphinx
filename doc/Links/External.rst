@@ -182,12 +182,12 @@ The extension asks another site for a file's size only if the file's URI matches
 ``pyTooling_ExternalLink_RemoteSizes`` - by default, it asks no site; an archive gets its format only. It sends an HTTP
 ``HEAD`` request with Sphinx' :mod:`sphinx.util.requests`, so Sphinx' configuration values ``user_agent``,
 ``tls_verify`` and ``tls_cacerts`` apply. It follows redirections - e.g. of a GitHub release's asset to its storage -,
-and reads the answer's ``Content-Length``. Each URI is asked once per build, however often it is linked.
+and reads the response's ``Content-Length``. Each URI is asked once per build, however often it is linked.
 
 * A pattern is a glob pattern, compared case-sensitively with the whole URI: ``*`` matches any characters - also
   ``/`` -, ``?`` one character, and ``[...]`` one of the characters listed.
 * Only a URI of scheme ``http`` or ``https`` is asked for.
-* The extension waits ``pyTooling_ExternalLink_RemoteSizeTimeout`` seconds for an answer, 5 by default.
+* The extension waits ``pyTooling_ExternalLink_RemoteSizeTimeout`` seconds for a response, 5 by default.
 
 .. code-block:: Python
 
@@ -198,14 +198,14 @@ and reads the answer's ``Content-Length``. Each URI is asked once per build, how
    ]
    pyTooling_ExternalLink_RemoteSizeTimeout = 2.5
 
-If the size stays unknown - no answer within the time, an HTTP error, or an answer without ``Content-Length`` - the
+If the size stays unknown - no response within the time, an HTTP error, or a response without ``Content-Length`` - the
 link gets no size, an archive its format only, e.g. ``(ZIP)``, and Sphinx warns at the link, with the warning type
 ``pyTooling.download_size`` appended in brackets:
 
 .. code-block:: text
 
-   a.rst:2: WARNING: Size of download 'https://example.org/a.zip' is unknown. No answer within 2.5 seconds.
-   a.rst:4: WARNING: Size of download 'https://example.org/b.zip' is unknown. The server answered 404 Not Found.
+   a.rst:2: WARNING: Size of download 'https://example.org/a.zip' is unknown. No response within 2.5 seconds.
+   a.rst:4: WARNING: Size of download 'https://example.org/b.zip' is unknown. Server responded 404 Not Found.
 
 A project that accepts a missing size suppresses the warning by its type:
 
@@ -257,7 +257,7 @@ Configuration
        :ref:`LINK/External/Downloads/Remote`. Without a pattern, no site is asked.
    * - ``pyTooling_ExternalLink_RemoteSizeTimeout``
      - ``5.0``
-     - The seconds to wait for a site's answer to the request for a size; a positive number.
+     - The seconds to wait for a site's response to the request for a size; a positive number.
 
 .. code-block:: Python
 

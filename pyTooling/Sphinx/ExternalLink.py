@@ -271,7 +271,7 @@ def checkExternalLinkConfiguration(sphinx: Sphinx, config: Config) -> None:
 			ex.add_note(f"Got type '{getFullyQualifiedName(host)}'.")
 			raise ex
 		elif host == "":
-			raise SphinxExtensionError(f"conf.py: {CONFIG_PREFIX}_Hosts: A host is empty.")
+			raise SphinxExtensionError(f"conf.py: {CONFIG_PREFIX}_Hosts: Host is empty.")
 
 		if icon is not None and not isinstance(icon, str):
 			ex = SphinxExtensionError(f"conf.py: {CONFIG_PREFIX}_Hosts: Icon of host '{host}' is not of type 'str'.")
@@ -304,7 +304,7 @@ def checkExternalLinkConfiguration(sphinx: Sphinx, config: Config) -> None:
 			ex.add_note(f"Got type '{getFullyQualifiedName(pattern)}'.")
 			raise ex
 		elif pattern == "":
-			raise SphinxExtensionError(f"conf.py: {CONFIG_PREFIX}_RemoteSizes: A pattern is empty.")
+			raise SphinxExtensionError(f"conf.py: {CONFIG_PREFIX}_RemoteSizes: Pattern is empty.")
 
 	config[f"{CONFIG_PREFIX}_RemoteSizes"] = tuple(remoteSizes)
 
@@ -347,7 +347,7 @@ class BaseExternalLinkTransform(SphinxPostTransform):
 	#: marked link opens in a new browser tab. ``Hosts`` maps a host's domain name to the name of a member of
 	#: :class:`LinkIcon`, adding to :data:`HOST_ICONS` or replacing its icon. ``DownloadSizes`` states whether
 	#: :class:`AddDownloadSizes` writes the downloads' sizes, ``RemoteSizes`` lists the patterns of the URIs whose size it
-	#: asks for, and ``RemoteSizeTimeout`` is the seconds it waits for an answer. All are ``"html"``-rebuilt: the marks
+	#: asks for, and ``RemoteSizeTimeout`` is the seconds it waits for a response. All are ``"html"``-rebuilt: the marks
 	#: and sizes are written into the pages, never into the environment.
 	configValues: ClassVar[dict[str, tuple[Any, Literal["html"], Any]]] = {
 		"Icons":             (None, "html", (str, ExternalLinkIcons)),
@@ -501,8 +501,8 @@ class AddDownloadSizes(SphinxPostTransform):
 	The size of a file of the documentation is read from the file system. The size of another site's file is asked with
 	an HTTP ``HEAD`` request, following redirections, only if its URI is of scheme ``http`` or ``https`` and matches a
 	pattern of ``pyTooling_ExternalLink_RemoteSizes``; each URI is asked once per build. If the size is unknown - e.g. a
-	file Sphinx didn't find, no answer within ``pyTooling_ExternalLink_RemoteSizeTimeout`` seconds, an HTTP error, or an
-	answer without a ``Content-Length`` -, Sphinx warns at the link with the warning type ``pyTooling.download_size``.
+	file Sphinx didn't find, no response within ``pyTooling_ExternalLink_RemoteSizeTimeout`` seconds, an HTTP error, or a
+	response without a ``Content-Length`` -, Sphinx warns at the link with the warning type ``pyTooling.download_size``.
 	A download, whose size isn't known, gets no size; an archive gets its format only, e.g. ``(ZIP)``. No download gets
 	a size or a format, if ``pyTooling_ExternalLink_DownloadSizes`` is ``False``.
 	"""
@@ -602,12 +602,12 @@ class AddDownloadSizes(SphinxPostTransform):
 		``tls_verify`` and ``tls_cacerts``. It follows redirections, e.g. of a GitHub release's asset to its storage.
 
 		:param uri:                The file's URI.
-		:param timeout:            Seconds to wait for an answer.
+		:param timeout:            Seconds to wait for a response.
 		:param config:             Sphinx' configuration.
-		:returns:                  The file's size in bytes, as the answer's ``Content-Length`` states it.
-		:raises DownloadSizeError: If the server doesn't answer within ``timeout`` seconds, answers with an HTTP error, or
+		:returns:                  The file's size in bytes, as the response's ``Content-Length`` states it.
+		:raises DownloadSizeError: If the server doesn't respond within ``timeout`` seconds, responds with an HTTP error, or
 		                           the request fails otherwise.
-		:raises DownloadSizeError: If the answer has no ``Content-Length``, or one that is no number.
+		:raises DownloadSizeError: If the response has no ``Content-Length``, or one that is no number.
 		"""
 		try:
 			response = head(
@@ -616,17 +616,17 @@ class AddDownloadSizes(SphinxPostTransform):
 			)
 			response.raise_for_status()
 		except Timeout as ex:
-			raise DownloadSizeError(f"No answer within {timeout} seconds.") from ex
+			raise DownloadSizeError(f"No response within {timeout} seconds.") from ex
 		except HTTPError as ex:
-			raise DownloadSizeError(f"The server answered {ex.response.status_code} {ex.response.reason}.") from ex
+			raise DownloadSizeError(f"Server responded {ex.response.status_code} {ex.response.reason}.") from ex
 		except RequestException as ex:
-			raise DownloadSizeError(f"The request failed: {ex}") from ex
+			raise DownloadSizeError(f"Request failed: {ex}") from ex
 
 		length = response.headers.get("Content-Length", "")
 		if length == "":
-			raise DownloadSizeError("The answer has no 'Content-Length'.")
+			raise DownloadSizeError("Response has no 'Content-Length'.")
 		elif not length.isdecimal():
-			raise DownloadSizeError(f"The answer's 'Content-Length' '{length}' is no number.")
+			raise DownloadSizeError(f"Response's 'Content-Length' '{length}' is no number.")
 
 		return int(length)
 

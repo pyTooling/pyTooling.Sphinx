@@ -278,7 +278,7 @@ class Configuration(Testcase):
 			 ["Got type 'list'."], True),
 			("explicit", {1: "github"},   "conf.py: pyTooling_ExternalLink_Hosts: Host '1' is not of type 'str'.",
 			 ["Got type 'int'."], True),
-			("explicit", {"": "github"},  "conf.py: pyTooling_ExternalLink_Hosts: A host is empty.",
+			("explicit", {"": "github"},  "conf.py: pyTooling_ExternalLink_Hosts: Host is empty.",
 			 [], True),
 			("explicit", {"a.org": 1},    "conf.py: pyTooling_ExternalLink_Hosts: Icon of host 'a.org' is not of type 'str'.",
 			 ["Got type 'int'."], True),

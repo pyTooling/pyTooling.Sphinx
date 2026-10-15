@@ -213,7 +213,7 @@ class SizeConfiguration(Testcase):
 			(True,  "*.zip",  5.0,          "RemoteSizes",       "Value is not a list.",              ["Got type 'str'."]),
 			(True,  {"a": 1}, 5.0,          "RemoteSizes",       "Value is not a list.",              ["Got type 'dict'."]),
 			(True,  [1],      5.0,          "RemoteSizes",       "Pattern '1' is not of type 'str'.", ["Got type 'int'."]),
-			(True,  [""],     5.0,          "RemoteSizes",       "A pattern is empty.",               []),
+			(True,  [""],     5.0,          "RemoteSizes",       "Pattern is empty.",                 []),
 			(True,  [],       "5",          "RemoteSizeTimeout", "Value is not of type 'float'.",     ["Got type 'str'."]),
 			(True,  [],       True,         "RemoteSizeTimeout", "Value is not of type 'float'.",     ["Got type 'bool'."]),
 			(True,  [],       0,            "RemoteSizeTimeout", "Value is not a positive, finite number.",
@@ -388,20 +388,20 @@ class Rendering(Project):
 
 
 class Server(ThreadingHTTPServer):
-	"""A local HTTP server answering HEAD requests, which records each request's path."""
+	"""A local HTTP server responding to HEAD requests, which records each request's path."""
 
-	daemon_threads = True  #: A slow answer doesn't hold the server's shutdown.
+	daemon_threads = True  #: A slow response doesn't hold the server's shutdown.
 	requests: list[str]    #: The requested paths, in order.
 
 
 class Handler(BaseHTTPRequestHandler):
-	"""Answer a HEAD request per path: a size, a redirection, no size, a slow answer, or 404."""
+	"""Respond to a HEAD request per path: a size, a redirection, no size, a slow response, or 404."""
 
 	server: Server
 
 	def do_HEAD(self) -> None:
 		"""
-		Answer a HEAD request.
+		Respond to a HEAD request.
 		"""
 		self.server.requests.append(self.path)
 		if self.path == "/pkg.zip":
@@ -506,7 +506,7 @@ class RemoteSizes(Project):
 	@testcase("Unknown sizes")
 	def Unknown(self) -> None:
 		"""
-		An answer without size, an HTTP error, and no answer within the timeout leave an archive's format only, and warn.
+		A response without size, an HTTP error, and no response within the timeout leave an archive's format only, and warn.
 
 		Builds a document with three such downloads and a timeout of 0.1 seconds, and checks the warnings and the page.
 		"""
@@ -521,11 +521,11 @@ class RemoteSizes(Project):
 
 		self.assertEqual(
 			[
-				f"src/index.rst:4: WARNING: Size of download '{self._base}/nolength.zip' is unknown. The answer has no "
+				f"src/index.rst:4: WARNING: Size of download '{self._base}/nolength.zip' is unknown. Response has no "
 				f"'Content-Length'. [pyTooling.download_size]",
-				f"src/index.rst:5: WARNING: Size of download '{self._base}/missing.zip' is unknown. The server answered 404 "
+				f"src/index.rst:5: WARNING: Size of download '{self._base}/missing.zip' is unknown. Server responded 404 "
 				f"Not Found. [pyTooling.download_size]",
-				f"src/index.rst:6: WARNING: Size of download '{self._base}/slow.zip' is unknown. No answer within 0.1 "
+				f"src/index.rst:6: WARNING: Size of download '{self._base}/slow.zip' is unknown. No response within 0.1 "
 				f"seconds. [pyTooling.download_size]",
 			],
 			self._warningLines()
@@ -548,7 +548,7 @@ class RemoteSizes(Project):
 
 		self.assertEqual(
 			[
-				f"src/index.rst:{line}: WARNING: Size of download '{self._base}/missing.zip' is unknown. The server answered "
+				f"src/index.rst:{line}: WARNING: Size of download '{self._base}/missing.zip' is unknown. Server responded "
 				f"404 Not Found. [pyTooling.download_size]"
 				for line in (4, 5)
 			],
