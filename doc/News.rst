@@ -51,10 +51,10 @@ Version 0.x (2026)
      and variables, each marked by its documentation state. The role :ref:`:doccov: <DIR/DocCoverage/Role>` refers to
      a page.
    * :ref:`External link icons <LINK/External>`: in HTML, an icon behind each external link, chosen by its target -
-     GitHub's mark, GitLab's tanuki, the logos of Python, PyPI, NumPy, PyPy, pytest, Pydantic and Read the Docs, an
-     envelope for an e-mail address, or a square with an arrow; a link of the ``:download:`` role gets a download
-     icon. The configuration value ``pyTooling_ExternalLink_Icons`` adds the intersphinx links or disables the icons,
-     and ``pyTooling_ExternalLink_Hosts`` adds hosts. A link with an icon opens in a new browser tab, unless
+     GitHub's mark, GitLab's tanuki, the logos of Python, PyPI, NumPy, PyPy, pytest, Pydantic, Read the Docs and
+     Sphinx, an envelope for an e-mail address, or a square with an arrow; a link of the ``:download:`` role gets a
+     download icon. The configuration value ``pyTooling_ExternalLink_Icons`` adds the intersphinx links or disables
+     the icons, and ``pyTooling_ExternalLink_Hosts`` adds hosts. A link with an icon opens in a new browser tab, unless
      ``pyTooling_ExternalLink_NewTab`` is ``False``.
 
    .. rubric:: Changes compared to sphinx-reports

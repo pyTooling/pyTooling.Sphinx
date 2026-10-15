@@ -49,7 +49,7 @@ Icons
    * - Example
      - Icon
      - Target
-   * - `Sphinx <https://www.sphinx-doc.org/>`__
+   * - `Docutils <https://docutils.sourceforge.io/>`__
      - ``external``
      - Any host without an icon of its own, e.g. a site on GitHub Pages, and an intersphinx link with a relative URI.
    * - `someone@example.org <mailto:someone@example.org>`__
@@ -82,6 +82,9 @@ Icons
    * - `Pydantic <https://docs.pydantic.dev/>`__
      - ``pydantic``
      - ``pydantic.dev``
+   * - `Sphinx <https://www.sphinx-doc.org/>`__
+     - ``sphinx``
+     - ``sphinx-doc.org``
    * - `Read the Docs <https://about.readthedocs.com/>`__,
        `its theme's documentation <https://sphinx-rtd-theme.rtfd.io/>`__
      - ``readthedocs``
@@ -173,7 +176,8 @@ A malformed value stops the build:
    conf.py: pyTooling_ExternalLink_Icons: 'some' is not a selection of links.
    Allowed values: none, explicit, all.
    conf.py: pyTooling_ExternalLink_Hosts: Icon 'hg' of host 'example.org' is not an icon.
-   Allowed values: external, mail, github, gitlab, python, pypi, numpy, pypy, pytest, pydantic, readthedocs.
+   Allowed values: external, mail, github, gitlab, python, pypi, numpy, pypy, pytest, pydantic, readthedocs, sphinx,
+   download.
 
 
 .. _LINK/External/Styling:

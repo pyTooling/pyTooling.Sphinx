@@ -107,6 +107,7 @@ class LinkIcon(StringEnum):
 	Pytest =      "pytest"       #: pytest's logo.
 	Pydantic =    "pydantic"     #: Pydantic's logo.
 	ReadTheDocs = "readthedocs"  #: Read the Docs' logo.
+	Sphinx =      "sphinx"       #: Sphinx' logo.
 	Download =    "download"     #: An arrow pointing down into a tray; the icon of a download link.
 
 	DEFAULT =     External       #: A host without an icon of its own gets the square with the arrow.
@@ -153,6 +154,7 @@ HOST_ICONS: dict[str, LinkIcon] = {
 	"readthedocs.io":  LinkIcon.ReadTheDocs,
 	"readthedocs.org": LinkIcon.ReadTheDocs,
 	"rtfd.io":         LinkIcon.ReadTheDocs,
+	"sphinx-doc.org":  LinkIcon.Sphinx,
 }
 
 

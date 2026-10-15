@@ -145,6 +145,7 @@ class IconPerTarget(Testcase):
 			("https://pytooling.readthedocs.io/en/latest/",  LinkIcon.ReadTheDocs),
 			("https://readthedocs.org/projects/pytooling/",  LinkIcon.ReadTheDocs),
 			("https://pyTooling.RTFD.io/",                   LinkIcon.ReadTheDocs),
+			("https://www.sphinx-doc.org/en/master/",        LinkIcon.Sphinx),
 		):
 			with self.subTest(uri=uri):
 				self.assertIs(icon, LinkIcon.FromURI(uri, HOST_ICONS))
@@ -179,7 +180,7 @@ class IconPerTarget(Testcase):
 		"""
 		for uri, icon in (
 			("mailto:Paebbels@gmail.com",       LinkIcon.Mail),
-			("https://www.sphinx-doc.org/",     LinkIcon.External),
+			("https://docutils.sourceforge.io/", LinkIcon.External),
 			("ftp://ftp.example.org/file",      LinkIcon.External),
 			("https://github.com:443/pyTooling", LinkIcon.GitHub),
 			("file:///tmp/index.html",          LinkIcon.External),
@@ -267,7 +268,7 @@ class Configuration(Testcase):
 			 ["Got type 'int'."], True),
 			("explicit", {"a.org": "hg"}, "conf.py: pyTooling_ExternalLink_Hosts: Icon 'hg' of host 'a.org' is not an icon.",
 			 ["Allowed values: external, mail, github, gitlab, python, pypi, numpy, pypy, pytest, pydantic, "
-			  "readthedocs, download."], True),
+			  "readthedocs, sphinx, download."], True),
 			("explicit", {},              "conf.py: pyTooling_ExternalLink_NewTab: Value is not of type 'bool'.",
 			 ["Got type 'str'."], "yes"),
 		):
@@ -347,7 +348,7 @@ class Rendering(Project):
 		"""
 		attributes = ' rel="noopener noreferrer" target="_blank">' if newTab else ">"
 		for link in (
-			'<a class="pytooling-external-link pytooling-link-icon-external reference external" '
+			'<a class="pytooling-external-link pytooling-link-icon-sphinx reference external" '
 			'href="https://www.sphinx-doc.org/"' + attributes,
 			'<a class="pytooling-external-link pytooling-link-icon-pypi reference external" '
 			'href="https://PyPI.org/project/pyTooling"' + attributes,
