@@ -35,7 +35,7 @@ from docutils              import nodes
 
 from pyTooling.Sphinx      import SphinxExtensionError
 from pyTooling.Sphinx.Node import TreeDescription, TreeLabel, TreeSeparator
-from pyTooling.Sphinx.Tree import Tree, icon, markerIcons
+from pyTooling.Sphinx.Tree import LegendPosition, Tree, describedIcon, icon, markerIcons
 from pyTooling.Testing     import Testcase, testsuite, testcase
 
 
@@ -366,6 +366,102 @@ class TreeIcons(Testcase):
 		self.assertEqual("'U+110000' is beyond the last code point U+10FFFF.", str(context.exception))
 
 
+@testsuite("Tree icons with a text")
+class TreeDescribedIcons(Testcase):
+	"""Options ':root-icon:', ':node-icon:' and ':leaf-icon:': an icon, and the text explaining it in the legend."""
+
+	@testcase("Icon and text")
+	def IconAndText(self) -> None:
+		"""
+		A separator '|' between spaces separates the icon from its text, which is kept as written.
+
+		Converts a package icon with a text holding a role, and checks icon and text.
+		"""
+		self.assertEqual(("\U0001f4e6", "the :mod:`package`"), describedIcon("\U0001f4e6 | the :mod:`package`"))
+
+	@testcase("Icon without text")
+	def IconOnly(self) -> None:
+		"""
+		An icon without a separator has an empty text; a code point is read as by 'icon'.
+
+		Converts 'U+1F4E6', and checks the icon and the empty text.
+		"""
+		self.assertEqual(("\U0001f4e6", ""), describedIcon("U+1F4E6"))
+
+	@testcase("Escaped separator")
+	def Escaped(self) -> None:
+		"""
+		An escaped '\\|' and a '|' within a literal separate nothing.
+
+		Converts an icon whose text holds both, and checks the text.
+		"""
+		self.assertEqual(
+			("\U0001f4c4", "a \\| b, ``c | d``"), describedIcon("\U0001f4c4 | a \\| b, ``c | d``")
+		)
+
+	@testcase("No value")
+	def NoValue(self) -> None:
+		"""
+		An option without a value has neither an icon nor a text.
+
+		Converts None and checks two empty strings.
+		"""
+		self.assertEqual(("", ""), describedIcon(None))
+
+	@testcase("Invalid values")
+	def Invalid(self) -> None:
+		"""
+		A value has one separator at most, and a text needs an icon.
+
+		Converts a value with two separators and a text without an icon, and checks each message.
+		"""
+		for option, message in (
+			(
+				"\U0001f4e6 | a | b",
+				"'\U0001f4e6 | a | b' has more than one separator ' | '; a '|' in a text is escaped as '\\|'."
+			),
+			("| package", "'| package' has a text, but no icon."),
+		):
+			with self.subTest(option=option), self.assertRaises(ValueError) as context:
+				describedIcon(option)
+
+			self.assertEqual(message, str(context.exception))
+
+
+@testsuite("Tree legend position")
+class TreeLegendPosition(Testcase):
+	"""Option ':legend:': where the legend is drawn."""
+
+	@testcase("Positions")
+	def Positions(self) -> None:
+		"""
+		The legend is drawn at the top, at the bottom, or not at all; without a value, at the bottom.
+
+		Parses each position and no value, and checks the members.
+		"""
+		for value, position in (
+			("top",    LegendPosition.Top),
+			("bottom", LegendPosition.Bottom),
+			("none",   LegendPosition.Hidden),
+			(None,     LegendPosition.Bottom),
+		):
+			with self.subTest(value=value):
+				self.assertIs(position, LegendPosition.Parse(value))
+
+	@testcase("Unknown position")
+	def Unknown(self) -> None:
+		"""
+		Any other value is rejected, and the note lists the positions.
+
+		Parses 'left' and checks the ValueError and its note.
+		"""
+		with self.assertRaises(ValueError) as context:
+			LegendPosition.Parse("left")
+
+		self.assertEqual("'left' is not a valid LegendPosition.", str(context.exception))
+		self.assertEqual(["Allowed values: top, bottom, none."], context.exception.__notes__)
+
+
 @testsuite("Tree markers")
 class TreeMarkers(Testcase):
 	"""Option ':icons:': the markers an entry may start with, each with its icon."""
@@ -378,8 +474,29 @@ class TreeMarkers(Testcase):
 		Converts three items, the last on its own line and as a code point, and checks the mapping.
 		"""
 		self.assertEqual(
-			{"*": "\U0001f4e6", "-": "\U0001f4c1", ">": "\U0001f4c4"},
+			{"*": ("\U0001f4e6", ""), "-": ("\U0001f4c1", ""), ">": ("\U0001f4c4", "")},
 			markerIcons("* \U0001f4e6, - \U0001f4c1,\n> U+1F4C4")
+		)
+
+	@testcase("Markers with texts")
+	def MarkerTexts(self) -> None:
+		"""
+		A line with a separator '|' holds one marker, its icon and its text, which may contain commas; a line without one
+		is still split at its commas.
+
+		Converts a line with a text holding a comma, a line of two items without text, and a line with a text, and checks
+		the mapping and its order.
+		"""
+		icons = markerIcons("> \u2699\ufe0f | settings, local\n* \U0001f4e6, - \U0001f4c1\n# \U0001f40d | Python")
+
+		self.assertEqual(
+			[
+				(">", ("\u2699\ufe0f", "settings, local")),
+				("*", ("\U0001f4e6", "")),
+				("-", ("\U0001f4c1", "")),
+				("#", ("\U0001f40d", "Python")),
+			],
+			list(icons.items())
 		)
 
 	@testcase("No value")

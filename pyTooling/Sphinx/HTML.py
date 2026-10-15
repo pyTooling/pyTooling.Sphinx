@@ -38,13 +38,14 @@ from docutils              import nodes
 from sphinx.writers.html5  import HTML5Translator
 
 from pyTooling.Decorators  import export
-from pyTooling.Sphinx.Node import Abbreviation, Landscape, TreeDescription, TreeItem, TreeLabel, TreeSeparator
+from pyTooling.Sphinx.Node import Abbreviation, Landscape, TreeDescription, TreeItem, TreeLabel, TreeLegend
+from pyTooling.Sphinx.Node import TreeLegendItem, TreeSeparator
 from pyTooling.Sphinx.Node import COVERAGE_STATES, CoverageListing, visitFunc, departFunc
 
 
 __all__ = [
 	"translateLandscape", "translateTreeItem", "translateTreeLabel", "translateTreeSeparator", "translateTreeDescription",
-	"translateAbbreviation", "translateCoverageListing"
+	"translateTreeLegend", "translateTreeLegendItem", "translateAbbreviation", "translateCoverageListing"
 ]
 
 
@@ -185,6 +186,53 @@ def depart_TreeDescription(translator: HTML5Translator, node: TreeDescription) -
 
 
 @export
+def visit_TreeLegend(translator: HTML5Translator, node: TreeLegend) -> None:
+	"""
+	Open a tree's legend in HTML: a paragraph, hidden from a screen reader like the icons it explains.
+
+	:param translator: The HTML translator writing the page.
+	:param node:       The legend.
+	"""
+	translator.body.append(translator.starttag(node, "p", "", **{"aria-hidden": "true"}))
+
+
+@export
+def depart_TreeLegend(translator: HTML5Translator, node: TreeLegend) -> None:
+	"""
+	Close a tree's legend in HTML.
+
+	:param translator: The HTML translator writing the page.
+	:param node:       The legend.
+	"""
+	translator.body.append("</p>\n")
+
+
+@export
+def visit_TreeLegendItem(translator: HTML5Translator, node: TreeLegendItem) -> None:
+	"""
+	Open an item of a tree's legend in HTML: its icon, and the text explaining it.
+
+	:param translator: The HTML translator writing the page.
+	:param node:       The legend's item.
+	"""
+	translator.body.append(
+		f'<span class="tree-legend-item"><span class="tree-icon">{translator.encode(node["icon"])}</span>'
+		'<span class="tree-text">'
+	)
+
+
+@export
+def depart_TreeLegendItem(translator: HTML5Translator, node: TreeLegendItem) -> None:
+	"""
+	Close an item of a tree's legend in HTML.
+
+	:param translator: The HTML translator writing the page.
+	:param node:       The legend's item.
+	"""
+	translator.body.append("</span></span>")
+
+
+@export
 def visit_Landscape(translator: HTML5Translator, node: Landscape) -> None:
 	"""
 	Open a landscape container in HTML, which writes nothing: a web page has no page orientation.
@@ -218,6 +266,12 @@ translateTreeSeparator: tuple[visitFunc, departFunc] = (visit_TreeSeparator, dep
 
 translateTreeDescription: tuple[visitFunc, departFunc] = (visit_TreeDescription, depart_TreeDescription)
 """Visit and depart function writing a :class:`~pyTooling.Sphinx.Node.TreeDescription` in HTML."""
+
+translateTreeLegend: tuple[visitFunc, departFunc] = (visit_TreeLegend, depart_TreeLegend)
+"""Visit and depart function writing a :class:`~pyTooling.Sphinx.Node.TreeLegend` in HTML."""
+
+translateTreeLegendItem: tuple[visitFunc, departFunc] = (visit_TreeLegendItem, depart_TreeLegendItem)
+"""Visit and depart function writing a :class:`~pyTooling.Sphinx.Node.TreeLegendItem` in HTML."""
 
 
 @export

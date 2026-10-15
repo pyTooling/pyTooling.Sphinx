@@ -24,6 +24,8 @@ Version 0.x (2026)
      abbreviation roles ``:acs:``, ``:acl:``, ``:acf:`` and their plurals.
    * A :ref:`dependency-table <DIR/DependencyTable>` limited by ``:depth:`` marks each package whose dependencies
      weren't expanded.
+   * A :ref:`tree <DIR/Tree>` explains its icons in a :ref:`legend <DIR/Tree/Legend>`: an icon option takes a text
+     behind a ``|``, and ``:legend:`` draws the legend above or below the tree.
    * :class:`~pyTooling.Sphinx.SchemaGraph.DotGraph` is built on :mod:`pyTooling.Graph.GraphViz`.
    * Domain ``report`` from :gh:`sphinx-reports <pyTooling/sphinx-reports>` (v0.11.2), with the directives
      :ref:`report:unittest-summary <DIR/UnittestSummary>`, :ref:`report:code-coverage <DIR/CodeCoverage>` and
