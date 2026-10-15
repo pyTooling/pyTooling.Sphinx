@@ -204,8 +204,8 @@ link gets no size, an archive its format only, e.g. ``(ZIP)``, and Sphinx warns 
 
 .. code-block:: text
 
-   a.rst:2: WARNING: size of download 'https://example.org/a.zip' unknown: no answer within 2.5 seconds
-   a.rst:4: WARNING: size of download 'https://example.org/b.zip' unknown: the server answered 404 Not Found
+   a.rst:2: WARNING: Size of download 'https://example.org/a.zip' is unknown. No answer within 2.5 seconds.
+   a.rst:4: WARNING: Size of download 'https://example.org/b.zip' is unknown. The server answered 404 Not Found.
 
 A project that accepts a missing size suppresses the warning by its type:
 

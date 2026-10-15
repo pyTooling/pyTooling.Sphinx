@@ -541,7 +541,7 @@ class AddDownloadSizes(SphinxPostTransform):
 				try:
 					sizeText = self._FormatSize(Path(self.env.relfn2path(uri, self.env.docname)[1]).stat().st_size)
 				except OSError as ex:
-					self._WarnUnknownSize(reference, uri, ex.strerror)
+					self._WarnUnknownSize(reference, uri, f"{ex.strerror}.")
 					sizeText = ""
 			elif urlsplit(uri := reference.get("refuri", "")).scheme not in ("http", "https"):
 				continue
@@ -590,7 +590,7 @@ class AddDownloadSizes(SphinxPostTransform):
 		:param reason:    Why the size is unknown.
 		"""
 		getLogger(__name__).warning(
-			f"size of download '{uri}' unknown: {reason}", location=reference, type="pyTooling", subtype="download_size"
+			f"Size of download '{uri}' is unknown. {reason}", location=reference, type="pyTooling", subtype="download_size"
 		)
 
 	@staticmethod
@@ -616,17 +616,17 @@ class AddDownloadSizes(SphinxPostTransform):
 			)
 			response.raise_for_status()
 		except Timeout as ex:
-			raise DownloadSizeError(f"no answer within {timeout} seconds") from ex
+			raise DownloadSizeError(f"No answer within {timeout} seconds.") from ex
 		except HTTPError as ex:
-			raise DownloadSizeError(f"the server answered {ex.response.status_code} {ex.response.reason}") from ex
+			raise DownloadSizeError(f"The server answered {ex.response.status_code} {ex.response.reason}.") from ex
 		except RequestException as ex:
-			raise DownloadSizeError(f"{ex}") from ex
+			raise DownloadSizeError(f"The request failed: {ex}") from ex
 
 		length = response.headers.get("Content-Length", "")
 		if length == "":
-			raise DownloadSizeError("the answer has no 'Content-Length'")
+			raise DownloadSizeError("The answer has no 'Content-Length'.")
 		elif not length.isdecimal():
-			raise DownloadSizeError(f"the answer's 'Content-Length' '{length}' is no number")
+			raise DownloadSizeError(f"The answer's 'Content-Length' '{length}' is no number.")
 
 		return int(length)
 

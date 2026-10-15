@@ -521,12 +521,12 @@ class RemoteSizes(Project):
 
 		self.assertEqual(
 			[
-				f"src/index.rst:4: WARNING: size of download '{self._base}/nolength.zip' unknown: the answer has no "
-				f"'Content-Length' [pyTooling.download_size]",
-				f"src/index.rst:5: WARNING: size of download '{self._base}/missing.zip' unknown: the server answered 404 Not "
-				f"Found [pyTooling.download_size]",
-				f"src/index.rst:6: WARNING: size of download '{self._base}/slow.zip' unknown: no answer within 0.1 seconds "
-				f"[pyTooling.download_size]",
+				f"src/index.rst:4: WARNING: Size of download '{self._base}/nolength.zip' is unknown. The answer has no "
+				f"'Content-Length'. [pyTooling.download_size]",
+				f"src/index.rst:5: WARNING: Size of download '{self._base}/missing.zip' is unknown. The server answered 404 "
+				f"Not Found. [pyTooling.download_size]",
+				f"src/index.rst:6: WARNING: Size of download '{self._base}/slow.zip' is unknown. No answer within 0.1 "
+				f"seconds. [pyTooling.download_size]",
 			],
 			self._warningLines()
 		)
@@ -548,8 +548,8 @@ class RemoteSizes(Project):
 
 		self.assertEqual(
 			[
-				f"src/index.rst:{line}: WARNING: size of download '{self._base}/missing.zip' unknown: the server answered 404 "
-				f"Not Found [pyTooling.download_size]"
+				f"src/index.rst:{line}: WARNING: Size of download '{self._base}/missing.zip' is unknown. The server answered "
+				f"404 Not Found. [pyTooling.download_size]"
 				for line in (4, 5)
 			],
 			self._warningLines()
