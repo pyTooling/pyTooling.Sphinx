@@ -483,6 +483,13 @@ class MarkDownloadLinks(SphinxPostTransform):
 
 
 @export
+class DownloadSizeError(SphinxExtensionError):
+	"""
+	The size of a download's file is unknown: the file can't be read, or a server didn't tell it.
+	"""
+
+
+@export
 class AddDownloadSizes(SphinxPostTransform):
 	"""
 	A post-transform writing the size of a download's file behind its link in HTML, and the format of an archive.
@@ -505,9 +512,10 @@ class AddDownloadSizes(SphinxPostTransform):
 	formats =          ("html", )                 #: Output formats the transform runs for.
 	sizeClass =        "pytooling-download-size"  #: CSS class of the size behind a link.
 
-	#: The sizes of the remote files asked for, per build environment - i.e. per build -, keyed by URI: the size in bytes,
-	#: or why it is unknown.
-	_remoteSizes: ClassVar[WeakKeyDictionary[BuildEnvironment, dict[str, int | str]]] = WeakKeyDictionary()
+	#: The sizes of the remote files asked for, per build environment - i.e. per build -, in bytes, keyed by URI.
+	_remoteSizes:    ClassVar[WeakKeyDictionary[BuildEnvironment, dict[str, int]]] =               WeakKeyDictionary()
+	#: Why the sizes of remote files asked for are unknown, per build environment, keyed by URI.
+	_remoteFailures: ClassVar[WeakKeyDictionary[BuildEnvironment, dict[str, DownloadSizeError]]] = WeakKeyDictionary()
 
 	def run(self, **kwargs: Any) -> None:
 		"""
@@ -521,7 +529,7 @@ class AddDownloadSizes(SphinxPostTransform):
 		patterns = self.config[f"{CONFIG_PREFIX}_RemoteSizes"]
 		timeout =  self.config[f"{CONFIG_PREFIX}_RemoteSizeTimeout"]
 		sizes =    self._remoteSizes.setdefault(self.env, {})
-		logger =   getLogger(__name__)
+		failures = self._remoteFailures.setdefault(self.env, {})
 		for reference in list(self.document.findall(nodes.reference)):
 			isDownload = isinstance(reference, download_reference)
 			if next(reference.findall(nodes.image), None) is not None:
@@ -534,7 +542,8 @@ class AddDownloadSizes(SphinxPostTransform):
 				try:
 					size = Path(self.env.relfn2path(uri, self.env.docname)[1]).stat().st_size
 				except OSError as ex:
-					size = f"{ex.strerror}"
+					self._WarnUnknownSize(reference, uri, ex.strerror)
+					continue
 			elif urlsplit(uri := reference.get("refuri", "")).scheme not in ("http", "https"):
 				continue
 			elif not isDownload and getArchiveExtension(uri) == "":
@@ -543,15 +552,18 @@ class AddDownloadSizes(SphinxPostTransform):
 				continue
 			elif uri in sizes:
 				size = sizes[uri]
-			else:
-				size = self._RequestSize(uri, timeout)
-				sizes[uri] = size
-
-			if isinstance(size, str):
-				logger.warning(
-					f"size of download '{uri}' unknown: {size}", location=reference, type="pyTooling", subtype="download_size"
-				)
+			elif uri in failures:
+				self._WarnUnknownSize(reference, uri, failures[uri])
 				continue
+			else:
+				try:
+					size = self._RequestSize(uri, timeout)
+				except DownloadSizeError as ex:
+					failures[uri] = ex
+					self._WarnUnknownSize(reference, uri, ex)
+					continue
+
+				sizes[uri] = size
 
 			if (extension := getArchiveExtension(uri)) == "":
 				text = f"({self._FormatSize(size)})"
@@ -563,35 +575,53 @@ class AddDownloadSizes(SphinxPostTransform):
 			)
 
 	@staticmethod
-	def _RequestSize(uri: str, timeout: float) -> int | str:
+	def _WarnUnknownSize(reference: nodes.reference, uri: str, reason: object) -> None:
+		"""
+		Warn at a download's link, that its file's size is unknown.
+
+		The warning's type is ``pyTooling.download_size``, so a project can suppress it.
+
+		:param reference: The download's link.
+		:param uri:       The file's URI, or its path as written in the document.
+		:param reason:    Why the size is unknown.
+		"""
+		getLogger(__name__).warning(
+			f"size of download '{uri}' unknown: {reason}", location=reference, type="pyTooling", subtype="download_size"
+		)
+
+	@staticmethod
+	def _RequestSize(uri: str, timeout: float) -> int:
 		"""
 		Ask a server for the size of a file, with an HTTP ``HEAD`` request.
 
 		The request follows redirections, e.g. of a GitHub release's asset to its storage.
 
-		:param uri:     The file's URI.
-		:param timeout: Seconds to wait for an answer.
-		:returns:       The file's size in bytes, as the answer's ``Content-Length`` states it, or why it is unknown.
+		:param uri:                The file's URI.
+		:param timeout:            Seconds to wait for an answer.
+		:returns:                  The file's size in bytes, as the answer's ``Content-Length`` states it.
+		:raises DownloadSizeError: If the server doesn't answer within ``timeout`` seconds, answers with an HTTP error, or
+		                           the request fails otherwise.
+		:raises DownloadSizeError: If the answer has no ``Content-Length``, or one that is no number.
 		"""
 		try:
 			with urlopen(Request(uri, method="HEAD"), timeout=timeout) as response:
 				length = response.headers.get("Content-Length", "")
 		except HTTPError as ex:
-			return f"the server answered {ex.code} {ex.reason}"
+			raise DownloadSizeError(f"the server answered {ex.code} {ex.reason}") from ex
 		except URLError as ex:
 			if isinstance(ex.reason, TimeoutError):
-				return f"no answer within {timeout} seconds"
+				raise DownloadSizeError(f"no answer within {timeout} seconds") from ex
 
-			return f"{ex.reason}"
-		except TimeoutError:
-			return f"no answer within {timeout} seconds"
+			raise DownloadSizeError(f"{ex.reason}") from ex
+		except TimeoutError as ex:
+			raise DownloadSizeError(f"no answer within {timeout} seconds") from ex
 		except (OSError, HTTPException, ValueError) as ex:
-			return f"{ex}"
+			raise DownloadSizeError(f"{ex}") from ex
 
 		if length == "":
-			return "the answer has no 'Content-Length'"
+			raise DownloadSizeError("the answer has no 'Content-Length'")
 		elif not length.isdecimal():
-			return f"the answer's 'Content-Length' '{length}' is no number"
+			raise DownloadSizeError(f"the answer's 'Content-Length' '{length}' is no number")
 
 		return int(length)
 
@@ -609,7 +639,10 @@ class AddDownloadSizes(SphinxPostTransform):
 		if size < 1024:
 			return f"{size} B"
 
-		for exponent, unit in ((1, "kiB"), (2, "MiB")):
+		for exponent, unit in (
+			(1, "kiB"),
+			(2, "MiB")
+		):
 			if (value := round(size / 1024 ** exponent, 1)) < 1024:
 				return f"{value:.1f} {unit}"
 

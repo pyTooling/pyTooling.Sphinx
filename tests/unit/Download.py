@@ -530,6 +530,30 @@ class RemoteSizes(Project):
 		)
 		self.assertNotIn("pytooling-download-size", self._html("index"))
 
+	@testcase("Unknown size linked twice")
+	def UnknownTwice(self) -> None:
+		"""
+		A file without size linked twice is asked for once, and each link is warned about.
+
+		Builds a document with two links to the same 404 file, and checks the warnings and the requests.
+		"""
+		self._build(
+			"Index\n#####\n\n"
+			f"* :download:`first <{self._base}/missing.zip>`\n"
+			f"* :download:`second <{self._base}/missing.zip>`\n",
+			pyTooling_ExternalLink_RemoteSizes=[f"{self._base}/*"]
+		)
+
+		self.assertEqual(
+			[
+				f"src/index.rst:{line}: WARNING: size of download '{self._base}/missing.zip' unknown: the server answered 404 "
+				f"Not Found [pyTooling.download_size]"
+				for line in (4, 5)
+			],
+			self._warningLines()
+		)
+		self.assertEqual(["/missing.zip"], self._server.requests)
+
 	@testcase("Suppressed warnings")
 	def Suppressed(self) -> None:
 		"""
