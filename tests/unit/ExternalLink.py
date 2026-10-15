@@ -137,7 +137,7 @@ class IconPerTarget(Testcase):
 			("https://GitHub.com/pyTooling/pyTooling",       LinkIcon.GitHub),
 			("https://gitlab.com/group/project",             LinkIcon.GitLab),
 			("https://www.python.org/",                      LinkIcon.Python),
-			("https://PyPI.org/project/pyTooling",           LinkIcon.PyPI),
+			("https://PyPI.org/project/pyTooling",           LinkIcon.Python),
 			("https://numpy.org/doc/stable/",                LinkIcon.NumPy),
 			("https://doc.pypy.org/en/latest/",              LinkIcon.PyPy),
 			("https://docs.pytest.org/en/stable/",           LinkIcon.Pytest),
@@ -267,7 +267,7 @@ class Configuration(Testcase):
 			("explicit", {"a.org": 1},    "conf.py: pyTooling_ExternalLink_Hosts: Icon of host 'a.org' is not of type 'str'.",
 			 ["Got type 'int'."], True),
 			("explicit", {"a.org": "hg"}, "conf.py: pyTooling_ExternalLink_Hosts: Icon 'hg' of host 'a.org' is not an icon.",
-			 ["Allowed values: external, mail, github, gitlab, python, pypi, numpy, pypy, pytest, pydantic, "
+			 ["Allowed values: external, mail, github, gitlab, python, numpy, pypy, pytest, pydantic, "
 			  "readthedocs, sphinx, download."], True),
 			("explicit", {},              "conf.py: pyTooling_ExternalLink_NewTab: Value is not of type 'bool'.",
 			 ["Got type 'str'."], "yes"),
@@ -350,7 +350,7 @@ class Rendering(Project):
 		for link in (
 			'<a class="pytooling-external-link pytooling-link-icon-sphinx reference external" '
 			'href="https://www.sphinx-doc.org/"' + attributes,
-			'<a class="pytooling-external-link pytooling-link-icon-pypi reference external" '
+			'<a class="pytooling-external-link pytooling-link-icon-python reference external" '
 			'href="https://PyPI.org/project/pyTooling"' + attributes,
 			'<a class="pytooling-external-link pytooling-link-icon-gitlab reference external" '
 			'href="https://gitlab.com/group/project"' + attributes,

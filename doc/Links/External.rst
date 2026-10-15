@@ -64,12 +64,9 @@ Icons
    * - `GitLab <https://gitlab.com/>`__
      - ``gitlab``
      - ``gitlab.com``
-   * - `Python <https://www.python.org/>`__
+   * - `Python <https://www.python.org/>`__, `PyPI <https://pypi.org/>`__
      - ``python``
-     - ``python.org``
-   * - `PyPI <https://pypi.org/>`__
-     - ``pypi``
-     - ``pypi.org``
+     - ``python.org``, ``pypi.org``
    * - `NumPy <https://numpy.org/>`__
      - ``numpy``
      - ``numpy.org``
@@ -166,7 +163,7 @@ Configuration
    pyTooling_ExternalLink_NewTab = False                # links open in the same tab
    pyTooling_ExternalLink_Hosts =  {
      "gitlab.example.org": "gitlab",     # a GitLab instance of one's own
-     "pypi.org":           "python",     # Python's logo for the package index
+     "pypi.org":           "external",   # no Python logo for the package index
    }
 
 A malformed value stops the build:
@@ -176,8 +173,7 @@ A malformed value stops the build:
    conf.py: pyTooling_ExternalLink_Icons: 'some' is not a selection of links.
    Allowed values: none, explicit, all.
    conf.py: pyTooling_ExternalLink_Hosts: Icon 'hg' of host 'example.org' is not an icon.
-   Allowed values: external, mail, github, gitlab, python, pypi, numpy, pypy, pytest, pydantic, readthedocs, sphinx,
-   download.
+   Allowed values: external, mail, github, gitlab, python, numpy, pypy, pytest, pydantic, readthedocs, sphinx, download.
 
 
 .. _LINK/External/Styling:

@@ -101,7 +101,6 @@ class LinkIcon(StringEnum):
 	GitHub =      "github"       #: GitHub's mark.
 	GitLab =      "gitlab"       #: GitLab's tanuki.
 	Python =      "python"       #: Python's logo.
-	PyPI =        "pypi"         #: The logo of the Python Package Index.
 	NumPy =       "numpy"        #: NumPy's logo.
 	PyPy =        "pypy"         #: PyPy's logo.
 	Pytest =      "pytest"       #: pytest's logo.
@@ -146,7 +145,7 @@ HOST_ICONS: dict[str, LinkIcon] = {
 	"github.com":      LinkIcon.GitHub,
 	"gitlab.com":      LinkIcon.GitLab,
 	"python.org":      LinkIcon.Python,
-	"pypi.org":        LinkIcon.PyPI,
+	"pypi.org":        LinkIcon.Python,
 	"numpy.org":       LinkIcon.NumPy,
 	"pypy.org":        LinkIcon.PyPy,
 	"pytest.org":      LinkIcon.Pytest,
