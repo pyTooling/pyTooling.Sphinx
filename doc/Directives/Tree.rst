@@ -293,10 +293,23 @@ Options
 
       Additional CSS classes on the tree.
 
-.. rubric:: Icons
+
+.. _DIR/Tree/Icons:
+
+Icons
+*****
 
 An icon is written as characters, e.g. ``📁``, or as a Unicode code point, e.g. ``U+1F4C1``. Several words form one
 icon. An option without a value draws no icon.
+
+:ref:`DIR/Tree/CommonIcons` lists icons for files, code, CI and status, each with its name and code points - and, in
+HTML, buttons copying the icon or its code points. The :ref:`unicode-table <DIR/UnicodeTable>` directive lists a
+project's own icons likewise.
+
+.. toctree::
+   :hidden:
+
+   Tree/Icons
 
 
 .. _DIR/Tree/Styling:

@@ -172,6 +172,7 @@ def icon(option: Nullable[str]) -> str:
 	:param option:      The option's value as it was written; ``None`` if the option has no value.
 	:returns:           The icon's characters; empty if the option has no value, which draws no icon.
 	:raises ValueError: If a word names a code point beyond U+10FFFF.
+	:raises ValueError: If a word names a surrogate code point, which is no character.
 	"""
 	if option is None:
 		return ""
@@ -182,6 +183,8 @@ def icon(option: Nullable[str]) -> str:
 			characters.append(word)
 		elif (codePoint := int(match[1], 16)) > 0x10ffff:
 			raise ValueError(f"'{word}' is beyond the last code point U+10FFFF.")
+		elif 0xd800 <= codePoint <= 0xdfff:
+			raise ValueError(f"'{word}' is a surrogate code point, which is no character.")
 		else:
 			characters.append(chr(codePoint))
 

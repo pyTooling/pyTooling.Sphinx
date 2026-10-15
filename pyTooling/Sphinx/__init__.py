@@ -72,6 +72,8 @@ document of every project. This extension declares them once:
   * :rst:dir:`shields` - renders a project's badges from shields.io, in rows, from the coordinates its options
     state: the GitHub repository, the PyPI package, the licenses, the workflow and the documentation's URL.
   * :rst:dir:`tree` - draws a hierarchy written as an indented list as a tree, each node foldable in HTML.
+  * :rst:dir:`unicode-table` - lists icons with their Unicode names and code points, which HTML copies into the
+    clipboard on a click; the script doing so is linked like the stylesheet.
   * :rst:dir:`abbreviations` - lists abbreviations, which the abbreviation roles refer to.
 
 * the domain ``report`` - unit test, code coverage and documentation coverage reports as tables -, with the
@@ -144,17 +146,23 @@ from pyTooling.Sphinx.HTML   import translateCoverageListing as translateCoverag
 from pyTooling.Sphinx.HTML   import translateDocCoverageListing as translateDocCoverageListingAsHTML
 from pyTooling.Sphinx.HTML   import translateAbbreviation, translateTreeItem, translateTreeLabel, translateTreeSeparator
 from pyTooling.Sphinx.HTML   import translateTreeDescription, translateTreeLegend, translateTreeLegendItem
+from pyTooling.Sphinx.HTML   import translateCopyButton
 from pyTooling.Sphinx.LaTeX  import translateLandscape as translateLandscapeAsLaTeX
 from pyTooling.Sphinx.LaTeX  import translateCoverageListing as translateCoverageListingAsLaTeX
 from pyTooling.Sphinx.LaTeX  import translateDocCoverageListing as translateDocCoverageListingAsLaTeX
 from pyTooling.Sphinx.Node   import Abbreviation, Landscape, RegisteredNode, TreeItem, TreeLabel, TreeSeparator
-from pyTooling.Sphinx.Node   import CoverageListing, DocCoverageListing, TreeDescription, TreeLegend, TreeLegendItem
+from pyTooling.Sphinx.Node   import CopyButton, CoverageListing, DocCoverageListing, TreeDescription, TreeLegend
+from pyTooling.Sphinx.Node   import TreeLegendItem
 
 
-__all__ = ["STYLESHEET", "SUBSTITUTIONS", "NODES", "INDENTATION", "LINE_ANCHOR", "REPORT_ROLES"]
+__all__ = ["STYLESHEET", "SCRIPT", "SUBSTITUTIONS", "NODES", "INDENTATION", "LINE_ANCHOR", "REPORT_ROLES"]
 
 #: Name of the stylesheet, in :mod:`pyTooling.Sphinx.Resources`.
 STYLESHEET = "pyTooling.css"
+
+#: Name of the script, in :mod:`pyTooling.Sphinx.Resources`: it gives the copy buttons of the ``unicode-table``
+#: directive their function.
+SCRIPT = "pyTooling.js"
 
 #: Substitutions that have to stay substitutions, because ``|br|`` is written as one in every project.
 #:
@@ -180,6 +188,7 @@ NODES: tuple[RegisteredNode, ...] = (
 	{"name": "TreeDescription",    "node": TreeDescription,    "html": translateTreeDescription},
 	{"name": "TreeLegend",         "node": TreeLegend,         "html": translateTreeLegend},
 	{"name": "TreeLegendItem",     "node": TreeLegendItem,     "html": translateTreeLegendItem},
+	{"name": "CopyButton",         "node": CopyButton,         "html": translateCopyButton},
 	{"name": "Abbreviation",       "node": Abbreviation,       "html": translateAbbreviation},
 	{"name": "Landscape",          "node": Landscape,          "html": translateLandscapeAsHTML,
 	 "latex": translateLandscapeAsLaTeX},
@@ -547,12 +556,13 @@ class BaseDirective(ObjectDescription[str]):
 
 
 @export
-def installStylesheet(sphinx: Sphinx) -> None:
+def installStaticFiles(sphinx: Sphinx) -> None:
 	"""
-	Call-back for Sphinx' ``builder-inited`` event, writing the stylesheet into the build and linking it.
+	Call-back for Sphinx' ``builder-inited`` event, writing the stylesheet and the script into the build and linking
+	them.
 
-	The file is named by the hash of its content, so a browser re-reads it when the styles change and re-uses it when
-	they don't. Older copies are removed when the content changed.
+	A file is named by the hash of its content, so a browser re-reads it when it changes and re-uses it when it doesn't.
+	Older copies are removed when the content changed.
 
 	:param sphinx: The Sphinx application.
 	"""
@@ -560,18 +570,20 @@ def installStylesheet(sphinx: Sphinx) -> None:
 	staticDirectory.mkdir(exist_ok=True)
 	sphinx.config.html_static_path.append(str(staticDirectory))
 
-	content = readResourceFile(SphinxResources, STYLESHEET)
-	digest = md5(content.encode("utf-8")).hexdigest()          # nosec B324 - a cache-busting name, not a signature
-	stylesheet = staticDirectory / f"pyTooling.{digest}.css"
-	sphinx.add_css_file(stylesheet.name)
+	for resource, addFile in ((STYLESHEET, sphinx.add_css_file), (SCRIPT, sphinx.add_js_file)):
+		stem, _, suffix = resource.rpartition(".")
+		content = readResourceFile(SphinxResources, resource)
+		digest = md5(content.encode("utf-8")).hexdigest()  # nosec B324 - a cache-busting name, not a signature
+		staticFile = staticDirectory / f"{stem}.{digest}.{suffix}"
+		addFile(staticFile.name)
 
-	if not stylesheet.exists():
-		# Only this package's own copies - the directory is on 'html_static_path', so another extension may
-		# have written its stylesheet beside ours.
-		for outdated in staticDirectory.glob("pyTooling.*.css"):
-			outdated.unlink()
+		if not staticFile.exists():
+			# Only this package's own copies - the directory is on 'html_static_path', so another extension may
+			# have written its files beside ours.
+			for outdated in staticDirectory.glob(f"{stem}.*.{suffix}"):
+				outdated.unlink()
 
-		stylesheet.write_text(content, encoding="utf-8")
+			staticFile.write_text(content, encoding="utf-8")
 
 
 @export
@@ -956,6 +968,7 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	from pyTooling.Sphinx.Roles             import breakRole, pythonCodeRole, styleRole
 	from pyTooling.Sphinx.Shields           import Shields
 	from pyTooling.Sphinx.Tree              import RemoveTreeLegends, Tree
+	from pyTooling.Sphinx.UnicodeTable      import RemoveUnicodeGlyphs, UnicodeTable
 	from pyTooling.Sphinx.Unittest          import CONFIG_PREFIX as UNITTEST_PREFIX
 	from pyTooling.Sphinx.Unittest          import UnittestSummary
 	from pyTooling.Sphinx.UnittestPages     import UnittestReportPages
@@ -984,6 +997,7 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	sphinx.add_directive("xmlschema-graph", XMLSchemaGraph)
 	sphinx.add_directive("shields", Shields)
 	sphinx.add_directive("tree", Tree)
+	sphinx.add_directive("unicode-table", UnicodeTable)
 	sphinx.add_directive("abbreviations", Abbreviations)
 
 	# Without the domain, these become global directives: 'add_directive' instead of 'add_directive_to_domain'.
@@ -1009,6 +1023,7 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	sphinx.add_latex_package("pdflscape")
 	sphinx.add_post_transform(FixLatexTableWidths)
 	sphinx.add_post_transform(RemoveTreeLegends)
+	sphinx.add_post_transform(RemoveUnicodeGlyphs)
 
 	sphinx.setup_extension("sphinx.ext.graphviz")
 
@@ -1034,7 +1049,7 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 		sphinx.connect("env-before-read-docs", reportPages.GenerateAll)
 		sphinx.connect("html-page-context", reportPages.HideSource)
 	sphinx.connect("build-finished", reportBuildTime)
-	sphinx.connect("builder-inited", installStylesheet)
+	sphinx.connect("builder-inited", installStaticFiles)
 
 	# The extension's version is the package's, so a second number to keep in step would only ever disagree.
 	return {"version": __version__, "parallel_read_safe": True, "parallel_write_safe": True}

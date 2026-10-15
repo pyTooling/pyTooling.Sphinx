@@ -58,7 +58,7 @@ setup(
 		},
 		dataFiles={
 			packageName:                ["py.typed"],
-			f"{packageName}.Resources": ["*.css"]
+			f"{packageName}.Resources": ["*.css", "*.js"]
 		},
 		debug=True
 	)

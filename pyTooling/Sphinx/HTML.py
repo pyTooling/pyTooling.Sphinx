@@ -38,8 +38,8 @@ from docutils              import nodes
 from sphinx.writers.html5  import HTML5Translator
 
 from pyTooling.Decorators  import export
-from pyTooling.Sphinx.Node import Abbreviation, Landscape, TreeDescription, TreeItem, TreeLabel, TreeLegend
-from pyTooling.Sphinx.Node import TreeLegendItem, TreeSeparator
+from pyTooling.Sphinx.Node import Abbreviation, CopyButton, Landscape, TreeDescription, TreeItem, TreeLabel
+from pyTooling.Sphinx.Node import TreeLegend, TreeLegendItem, TreeSeparator
 from pyTooling.Sphinx.Node import COVERAGE_STATES, DOCUMENTATION_STATES, CoverageListing, DocCoverageListing
 from pyTooling.Sphinx.Node import visitFunc, departFunc
 
@@ -47,8 +47,22 @@ from pyTooling.Sphinx.Node import visitFunc, departFunc
 __all__ = [
 	"translateLandscape", "translateTreeItem", "translateTreeLabel", "translateTreeSeparator", "translateTreeDescription",
 	"translateTreeLegend", "translateTreeLegendItem", "translateAbbreviation", "translateCoverageListing",
-	"translateDocCoverageListing"
+	"translateDocCoverageListing", "translateCopyButton", "COPY_ICONS"
 ]
+
+_SVG = (
+	'aria-hidden="true" focusable="false" width="1em" height="1em" viewBox="0 0 24 24" fill="none" '
+	'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'
+)
+"""The attributes of a copy button's icons: hidden from a screen reader, as large as the text, and drawn as lines."""
+
+#: The icons of a copy button, as inline SVG hidden from a screen reader: two sheets of paper, and a check mark, which
+#: the stylesheet shows instead while the button reports a copied text.
+COPY_ICONS = (
+	f'<svg class="copy-icon" {_SVG}><rect x="8" y="8" width="12" height="12" rx="2"/>'
+	'<path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>'
+	f'<svg class="copied-icon" {_SVG}><path d="M5 12l5 5L20 7"/></svg>'
+)
 
 
 @export
@@ -433,6 +447,27 @@ def visit_DocCoverageListing(translator: HTML5Translator, node: DocCoverageListi
 
 
 @export
+def visit_CopyButton(translator: HTML5Translator, node: CopyButton) -> None:
+	"""
+	Write a copy button in HTML, completely: a ``<button>`` with the text to copy as attribute ``data-copy``.
+
+	The button's label is its accessible name and its tooltip; its icons are :data:`COPY_ICONS`. The script
+	:file:`pyTooling.js` copies the text on a click.
+
+	:param translator: The HTML translator writing the page.
+	:param node:       The copy button.
+	:raises SkipNode:  Always, as the button is written completely.
+	"""
+	translator.body.append(translator.starttag(
+		node, "button", "", type="button", CLASS="pytooling-copy", title=node["label"],
+		**{"aria-label": node["label"], "data-copy": node["copy"]}
+	))
+	translator.body.append(f"{COPY_ICONS}</button>")
+
+	raise nodes.SkipNode
+
+
+@export
 def depart_DocCoverageListing(translator: HTML5Translator, node: DocCoverageListing) -> None:
 	"""
 	Close a Python module's documentation coverage in HTML, which writes nothing: :func:`visit_DocCoverageListing` wrote
@@ -445,3 +480,17 @@ def depart_DocCoverageListing(translator: HTML5Translator, node: DocCoverageList
 
 translateDocCoverageListing: tuple[visitFunc, departFunc] = (visit_DocCoverageListing, depart_DocCoverageListing)
 """Visit and depart function writing a :class:`~pyTooling.Sphinx.Node.DocCoverageListing` in HTML."""
+
+
+@export
+def depart_CopyButton(translator: HTML5Translator, node: CopyButton) -> None:
+	"""
+	Close a copy button in HTML, which writes nothing: :func:`visit_CopyButton` wrote it all.
+
+	:param translator: The HTML translator writing the page.
+	:param node:       The copy button.
+	"""
+
+
+translateCopyButton: tuple[visitFunc, departFunc] = (visit_CopyButton, depart_CopyButton)
+"""Visit and depart function writing a :class:`~pyTooling.Sphinx.Node.CopyButton` in HTML."""

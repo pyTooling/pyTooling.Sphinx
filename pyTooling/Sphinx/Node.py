@@ -141,6 +141,18 @@ class TreeLegendItem(nodes.inline):
 
 
 @export
+class CopyButton(nodes.inline):
+	"""
+	A button copying a text into the clipboard, which HTML draws as a ``<button>``; every other format writes nothing.
+
+	Attribute ``copy`` holds the text to copy, and ``label`` what the button does, for a screen reader and as a tooltip.
+	The node has no children, so a format writing its base-class - an inline element - writes nothing.
+
+	The script :file:`pyTooling.js` gives the button its function.
+	"""
+
+
+@export
 class Abbreviation(nodes.abbreviation):
 	"""
 	A reference to an abbreviation in its short form, which HTML draws with a box explaining it on hover.
