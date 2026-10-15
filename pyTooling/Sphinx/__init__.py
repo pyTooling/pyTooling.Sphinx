@@ -969,7 +969,8 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	from pyTooling.Sphinx.DocCoverage       import DocCoverageBase, DocCoverageLegend, DocStrCoverage
 	from pyTooling.Sphinx.DocCoveragePages  import DocCoverageReportPages
 	from pyTooling.Sphinx.ExternalLink      import CONFIG_PREFIX as EXTERNAL_LINK_PREFIX, BaseExternalLinkTransform
-	from pyTooling.Sphinx.ExternalLink      import MarkExternalLinks, MarkIntersphinxLinks, checkExternalLinkConfiguration
+	from pyTooling.Sphinx.ExternalLink      import MarkDownloadLinks, MarkExternalLinks, MarkIntersphinxLinks
+	from pyTooling.Sphinx.ExternalLink      import checkExternalLinkConfiguration
 	from pyTooling.Sphinx.Roles             import BREAK_ROLES, PYTHON_CODE_ROLE, STYLE_ROLES
 	from pyTooling.Sphinx.Roles             import breakRole, pythonCodeRole, styleRole
 	from pyTooling.Sphinx.Shields           import Shields
@@ -1049,6 +1050,7 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	# HTML only: the first marks the links written with their URI, the second the links resolved in between
 	sphinx.add_post_transform(MarkExternalLinks)
 	sphinx.add_post_transform(MarkIntersphinxLinks)
+	sphinx.add_post_transform(MarkDownloadLinks)
 
 	sphinx.connect("config-inited", extendProlog)
 	# after the configuration values above are registered, and before any document is read - a requirements file

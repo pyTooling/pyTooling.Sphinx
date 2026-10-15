@@ -55,15 +55,37 @@ Icons
    * - `someone@example.org <mailto:someone@example.org>`__
      - ``mail``
      - An e-mail address: a URI of scheme ``mailto``.
+   * - :download:`pyTooling.Sphinx' logo <../_static/logo.png>`
+     - ``download``
+     - A link of Sphinx' ``:download:`` role, to a file of the documentation or of another site.
    * - :gh:`pyTooling/pyTooling.Sphinx`
      - ``github``
      - ``github.com``
    * - `GitLab <https://gitlab.com/>`__
      - ``gitlab``
      - ``gitlab.com``
-   * - `Python <https://www.python.org/>`__, `PyPI <https://pypi.org/>`__
+   * - `Python <https://www.python.org/>`__
      - ``python``
-     - ``python.org``, ``pypi.org``
+     - ``python.org``
+   * - `PyPI <https://pypi.org/>`__
+     - ``pypi``
+     - ``pypi.org``
+   * - `NumPy <https://numpy.org/>`__
+     - ``numpy``
+     - ``numpy.org``
+   * - `PyPy <https://pypy.org/>`__
+     - ``pypy``
+     - ``pypy.org``
+   * - `pytest <https://docs.pytest.org/>`__
+     - ``pytest``
+     - ``pytest.org``
+   * - `Pydantic <https://docs.pydantic.dev/>`__
+     - ``pydantic``
+     - ``pydantic.dev``
+   * - `Read the Docs <https://about.readthedocs.com/>`__,
+       `its theme's documentation <https://sphinx-rtd-theme.rtfd.io/>`__
+     - ``readthedocs``
+     - ``readthedocs.io``, ``readthedocs.org``, ``rtfd.io``: the projects' documentation hosted there, too
 
 * A host's icon is also the icon of its subdomains: ``python.org`` gives ``docs.python.org`` the Python logo.
 * A host is compared in lower case, so ``https://GitHub.com/...`` gets GitHub's mark too.
@@ -97,6 +119,9 @@ Marked links
      - No.
    * - A toctree entry and the navigation.
      - No.
+   * - A link of Sphinx' ``:download:`` role, to a file of the documentation or of another site.
+     - The download icon, unless ``pyTooling_ExternalLink_Icons`` is ``none``. It stays in the browser's tab, which
+       saves the file.
 
 
 .. _LINK/External/Configuration:
@@ -128,9 +153,8 @@ Configuration
        program. A screen reader announces the new tab with the icon, e.g. "external link, opens in a new tab".
    * - ``pyTooling_ExternalLink_Hosts``
      - ``{}``
-     - More hosts, each with the name of its icon: ``external``, ``mail``, ``github``, ``gitlab`` or ``python``.
-       A host given here wins over a host of :data:`~pyTooling.Sphinx.ExternalLink.HOST_ICONS`; ``None`` is
-       ``external``.
+     - More hosts, each with the name of its icon - see :ref:`LINK/External/Icons`. A host given here wins over a
+       host of :data:`~pyTooling.Sphinx.ExternalLink.HOST_ICONS`; ``None`` is ``external``.
 
 .. code-block:: Python
 
@@ -139,7 +163,7 @@ Configuration
    pyTooling_ExternalLink_NewTab = False                # links open in the same tab
    pyTooling_ExternalLink_Hosts =  {
      "gitlab.example.org": "gitlab",     # a GitLab instance of one's own
-     "pypi.org":           "external",   # no Python logo for the package index
+     "pypi.org":           "python",     # Python's logo for the package index
    }
 
 A malformed value stops the build:
@@ -149,7 +173,7 @@ A malformed value stops the build:
    conf.py: pyTooling_ExternalLink_Icons: 'some' is not a selection of links.
    Allowed values: none, explicit, all.
    conf.py: pyTooling_ExternalLink_Hosts: Icon 'hg' of host 'example.org' is not an icon.
-   Allowed values: external, mail, github, gitlab, python.
+   Allowed values: external, mail, github, gitlab, python, pypi, numpy, pypy, pytest, pydantic, readthedocs.
 
 
 .. _LINK/External/Styling:
@@ -209,6 +233,6 @@ Two post-transforms mark the links in HTML, for every builder of the HTML family
 
 Every other format - e.g. LaTeX - writes the links as before, without a mark.
 
-The icons ``github``, ``gitlab`` and ``python`` are the brands' marks from `Simple Icons <https://simpleicons.org/>`__
+The brands' icons - ``github`` to ``readthedocs`` - are their marks from `Simple Icons <https://simpleicons.org/>`__
 16.35.0, published under CC0 1.0 Universal; the marks are trademarks of their owners. ``external`` and ``mail`` are
 drawn for pyTooling.Sphinx.

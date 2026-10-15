@@ -36,7 +36,7 @@ from unittest.mock                 import MagicMock
 from zlib                          import compress
 
 from pyTooling.Sphinx              import SphinxExtensionError, setup
-from pyTooling.Sphinx.ExternalLink import HOST_ICONS, ExternalLinkIcons, LinkIcon, MarkExternalLinks
+from pyTooling.Sphinx.ExternalLink import HOST_ICONS, ExternalLinkIcons, LinkIcon, MarkDownloadLinks, MarkExternalLinks
 from pyTooling.Sphinx.ExternalLink import MarkIntersphinxLinks, checkExternalLinkConfiguration
 from pyTooling.Testing             import Testcase, testsuite, testcase
 
@@ -56,7 +56,7 @@ class Registration(Testcase):
 	@testcase("Setup with a mock")
 	def Setup(self) -> None:
 		"""
-		The extension's setup() registers both post-transforms, both configuration values and their check.
+		The extension's setup() registers the three post-transforms, the configuration values and their check.
 
 		Calls setup() with a mocked application and checks the calls.
 		"""
@@ -66,7 +66,9 @@ class Registration(Testcase):
 		transforms = [call.args[0] for call in app.add_post_transform.call_args_list]
 		self.assertIn(MarkExternalLinks, transforms)
 		self.assertIn(MarkIntersphinxLinks, transforms)
+		self.assertIn(MarkDownloadLinks, transforms)
 		app.add_config_value.assert_any_call("pyTooling_ExternalLink_Icons", None, "html", (str, ExternalLinkIcons))
+		app.add_config_value.assert_any_call("pyTooling_ExternalLink_NewTab", True, "html", bool)
 		app.add_config_value.assert_any_call("pyTooling_ExternalLink_Hosts", {}, "html", dict)
 		self.assertIn(("config-inited", checkExternalLinkConfiguration), [call.args for call in app.connect.call_args_list])
 
@@ -81,6 +83,7 @@ class Registration(Testcase):
 		self.assertGreater(MarkIntersphinxLinks.default_priority, 10)
 		self.assertEqual(("html", ), MarkExternalLinks.formats)
 		self.assertEqual(("html", ), MarkIntersphinxLinks.formats)
+		self.assertEqual(("html", ), MarkDownloadLinks.formats)
 
 
 @testsuite("External link selection")
@@ -130,11 +133,18 @@ class IconPerTarget(Testcase):
 		Chooses the icon for a URI per host, one written in mixed case, and checks the icons.
 		"""
 		for uri, icon in (
-			("https://github.com/pyTooling/pyTooling", LinkIcon.GitHub),
-			("https://GitHub.com/pyTooling/pyTooling", LinkIcon.GitHub),
-			("https://gitlab.com/group/project",       LinkIcon.GitLab),
-			("https://www.python.org/",                LinkIcon.Python),
-			("https://PyPI.org/project/pyTooling",     LinkIcon.Python),
+			("https://github.com/pyTooling/pyTooling",       LinkIcon.GitHub),
+			("https://GitHub.com/pyTooling/pyTooling",       LinkIcon.GitHub),
+			("https://gitlab.com/group/project",             LinkIcon.GitLab),
+			("https://www.python.org/",                      LinkIcon.Python),
+			("https://PyPI.org/project/pyTooling",           LinkIcon.PyPI),
+			("https://numpy.org/doc/stable/",                LinkIcon.NumPy),
+			("https://doc.pypy.org/en/latest/",              LinkIcon.PyPy),
+			("https://docs.pytest.org/en/stable/",           LinkIcon.Pytest),
+			("https://docs.pydantic.dev/latest/",            LinkIcon.Pydantic),
+			("https://pytooling.readthedocs.io/en/latest/",  LinkIcon.ReadTheDocs),
+			("https://readthedocs.org/projects/pytooling/",  LinkIcon.ReadTheDocs),
+			("https://pyTooling.RTFD.io/",                   LinkIcon.ReadTheDocs),
 		):
 			with self.subTest(uri=uri):
 				self.assertIs(icon, LinkIcon.FromURI(uri, HOST_ICONS))
@@ -256,7 +266,8 @@ class Configuration(Testcase):
 			("explicit", {"a.org": 1},    "conf.py: pyTooling_ExternalLink_Hosts: Icon of host 'a.org' is not of type 'str'.",
 			 ["Got type 'int'."], True),
 			("explicit", {"a.org": "hg"}, "conf.py: pyTooling_ExternalLink_Hosts: Icon 'hg' of host 'a.org' is not an icon.",
-			 ["Allowed values: external, mail, github, gitlab, python."], True),
+			 ["Allowed values: external, mail, github, gitlab, python, pypi, numpy, pypy, pytest, pydantic, "
+			  "readthedocs, download."], True),
 			("explicit", {},              "conf.py: pyTooling_ExternalLink_NewTab: Value is not of type 'bool'.",
 			 ["Got type 'str'."], "yes"),
 		):
@@ -287,6 +298,7 @@ class Rendering(Project):
 		"* relative `license <license.html>`__\n"
 		"* internal :ref:`genindex`\n"
 		"* intersphinx :py:class:`Other.Thing` and :py:class:`Local.Thing`\n"
+		"* download :download:`archive <archive.zip>` and :download:`remote <https://example.org/archive.zip>`\n"
 		"\n"
 		".. image:: logo.png\n"
 		"   :target: https://github.com/pyTooling\n"
@@ -312,6 +324,7 @@ class Rendering(Project):
 			inventories[name] = str(inventory)
 
 		(self._path / "src" / "logo.png").write_bytes(b"")
+		(self._path / "src" / "archive.zip").write_bytes(b"")
 		self._build(
 			self._document,
 			builder,
@@ -326,7 +339,8 @@ class Rendering(Project):
 
 	def _assertExplicitLinks(self, html: str, newTab: bool = True) -> None:
 		"""
-		Check the links written with their URI are marked, each with its icon, and the others aren't.
+		Check the links written with their URI are marked, each with its icon, and the others aren't; the download links
+		are marked with the download icon and stay in the tab.
 
 		:param html:   The page's HTML.
 		:param newTab: Optional, whether a marked link opens in a new tab. Default: ``True``.
@@ -335,7 +349,7 @@ class Rendering(Project):
 		for link in (
 			'<a class="pytooling-external-link pytooling-link-icon-external reference external" '
 			'href="https://www.sphinx-doc.org/"' + attributes,
-			'<a class="pytooling-external-link pytooling-link-icon-python reference external" '
+			'<a class="pytooling-external-link pytooling-link-icon-pypi reference external" '
 			'href="https://PyPI.org/project/pyTooling"' + attributes,
 			'<a class="pytooling-external-link pytooling-link-icon-gitlab reference external" '
 			'href="https://gitlab.com/group/project"' + attributes,
@@ -345,6 +359,10 @@ class Rendering(Project):
 			'<a class="reference external" href="license.html">',
 			'<a class="reference internal" href="genindex.html">',
 			'<a class="reference external image-reference" href="https://github.com/pyTooling">',
+			'<a class="pytooling-download-link pytooling-link-icon-download reference download internal" download="" '
+			'href="_downloads/',
+			'<a class="pytooling-download-link pytooling-link-icon-download reference download external" download="" '
+			'href="https://example.org/archive.zip">',
 		):
 			with self.subTest(link=link):
 				self.assertIn(link, html)

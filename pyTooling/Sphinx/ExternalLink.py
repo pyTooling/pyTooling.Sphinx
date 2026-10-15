@@ -41,6 +41,8 @@ so it sees the links written with their URI - also those of a :mod:`sphinx.ext.e
 in a new browser tab - unless configuration value ``pyTooling_ExternalLink_NewTab`` is ``False``, or the link is an
 e-mail address.
 
+A third post-transform, :class:`MarkDownloadLinks`, gives the links of Sphinx' ``:download:`` role a download icon.
+
 .. code-block:: Python
 
    # doc/conf.py
@@ -59,6 +61,7 @@ from typing                            import Any, ClassVar, Literal, Mapping, S
 from urllib.parse                      import urlsplit
 
 from docutils                          import nodes
+from sphinx.addnodes                   import download_reference
 from sphinx.application                import Sphinx
 from sphinx.config                     import Config
 from sphinx.transforms.post_transforms import SphinxPostTransform
@@ -93,13 +96,20 @@ class LinkIcon(StringEnum):
 	The icon drawn behind an external link; the link gets the CSS class ``pytooling-link-icon-<value>``.
 	"""
 
-	External = "external"  #: A square with an arrow pointing out of it.
-	Mail =     "mail"      #: An envelope.
-	GitHub =   "github"    #: GitHub's mark.
-	GitLab =   "gitlab"    #: GitLab's tanuki.
-	Python =   "python"    #: Python's logo.
+	External =    "external"     #: A square with an arrow pointing out of it.
+	Mail =        "mail"         #: An envelope.
+	GitHub =      "github"       #: GitHub's mark.
+	GitLab =      "gitlab"       #: GitLab's tanuki.
+	Python =      "python"       #: Python's logo.
+	PyPI =        "pypi"         #: The logo of the Python Package Index.
+	NumPy =       "numpy"        #: NumPy's logo.
+	PyPy =        "pypy"         #: PyPy's logo.
+	Pytest =      "pytest"       #: pytest's logo.
+	Pydantic =    "pydantic"     #: Pydantic's logo.
+	ReadTheDocs = "readthedocs"  #: Read the Docs' logo.
+	Download =    "download"     #: An arrow pointing down into a tray; the icon of a download link.
 
-	DEFAULT =  External    #: A host without an icon of its own gets the square with the arrow.
+	DEFAULT =     External       #: A host without an icon of its own gets the square with the arrow.
 
 	@classmethod
 	def FromURI(cls, uri: str, hosts: Mapping[str, Self]) -> Self:
@@ -132,10 +142,17 @@ class LinkIcon(StringEnum):
 #:
 #: A project adds hosts, or replaces an icon, with configuration value ``pyTooling_ExternalLink_Hosts``.
 HOST_ICONS: dict[str, LinkIcon] = {
-	"github.com": LinkIcon.GitHub,
-	"gitlab.com": LinkIcon.GitLab,
-	"python.org": LinkIcon.Python,
-	"pypi.org":   LinkIcon.Python,
+	"github.com":      LinkIcon.GitHub,
+	"gitlab.com":      LinkIcon.GitLab,
+	"python.org":      LinkIcon.Python,
+	"pypi.org":        LinkIcon.PyPI,
+	"numpy.org":       LinkIcon.NumPy,
+	"pypy.org":        LinkIcon.PyPy,
+	"pytest.org":      LinkIcon.Pytest,
+	"pydantic.dev":    LinkIcon.Pydantic,
+	"readthedocs.io":  LinkIcon.ReadTheDocs,
+	"readthedocs.org": LinkIcon.ReadTheDocs,
+	"rtfd.io":         LinkIcon.ReadTheDocs,
 }
 
 
@@ -213,7 +230,8 @@ class BaseExternalLinkTransform(SphinxPostTransform):
 	Base-class of the post-transforms marking external links in HTML, so the stylesheet draws an icon behind each.
 
 	A marked link gets the CSS class :attr:`linkClass`, and the CSS class ``pytooling-link-icon-<icon>`` naming the icon
-	:meth:`LinkIcon.FromURI` chooses for it. A link holding an image - e.g. a badge - isn't marked.
+	:meth:`LinkIcon.FromURI` chooses for it. A link holding an image - e.g. a badge - isn't marked, nor is a download
+	link: :class:`MarkDownloadLinks` marks those.
 
 	If ``pyTooling_ExternalLink_NewTab`` is ``True``, a marked link opens in a new browser tab: it gets the attributes
 	``target="_blank"`` and ``rel="noopener noreferrer"``, which Sphinx' HTML writer copies into the ``<a>`` element. An
@@ -250,7 +268,7 @@ class BaseExternalLinkTransform(SphinxPostTransform):
 		hosts.update(self.config[f"{CONFIG_PREFIX}_Hosts"])
 		newTab = self.config[f"{CONFIG_PREFIX}_NewTab"]
 		for reference in self.document.findall(nodes.reference):
-			if "refuri" not in reference or not self._Selects(reference):
+			if isinstance(reference, download_reference) or "refuri" not in reference or not self._Selects(reference):
 				continue
 			elif next(reference.findall(nodes.image), None) is not None:
 				continue
@@ -317,3 +335,33 @@ class MarkIntersphinxLinks(BaseExternalLinkTransform):
 		:returns:         ``True`` if the link's attribute ``internal`` is ``False`` and the link isn't marked yet.
 		"""
 		return reference.get("internal", None) is False and MarkExternalLinks.linkClass not in reference["classes"]
+
+
+@export
+class MarkDownloadLinks(SphinxPostTransform):
+	"""
+	A post-transform marking the links of Sphinx' ``:download:`` role in HTML, so the stylesheet draws a download icon
+	behind each.
+
+	A marked link gets the CSS classes ``pytooling-download-link`` and ``pytooling-link-icon-download``, whether the file
+	is part of the documentation or another site's. It stays in the browser's tab, as the browser saves the file. A link
+	holding an image isn't marked.
+	"""
+
+	default_priority = 5                                                    #: Before Sphinx' ``ReferencesResolver`` (10).
+	formats =          ("html", )                                           #: Output formats the transform runs for.
+	linkClass =        "pytooling-download-link"                            #: CSS class of a marked link.
+	selections =       (ExternalLinkIcons.Explicit, ExternalLinkIcons.All)  #: Values it runs for.
+
+	def run(self, **kwargs: Any) -> None:
+		"""
+		Mark every download link, if ``pyTooling_ExternalLink_Icons`` is one of :attr:`selections`.
+
+		:param kwargs: Keyword arguments Sphinx passes to a post-transform; none is used.
+		"""
+		if self.config[f"{CONFIG_PREFIX}_Icons"] not in self.selections:
+			return
+
+		for reference in self.document.findall(download_reference):
+			if next(reference.findall(nodes.image), None) is None:
+				reference["classes"] += [self.linkClass, f"pytooling-link-icon-{LinkIcon.Download}"]
