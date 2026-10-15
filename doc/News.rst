@@ -26,6 +26,9 @@ Version 0.x (2026)
      weren't expanded.
    * A :ref:`tree <DIR/Tree>` explains its icons in a :ref:`legend <DIR/Tree/Legend>`: an icon option takes a text
      behind a ``|``, and ``:legend:`` draws the legend above or below the tree.
+   * Directive :ref:`unicode-table <DIR/UnicodeTable>`: icons with their Unicode names and code points, computed with
+     :mod:`unicodedata`; in HTML, a button copies an icon or its code points into the clipboard. It lists the
+     :ref:`icons commonly used in a tree <DIR/Tree/CommonIcons>`. A tree's icon option rejects a surrogate code point.
    * :class:`~pyTooling.Sphinx.SchemaGraph.DotGraph` is built on :mod:`pyTooling.Graph.GraphViz`.
    * Domain ``report`` from :gh:`sphinx-reports <pyTooling/sphinx-reports>` (v0.11.2), with the directives
      :ref:`report:unittest-summary <DIR/UnittestSummary>`, :ref:`report:code-coverage <DIR/CodeCoverage>` and

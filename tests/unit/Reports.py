@@ -31,19 +31,20 @@
 """
 Unit tests for the domain ``report`` of :mod:`pyTooling.Sphinx`, each built in a small Sphinx project.
 """
-from os                      import environ
-from pathlib                 import Path
-from subprocess              import run as subprocess_run
-from sys                     import executable
-from textwrap                import dedent
-from unittest.mock           import MagicMock
+from os                            import environ
+from pathlib                       import Path
+from subprocess                    import run as subprocess_run
+from sys                           import executable
+from textwrap                      import dedent
+from unittest.mock                 import MagicMock
 
-from pyTooling.Sphinx           import ReportDomain, setup
-from pyTooling.Sphinx.Tree       import RemoveTreeLegends
-from pyTooling.Sphinx.Workaround import FixLatexTableWidths
-from pyTooling.Testing          import testsuite, testcase
+from pyTooling.Sphinx              import ReportDomain, setup
+from pyTooling.Sphinx.Tree         import RemoveTreeLegends
+from pyTooling.Sphinx.UnicodeTable import RemoveUnicodeGlyphs
+from pyTooling.Sphinx.Workaround   import FixLatexTableWidths
+from pyTooling.Testing             import testsuite, testcase
 
-from tests.unit.Extension       import Project
+from tests.unit.Extension          import Project
 
 
 if __name__ == "__main__":  # pragma: no cover
@@ -135,7 +136,8 @@ class Registration(ReportProject):
 		)
 		app.add_latex_package.assert_called_once_with("pdflscape")
 		self.assertEqual(
-			[FixLatexTableWidths, RemoveTreeLegends], [call.args[0] for call in app.add_post_transform.call_args_list]
+			[FixLatexTableWidths, RemoveTreeLegends, RemoveUnicodeGlyphs],
+			[call.args[0] for call in app.add_post_transform.call_args_list]
 		)
 		self.assertLessEqual(CONFIG_VALUES, {call.args[0] for call in app.add_config_value.call_args_list})
 

@@ -34,6 +34,12 @@
   --pyTooling-tree-legend-gap:            1.5em;
   --pyTooling-tree-legend-margin:         0.5em;
 
+  --pyTooling-unicode-glyph-size: 1.5em;
+  --pyTooling-copy-color:         #666;
+  --pyTooling-copy-hover-color:   #06f;
+  --pyTooling-copy-success-color: #093;
+  --pyTooling-copy-failure-color: #c00;
+
   --pyTooling-abbreviation-underline:  1px dotted;
   --pyTooling-abbreviation-background: #fff;
   --pyTooling-abbreviation-border:     1px solid #999;
@@ -280,6 +286,72 @@ ul.pytooling-tree:has(+ p.pytooling-tree-legend.tree-legend-bottom) {
 
 p.pytooling-tree-legend span.tree-icon {
   margin-right: var(--pyTooling-tree-icon-gap);
+}
+
+
+/* Styles for the tables written by the 'unicode-table' directive, and their copy buttons.
+
+   A table's icon is drawn larger than the text, so its details are recognizable. A copy button follows the icon and
+   the code points; it is drawn as an icon in the text's line, and shows a check mark for a moment after copying. */
+table.pytooling-unicode-table span.unicode-glyph {
+  font-size: var(--pyTooling-unicode-glyph-size);
+  vertical-align: middle;
+}
+
+table.pytooling-unicode-table td {
+  white-space: nowrap;
+}
+
+table.pytooling-unicode-table td:last-child {
+  white-space: normal;
+}
+
+button.pytooling-copy {
+  margin: 0 0 0 0.4em;
+  padding: 0.1em 0.2em;
+  border: none;
+  border-radius: 3px;
+  background: none;
+  color: var(--pyTooling-copy-color);
+  line-height: 1;
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+button.pytooling-copy:hover,
+button.pytooling-copy:focus-visible {
+  color: var(--pyTooling-copy-hover-color);
+}
+
+button.pytooling-copy:focus-visible {
+  outline: 2px solid var(--pyTooling-copy-hover-color);
+}
+
+button.pytooling-copy svg.copied-icon,
+button.pytooling-copy.copied svg.copy-icon {
+  display: none;
+}
+
+button.pytooling-copy.copied svg.copied-icon {
+  display: inline;
+}
+
+button.pytooling-copy.copied {
+  color: var(--pyTooling-copy-success-color);
+}
+
+button.pytooling-copy.copy-failed {
+  color: var(--pyTooling-copy-failure-color);
+}
+
+/* The status message a screen reader announces after a click: present, but not drawn. */
+span.pytooling-copy-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 

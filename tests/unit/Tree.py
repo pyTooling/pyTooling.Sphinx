@@ -365,6 +365,19 @@ class TreeIcons(Testcase):
 
 		self.assertEqual("'U+110000' is beyond the last code point U+10FFFF.", str(context.exception))
 
+	@testcase("Surrogate")
+	def Surrogate(self) -> None:
+		"""
+		A surrogate code point is no character, and is rejected.
+
+		Converts 'U+D800' and 'U+DFFF', the bounds of the surrogates, and checks the ValueError.
+		"""
+		for word in ("U+D800", "U+DFFF"):
+			with self.subTest(word=word), self.assertRaises(ValueError) as context:
+				icon(word)
+
+			self.assertEqual(f"'{word}' is a surrogate code point, which is no character.", str(context.exception))
+
 
 @testsuite("Tree icons with a text")
 class TreeDescribedIcons(Testcase):

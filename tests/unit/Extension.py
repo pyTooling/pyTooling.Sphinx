@@ -36,6 +36,7 @@ from os                            import sep
 from pathlib                       import Path
 from tempfile                      import TemporaryDirectory
 from typing                        import Any, Optional as Nullable
+from unicodedata                   import unidata_version
 from unittest.mock                 import MagicMock
 
 from sphinx.ext.graphviz           import graphviz
@@ -163,7 +164,7 @@ class Registration(Project):
 		The extension's setup() registers every role and directive it brings.
 
 		Calls setup() with a mocked application and compares the names passed to 'add_role' and 'add_directive' with the
-		style, break, code, abbreviation and unit test roles and the six directives, and checks the abbreviation domain
+		style, break, code, abbreviation and unit test roles and the seven directives, and checks the abbreviation domain
 		is added.
 		"""
 		app = MagicMock()
@@ -175,7 +176,7 @@ class Registration(Project):
 			set(STYLE_ROLES) | set(BREAK_ROLES) | {PYTHON_CODE_ROLE} | set(ABBREVIATION_ROLES) | set(REPORT_ROLES), roles
 		)
 		self.assertEqual(
-			{"condensed-class", "dependency-table", "xmlschema-graph", "shields", "tree", "abbreviations"},
+			{"condensed-class", "dependency-table", "xmlschema-graph", "shields", "tree", "unicode-table", "abbreviations"},
 			directives
 		)
 		app.add_domain.assert_any_call(AbbreviationDomain)
@@ -272,6 +273,18 @@ class Rendering(Project):
 
 		html = self._html("index")
 		self.assertRegex(html, r'_static/pyTooling\.[0-9a-f]{32}\.css')
+
+	@testcase("Script linked")
+	def Script(self) -> None:
+		"""
+		Every page links the extension's script, which gives the copy buttons their function.
+
+		Builds an empty project and checks the page links 'pyTooling.js' under the hashed name Sphinx gives a static file.
+		"""
+		self._build("Index\n#####\n")
+
+		html = self._html("index")
+		self.assertRegex(html, r'<script src="_static/pyTooling\.[0-9a-f]{32}\.js')
 
 
 @testsuite("Trees in a document")
@@ -621,6 +634,153 @@ class TreeLegendRendering(Project):
 		self.assertIn("root", latex)
 		self.assertNotIn("directory", latex)
 		self.assertNotIn("Python module", latex)
+
+
+@testsuite("Unicode tables in a document")
+class UnicodeTableRendering(Project):
+	"""What the 'unicode-table' directive puts into a built page: in HTML with copy buttons, in LaTeX without icons."""
+
+	_document = (
+		"Index\n#####\n\n"
+		".. unicode-table::\n"
+		"   :class: icons\n"
+		"\n"
+		"   U+1F4E6       | the *package*\n"
+		"   U+2699 U+FE0F\n"
+	)
+
+	@staticmethod
+	def _button(copy: str, label: str) -> str:
+		"""
+		Return the opening tag of a copy button, as HTML writes it.
+
+		:param copy:  The text the button copies.
+		:param label: The button's label.
+		:returns:     The tag.
+		"""
+		return (
+			f'<button aria-label="{label}" class="pytooling-copy" data-copy="{copy}" title="{label}" type="button">'
+			'<svg class="copy-icon"'
+		)
+
+	@testcase("HTML")
+	def HTML(self) -> None:
+		"""
+		A row per icon: the icon and its code points, each with a copy button, its name, and its description.
+
+		Builds a table of a package with a description and a gear with a variation selector, and checks the page.
+		"""
+		self._build(self._document)
+
+		self.assertEqual([], self._warningLines())
+		html = self._html("index")
+		self.assertIn('<table class="pytooling-unicode-table icons docutils align-default">', html)
+		self.assertIn(
+			'<th class="head">Icon</th>\n<th class="head">Name</th>\n<th class="head">Code points</th>\n'
+			'<th class="head">Description</th>',
+			html
+		)
+		self.assertIn(
+			'<td><p><span class="unicode-glyph">\U0001f4e6</span>'
+			+ self._button("\U0001f4e6", "Copy the icon PACKAGE"),
+			html
+		)
+		self.assertIn("<td><p>PACKAGE</p></td>", html)
+		self.assertIn(
+			'<td><p><code class="docutils literal notranslate"><span class="pre">U+1F4E6</span></code>'
+			+ self._button("U+1F4E6", "Copy the code points of PACKAGE"),
+			html
+		)
+		self.assertIn("<td><p>the <em>package</em></p></td>", html)
+		self.assertIn(self._button("\U00002699\U0000fe0f", "Copy the icon GEAR"), html)
+		self.assertIn("<td><p>GEAR</p></td>", html)
+		self.assertIn(self._button("U+2699 U+FE0F", "Copy the code points of GEAR"), html)
+
+	@testcase("Without descriptions")
+	def NoDescriptions(self) -> None:
+		"""
+		A table without any description has no column for them.
+
+		Builds a table of one icon without a description, and checks the header.
+		"""
+		self._build("Index\n#####\n\n.. unicode-table::\n\n   U+1F4C1\n")
+
+		self.assertEqual([], self._warningLines())
+		html = self._html("index")
+		self.assertIn('<th class="head">Code points</th>\n</tr>', html)
+		self.assertNotIn("Description", html)
+
+	@testcase("Unassigned character")
+	def Unassigned(self) -> None:
+		"""
+		A code point not assigned in Python's Unicode version is warned about at its line, and still gets its row.
+
+		Builds a table listing U+0378, and checks the warning and the row's name.
+		"""
+		self._build("Index\n#####\n\n.. unicode-table::\n\n   U+1F4C1\n   U+0378 | a typo\n")
+
+		self.assertEqual(
+			[
+				f"src/index.rst:7: WARNING: unicode-table: U+0378 isn't assigned in Unicode {unidata_version}, which "
+				"Python's 'unicodedata' knows; its name is unknown. [docutils]"
+			],
+			self._warningLines()
+		)
+		self.assertIn("<td><p>&lt;reserved-0378&gt;</p></td>", self._html("index"))
+
+	@testcase("Content error")
+	def ContentError(self) -> None:
+		"""
+		A mistake in the content is reported at the directive's line, where the table would be.
+
+		Builds a table of a surrogate code point, and checks the error.
+		"""
+		self._build("Index\n#####\n\n.. unicode-table::\n\n   U+D800\n")
+
+		self.assertEqual(
+			[
+				"src/index.rst:4: ERROR: unicode-table: 'U+D800' has an invalid icon: 'U+D800' is a surrogate code point, "
+				"which is no character. [docutils]"
+			],
+			self._warningLines()
+		)
+		self.assertNotIn("pytooling-unicode-table", self._html("index"))
+
+	@testcase("LaTeX")
+	def LaTeX(self) -> None:
+		"""
+		LaTeX writes the names, code points and descriptions, but neither the icons' column nor copy buttons.
+
+		Builds the table as LaTeX, and checks the table has three columns and the document no icon.
+		"""
+		self._build(self._document, "latex")
+
+		self.assertEqual([], self._warningLines())
+		latex = next((self._path / "build" / "latex").glob("*.tex")).read_text(encoding="utf-8")
+		self.assertIn("\\begin{tabulary}{\\linewidth}[t]{TTT}", latex)
+		self.assertIn("\\sphinxstyletheadfamily Name", latex)
+		self.assertNotIn("\\sphinxstyletheadfamily Icon", latex)
+		self.assertIn("PACKAGE", latex)
+		self.assertIn("\\sphinxcode{\\sphinxupquote{U+2699 U+FE0F}}", latex)
+		self.assertIn("the \\sphinxstyleemphasis{package}", latex)
+		self.assertNotIn("\U0001f4e6", latex)
+		self.assertNotIn("\U00002699", latex)
+		self.assertNotIn("Copy the", latex)
+
+	@testcase("Text")
+	def Text(self) -> None:
+		"""
+		Plain text writes the icons, but no copy buttons.
+
+		Builds the table as plain text, and checks the icon is written and no button.
+		"""
+		self._build(self._document, "text")
+
+		self.assertEqual([], self._warningLines())
+		text = (self._path / "build" / "text" / "index.txt").read_text(encoding="utf-8")
+		self.assertIn("\U0001f4e6", text)
+		self.assertIn("PACKAGE", text)
+		self.assertNotIn("Copy the", text)
 
 
 @testsuite("Abbreviations in a document")
