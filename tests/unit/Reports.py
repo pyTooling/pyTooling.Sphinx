@@ -39,6 +39,7 @@ from textwrap                      import dedent
 from unittest.mock                 import MagicMock
 
 from pyTooling.Sphinx              import ReportDomain, setup
+from pyTooling.Sphinx.ExternalLink import MarkExternalLinks, MarkIntersphinxLinks
 from pyTooling.Sphinx.Tree         import RemoveTreeLegends
 from pyTooling.Sphinx.UnicodeTable import RemoveUnicodeGlyphs
 from pyTooling.Sphinx.Workaround   import FixLatexTableWidths
@@ -136,7 +137,7 @@ class Registration(ReportProject):
 		)
 		app.add_latex_package.assert_called_once_with("pdflscape")
 		self.assertEqual(
-			[FixLatexTableWidths, RemoveTreeLegends, RemoveUnicodeGlyphs],
+			[FixLatexTableWidths, RemoveTreeLegends, RemoveUnicodeGlyphs, MarkExternalLinks, MarkIntersphinxLinks],
 			[call.args[0] for call in app.add_post_transform.call_args_list]
 		)
 		self.assertLessEqual(CONFIG_VALUES, {call.args[0] for call in app.add_config_value.call_args_list})

@@ -34,7 +34,7 @@ Resources shipped for :mod:`pyTooling.Sphinx`.
 Stylesheets:
 
 * :file:`pyTooling.css` - the styles the roles in :mod:`~pyTooling.Sphinx.Roles`, the dependency tables, the
-  trees, the Unicode tables and the report tables of domain ``report`` need.
+  trees, the Unicode tables, the report tables of domain ``report`` and the icons behind external links need.
 
 Scripts:
 
