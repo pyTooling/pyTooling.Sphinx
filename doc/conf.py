@@ -288,6 +288,7 @@ pyTooling_Unittest_Testsuites = {
 	},
 	"src": {
 		"xml_report":  "../report/unit/unittest.xml",
+		"pages":       "unittests/src",
 	},
 }
 pyTooling_CodeCoverage_Packages = {
