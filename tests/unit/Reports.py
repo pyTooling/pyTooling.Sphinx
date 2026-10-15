@@ -123,7 +123,7 @@ class Registration(ReportProject):
 	@testcase("Setup with a mock")
 	def Setup(self) -> None:
 		"""
-		The extension's setup() registers the domain, its directives and configuration values, the LaTeX package and
+		The extension's setup() registers the domain, its directives and configuration values, the LaTeX packages and
 		the post-transforms.
 
 		Calls setup() with a mocked application and checks the calls.
@@ -135,7 +135,9 @@ class Registration(ReportProject):
 		self.assertEqual(
 			DIRECTIVES, {call.args[1] for call in app.add_directive_to_domain.call_args_list if call.args[0] == "report"}
 		)
-		app.add_latex_package.assert_called_once_with("pdflscape")
+		self.assertEqual(
+			[("pdflscape", ), ("ulem", "normalem")], [call.args for call in app.add_latex_package.call_args_list]
+		)
 		self.assertEqual(
 			[
 				FixLatexTableWidths, RemoveTreeLegends, RemoveUnicodeGlyphs, MarkExternalLinks, MarkIntersphinxLinks,

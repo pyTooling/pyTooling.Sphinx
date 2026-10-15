@@ -41,13 +41,15 @@ from pyTooling.Decorators  import export
 from pyTooling.Sphinx.Node import Abbreviation, CopyButton, Landscape, TreeDescription, TreeItem, TreeLabel
 from pyTooling.Sphinx.Node import TreeLegend, TreeLegendItem, TreeSeparator
 from pyTooling.Sphinx.Node import COVERAGE_STATES, DOCUMENTATION_STATES, CoverageListing, DocCoverageListing
+from pyTooling.Sphinx.Node import Emoji, LineBreak, TaskListCheckbox
 from pyTooling.Sphinx.Node import visitFunc, departFunc
 
 
 __all__ = [
 	"translateLandscape", "translateTreeItem", "translateTreeLabel", "translateTreeSeparator", "translateTreeDescription",
 	"translateTreeLegend", "translateTreeLegendItem", "translateAbbreviation", "translateCoverageListing",
-	"translateDocCoverageListing", "translateCopyButton", "COPY_ICONS"
+	"translateDocCoverageListing", "translateCopyButton", "translateEmoji", "translateTaskListCheckbox",
+	"translateLineBreak", "COPY_ICONS"
 ]
 
 _SVG = (
@@ -494,3 +496,90 @@ def depart_CopyButton(translator: HTML5Translator, node: CopyButton) -> None:
 
 translateCopyButton: tuple[visitFunc, departFunc] = (visit_CopyButton, depart_CopyButton)
 """Visit and depart function writing a :class:`~pyTooling.Sphinx.Node.CopyButton` in HTML."""
+
+
+@export
+def visit_Emoji(translator: HTML5Translator, node: Emoji) -> None:
+	"""
+	Open an emoji in HTML: a ``<span>`` with the emoji's shortcode as tooltip.
+
+	:param translator: The HTML translator writing the page.
+	:param node:       The emoji.
+	"""
+	translator.body.append(translator.starttag(node, "span", "", CLASS="github-emoji", title=f":{node['shortcode']}:"))
+
+
+@export
+def depart_Emoji(translator: HTML5Translator, node: Emoji) -> None:
+	"""
+	Close an emoji in HTML.
+
+	:param translator: The HTML translator writing the page.
+	:param node:       The emoji.
+	"""
+	translator.body.append("</span>")
+
+
+translateEmoji: tuple[visitFunc, departFunc] = (visit_Emoji, depart_Emoji)
+"""Visit and depart function writing an :class:`~pyTooling.Sphinx.Node.Emoji` in HTML."""
+
+
+@export
+def visit_TaskListCheckbox(translator: HTML5Translator, node: TaskListCheckbox) -> None:
+	"""
+	Write a task list item's checkbox in HTML, completely: a disabled ``<input>`` of type ``checkbox``, checked if the
+	task is done.
+
+	:param translator: The HTML translator writing the page.
+	:param node:       The checkbox.
+	:raises SkipNode:  Always, so the node's text isn't written.
+	"""
+	checked = ' checked=""' if node["checked"] else ""
+	label = "Completed task" if node["checked"] else "Incomplete task"
+	translator.body.append(
+		f'<input class="github-task-list-checkbox" type="checkbox" disabled=""{checked} aria-label="{label}" />'
+	)
+
+	raise nodes.SkipNode
+
+
+@export
+def depart_TaskListCheckbox(translator: HTML5Translator, node: TaskListCheckbox) -> None:
+	"""
+	Close a task list item's checkbox in HTML, which writes nothing: :func:`visit_TaskListCheckbox` wrote it all.
+
+	:param translator: The HTML translator writing the page.
+	:param node:       The checkbox.
+	"""
+
+
+translateTaskListCheckbox: tuple[visitFunc, departFunc] = (visit_TaskListCheckbox, depart_TaskListCheckbox)
+"""Visit and depart function writing a :class:`~pyTooling.Sphinx.Node.TaskListCheckbox` in HTML."""
+
+
+@export
+def visit_LineBreak(translator: HTML5Translator, node: LineBreak) -> None:
+	"""
+	Write a line break in HTML, completely: ``<br />``.
+
+	:param translator: The HTML translator writing the page.
+	:param node:       The line break.
+	:raises SkipNode:  Always, so the node's text isn't written.
+	"""
+	translator.body.append("<br />\n")
+
+	raise nodes.SkipNode
+
+
+@export
+def depart_LineBreak(translator: HTML5Translator, node: LineBreak) -> None:
+	"""
+	Close a line break in HTML, which writes nothing: :func:`visit_LineBreak` wrote it all.
+
+	:param translator: The HTML translator writing the page.
+	:param node:       The line break.
+	"""
+
+
+translateLineBreak: tuple[visitFunc, departFunc] = (visit_LineBreak, depart_LineBreak)
+"""Visit and depart function writing a :class:`~pyTooling.Sphinx.Node.LineBreak` in HTML."""

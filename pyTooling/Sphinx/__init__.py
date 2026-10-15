@@ -152,15 +152,23 @@ from pyTooling.Sphinx.HTML   import translateDocCoverageListing as translateDocC
 from pyTooling.Sphinx.HTML   import translateAbbreviation, translateTreeItem, translateTreeLabel, translateTreeSeparator
 from pyTooling.Sphinx.HTML   import translateTreeDescription, translateTreeLegend, translateTreeLegendItem
 from pyTooling.Sphinx.HTML   import translateCopyButton
+from pyTooling.Sphinx.HTML   import translateEmoji as translateEmojiAsHTML
+from pyTooling.Sphinx.HTML   import translateLineBreak as translateLineBreakAsHTML
+from pyTooling.Sphinx.HTML   import translateTaskListCheckbox as translateTaskListCheckboxAsHTML
 from pyTooling.Sphinx.LaTeX  import translateLandscape as translateLandscapeAsLaTeX
 from pyTooling.Sphinx.LaTeX  import translateCoverageListing as translateCoverageListingAsLaTeX
 from pyTooling.Sphinx.LaTeX  import translateDocCoverageListing as translateDocCoverageListingAsLaTeX
+from pyTooling.Sphinx.LaTeX  import translateEmoji as translateEmojiAsLaTeX
+from pyTooling.Sphinx.LaTeX  import translateLineBreak as translateLineBreakAsLaTeX
+from pyTooling.Sphinx.LaTeX  import translateTaskListCheckbox as translateTaskListCheckboxAsLaTeX
 from pyTooling.Sphinx.Node   import Abbreviation, Landscape, RegisteredNode, TreeItem, TreeLabel, TreeSeparator
 from pyTooling.Sphinx.Node   import CopyButton, CoverageListing, DocCoverageListing, TreeDescription, TreeLegend
-from pyTooling.Sphinx.Node   import TreeLegendItem
+from pyTooling.Sphinx.Node   import Emoji, LineBreak, TaskListCheckbox, TreeLegendItem
 
 
-__all__ = ["STYLESHEET", "SCRIPT", "SUBSTITUTIONS", "NODES", "INDENTATION", "LINE_ANCHOR", "REPORT_ROLES"]
+__all__ = [
+	"STYLESHEET", "SCRIPT", "SUBSTITUTIONS", "LATEX_PREAMBLE", "NODES", "INDENTATION", "LINE_ANCHOR", "REPORT_ROLES"
+]
 
 #: Name of the stylesheet, in :mod:`pyTooling.Sphinx.Resources`.
 STYLESHEET = "pyTooling.css"
@@ -182,6 +190,13 @@ SUBSTITUTIONS = """
 .. |hr| replace:: :hr:`.`
 """
 
+#: LaTeX commands appended to the preamble: the lines of the style roles ``:strike:`` and ``:underline:`` - and of
+#: strikethrough in converted Markdown -, drawn by package ``ulem``, which :func:`setup` requests.
+LATEX_PREAMBLE = r"""
+\providecommand*{\DUrolestrike}[1]{\sout{#1}}
+\providecommand*{\DUroleunderline}[1]{\uline{#1}}
+"""
+
 #: The nodes the extension registers, each with its visitors per output format.
 #:
 #: A format without visitors of its own - e.g. LaTeX for the tree's nodes - writes a node with the visitors of its
@@ -201,6 +216,12 @@ NODES: tuple[RegisteredNode, ...] = (
 	 "latex": translateCoverageListingAsLaTeX},
 	{"name": "DocCoverageListing", "node": DocCoverageListing, "html": translateDocCoverageListingAsHTML,
 	 "latex": translateDocCoverageListingAsLaTeX},
+	{"name": "Emoji",              "node": Emoji,              "html": translateEmojiAsHTML,
+	 "latex": translateEmojiAsLaTeX},
+	{"name": "TaskListCheckbox",   "node": TaskListCheckbox,   "html": translateTaskListCheckboxAsHTML,
+	 "latex": translateTaskListCheckboxAsLaTeX},
+	{"name": "LineBreak",          "node": LineBreak,          "html": translateLineBreakAsHTML,
+	 "latex": translateLineBreakAsLaTeX},
 )
 
 
@@ -604,6 +625,21 @@ def extendProlog(sphinx: Sphinx, config: Any) -> None:
 	:param config: The configuration, after :file:`conf.py` was read.
 	"""
 	config.rst_prolog = (config.rst_prolog or "") + SUBSTITUTIONS
+
+
+@export
+def extendLaTeXPreamble(sphinx: Sphinx, config: Any) -> None:
+	"""
+	Call-back for Sphinx' ``config-inited`` event, appending :data:`LATEX_PREAMBLE` to ``latex_elements["preamble"]``.
+
+	The configuration's mapping is replaced by a copy, so the default mapping of the configuration value isn't changed.
+
+	:param sphinx: The Sphinx application.
+	:param config: The configuration, after :file:`conf.py` was read.
+	"""
+	elements = dict(config.latex_elements)
+	elements["preamble"] = elements.get("preamble", "") + LATEX_PREAMBLE
+	config.latex_elements = elements
 
 
 @export
@@ -1028,6 +1064,8 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 
 	# the report tables are put into 'Landscape' nodes, whose LaTeX environment is package 'pdflscape''s
 	sphinx.add_latex_package("pdflscape")
+	# the lines of strikethrough and underline, see 'LATEX_PREAMBLE'
+	sphinx.add_latex_package("ulem", "normalem")
 	sphinx.add_post_transform(FixLatexTableWidths)
 	sphinx.add_post_transform(RemoveTreeLegends)
 	sphinx.add_post_transform(RemoveUnicodeGlyphs)
@@ -1054,6 +1092,7 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	sphinx.add_post_transform(AddDownloadSizes)
 
 	sphinx.connect("config-inited", extendProlog)
+	sphinx.connect("config-inited", extendLaTeXPreamble)
 	# after the configuration values above are registered, and before any document is read - a requirements file
 	# that doesn't exist should end the build here rather than in the middle of a page
 	sphinx.connect("config-inited", prepareEntrypoints)

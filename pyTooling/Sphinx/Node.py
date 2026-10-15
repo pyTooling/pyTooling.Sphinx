@@ -209,3 +209,32 @@ class DocCoverageListing(nodes.literal_block):
 
 	The node's text is the condensed source, so a builder without visitors for this node writes it as a literal block.
 	"""
+
+
+@export
+class Emoji(nodes.inline):
+	"""
+	An emoji: its characters, which HTML draws with its shortcode as tooltip.
+
+	Attribute ``shortcode`` holds the emoji's GitHub shortcode without colons, e.g. ``tada``. LaTeX writes the shortcode
+	with colons instead of the characters, as pdfLaTeX has no emoji.
+	"""
+
+
+@export
+class TaskListCheckbox(nodes.inline):
+	"""
+	The checkbox opening a task list item, which HTML draws as a disabled checkbox.
+
+	Attribute ``checked`` states whether the task is done. The node's text is a ballot box, with check if the task is
+	done, so a format writing its base-class - an inline element - writes that character. LaTeX writes a box symbol.
+	"""
+
+
+@export
+class LineBreak(nodes.inline):
+	"""
+	A line break inside a paragraph, which HTML writes as ``<br />`` and LaTeX as ``\\newline``.
+
+	The node's text is a newline, so a format writing its base-class - an inline element - writes a space.
+	"""
