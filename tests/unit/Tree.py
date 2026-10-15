@@ -35,7 +35,7 @@ from docutils              import nodes
 
 from pyTooling.Sphinx      import SphinxExtensionError
 from pyTooling.Sphinx.Node import TreeDescription, TreeLabel, TreeSeparator
-from pyTooling.Sphinx.Tree import Tree, describedIcon, icon, legendPosition, markerIcons
+from pyTooling.Sphinx.Tree import LegendPosition, Tree, describedIcon, icon, markerIcons
 from pyTooling.Testing     import Testcase, testsuite, testcase
 
 
@@ -435,23 +435,31 @@ class TreeLegendPosition(Testcase):
 	@testcase("Positions")
 	def Positions(self) -> None:
 		"""
-		The legend is drawn at the top, at the bottom, or not at all.
+		The legend is drawn at the top, at the bottom, or not at all; without a value, at the bottom.
 
-		Converts each position and checks it is returned.
+		Parses each position and no value, and checks the members.
 		"""
-		for position in ("top", "bottom", "none"):
-			with self.subTest(position=position):
-				self.assertEqual(position, legendPosition(position))
+		for value, position in (
+			("top",    LegendPosition.Top),
+			("bottom", LegendPosition.Bottom),
+			("none",   LegendPosition.Hidden),
+			(None,     LegendPosition.Bottom),
+		):
+			with self.subTest(value=value):
+				self.assertIs(position, LegendPosition.Parse(value))
 
 	@testcase("Unknown position")
 	def Unknown(self) -> None:
 		"""
-		Any other value is rejected.
+		Any other value is rejected, and the note lists the positions.
 
-		Converts 'left' and checks the ValueError.
+		Parses 'left' and checks the ValueError and its note.
 		"""
-		with self.assertRaises(ValueError):
-			legendPosition("left")
+		with self.assertRaises(ValueError) as context:
+			LegendPosition.Parse("left")
+
+		self.assertEqual("'left' is not a valid LegendPosition.", str(context.exception))
+		self.assertEqual(["Allowed values: top, bottom, none."], context.exception.__notes__)
 
 
 @testsuite("Tree markers")

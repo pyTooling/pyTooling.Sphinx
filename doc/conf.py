@@ -380,7 +380,7 @@ for module in Path(f"../{project.replace('.', '/')}").iterdir():
 # ==============================================================================
 # Sphinx.Ext.AutoDoc - skipped members
 # ==============================================================================
-def skipDocutilsNodeMembers(
+def skipForeignMembers(
 	app: Sphinx,
 	what: str,
 	name: str,
@@ -389,11 +389,11 @@ def skipDocutilsNodeMembers(
 	options: Any
 ) -> Nullable[bool]:
 	"""
-	Skip a member inherited from :mod:`docutils.nodes`.
+	Skip a member inherited from :mod:`docutils.nodes`, :mod:`enum` or a built-in type, e.g. :class:`str`.
 
-	The node classes in :mod:`pyTooling.Sphinx.Node` derive from docutils' nodes, whose methods are documented in
-	docutils' own format. ``:inherited-members:`` in the module template would render each of them, with an error per
-	malformed reference.
+	``:inherited-members:`` in the module template would render each of them: the methods of docutils' nodes, which the
+	node classes in :mod:`pyTooling.Sphinx.Node` derive from, are documented in docutils' own format, with an error per
+	malformed reference; and a :class:`~pyTooling.Common.StringEnum` would list every method of a string.
 
 	:param app:     The Sphinx application.
 	:param what:    Kind of the object the member belongs to, e.g. ``class``.
@@ -403,7 +403,9 @@ def skipDocutilsNodeMembers(
 	:param options: The options of the autodoc directive.
 	:returns:       ``True`` to skip the member, ``None`` to leave the decision to autodoc.
 	"""
-	if getattr(obj, "__module__", None) == "docutils.nodes":
+	if getattr(obj, "__module__", None) in ("docutils.nodes", "enum", "builtins"):
+		return True
+	elif getattr(obj, "__objclass__", None) is str:
 		return True
 
 	return None
@@ -415,4 +417,4 @@ def setup(app: Sphinx) -> None:
 
 	:param app: The Sphinx application.
 	"""
-	app.connect("autodoc-skip-member", skipDocutilsNodeMembers)
+	app.connect("autodoc-skip-member", skipForeignMembers)

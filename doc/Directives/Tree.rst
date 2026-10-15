@@ -282,7 +282,7 @@ Options
    .. rst:directive:option:: legend: top | bottom | none
 
       Where the legend of the icons with a text is drawn: above the tree, below it, or not at all. Default:
-      ``bottom``. Without an icon having a text, the tree has no legend.
+      ``bottom``, also for the option without a value. Without an icon having a text, the tree has no legend.
 
    .. rst:directive:option:: expanded-levels: <levels>
 

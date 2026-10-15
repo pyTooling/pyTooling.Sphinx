@@ -115,6 +115,7 @@ from docutils                          import nodes
 from docutils.parsers.rst              import directives
 from sphinx.transforms.post_transforms import SphinxPostTransform
 
+from pyTooling.Common                  import StringEnum
 from pyTooling.Decorators              import export
 from pyTooling.Tree                    import Node
 from pyTooling.Sphinx                  import BaseDirective, SphinxExtensionError, strip
@@ -123,7 +124,7 @@ from pyTooling.Sphinx.Node             import TreeSeparator
 
 
 __all__ = [
-	"DEFAULT_MARKER", "DEFAULT_ICONS", "LEGEND_POSITIONS", "CODE_POINT_PATTERN", "SEPARATOR_PATTERN", "SEPARATOR"
+	"DEFAULT_MARKER", "DEFAULT_ICONS", "CODE_POINT_PATTERN", "SEPARATOR_PATTERN", "SEPARATOR"
 ]
 
 #: The marker of an entry whose icon is the one of its kind.
@@ -142,8 +143,6 @@ DEFAULT_ICONS = {
 }
 
 #: A word of an icon option written as a Unicode code point, e.g. ``U+1F4C1``.
-LEGEND_POSITIONS = ("top", "bottom", "none")
-
 CODE_POINT_PATTERN = re_compile(r"U\+([0-9A-Fa-f]{1,6})")
 
 #: The separator between an entry's text and its description, as group ``separator``: a ``|`` after whitespace and
@@ -221,15 +220,18 @@ def describedIcon(option: Nullable[str]) -> tuple[str, str]:
 
 
 @export
-def legendPosition(option: Nullable[str]) -> str:
+class LegendPosition(StringEnum):
 	"""
-	Option converter reading where the legend is drawn: one of :data:`LEGEND_POSITIONS`.
+	Where a tree's legend is drawn, as option ``:legend:`` of the ``tree`` directive states it.
 
-	:param option:      The option's value as it was written; ``None`` if the option has no value.
-	:returns:           The position.
-	:raises ValueError: If the value is none of the positions.
+	The legend gets the CSS class ``tree-legend-<value>``.
 	"""
-	return directives.choice(option, LEGEND_POSITIONS)
+
+	Top =    "top"     #: Above the tree.
+	Bottom = "bottom"  #: Below the tree.
+	Hidden = "none"    #: Not at all.
+
+	DEFAULT = Bottom   #: An option without a value draws the legend below the tree.
 
 
 @export
@@ -309,7 +311,7 @@ class Tree(BaseDirective):
 		"expanded-icon":   icon,
 		"collapsed-icon":  icon,
 		"icons":           markerIcons,
-		"legend":          legendPosition,
+		"legend":          LegendPosition.Parse,
 		"expanded-levels": directives.nonnegative_int,
 		"class":           strip,
 	}
@@ -328,7 +330,7 @@ class Tree(BaseDirective):
 			name: self.options.get(name, (DEFAULT_ICONS[name], "")) for name in ("root-icon", "node-icon", "leaf-icon")
 		}
 		describedIcons.update(markers)
-		position = self.options.get("legend", "bottom")
+		position = self.options.get("legend", LegendPosition.DEFAULT)
 		try:
 			roots = self._ParseEntries(self.content, (DEFAULT_MARKER, *markers))
 			legend, messages = self._BuildLegend(describedIcons.values(), position)
@@ -350,15 +352,15 @@ class Tree(BaseDirective):
 				item["columnWidth"] = columnWidth
 
 		if len(legend.children) == 0:
-			if "legend" in self.options and position != "none":
+			if "legend" in self.options and position is not LegendPosition.Hidden:
 				messages.append(self.state.document.reporter.warning(
 					f"{self.directiveName}: ':legend: {position}' without an icon having a text draws no legend.",
 					line=self.lineno
 				))
 			return [tree, *messages]
-		elif position == "top":
+		elif position is LegendPosition.Top:
 			return [legend, tree, *messages]
-		elif position == "bottom":
+		elif position is LegendPosition.Bottom:
 			return [tree, legend, *messages]
 		else:
 			return [tree, *messages]
@@ -366,7 +368,7 @@ class Tree(BaseDirective):
 	def _BuildLegend(
 		self,
 		describedIcons: Iterable[tuple[str, str]],
-		position: str
+		position: LegendPosition
 	) -> tuple[TreeLegend, list[nodes.system_message]]:
 		"""
 		Build the legend of the tree's icons: an item per icon with a text, in the order given.
@@ -375,8 +377,7 @@ class Tree(BaseDirective):
 		parsed as inline ReST at the directive's line, as an option has no line of its own.
 
 		:param describedIcons:        Each icon with its text; an icon with an empty text has no item.
-		:param position:              Where the legend is drawn, one of :data:`LEGEND_POSITIONS`; the legend gets the CSS
-		                              class ``tree-legend-<position>``.
+		:param position:              Where the legend is drawn; the legend gets the CSS class ``tree-legend-<position>``.
 		:returns:                     The legend - without items, if no icon has a text -, and the messages about the
 		                              texts.
 		:raises SphinxExtensionError: If an icon is given twice with different texts.
