@@ -63,7 +63,7 @@ This is how the example renders, for a package with one sub-package. The package
          :reportid: example
          :style:    vertical-table
 
-The documentation's own :doc:`documentation coverage report <../DocCoverage>` is rendered by these directives too.
+The documentation's own :doc:`documentation coverage report <../doccoverage/index>` is rendered by these directives too.
 
 
 .. _DIR/DocCoverage/Configuration:

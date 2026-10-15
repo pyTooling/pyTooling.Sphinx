@@ -63,6 +63,7 @@ The coverage levels - limits, descriptions and CSS classes - are declared under 
 from __future__                                    import annotations
 
 from pathlib                                       import Path
+from tokenize                                      import TokenError
 from typing                                        import TYPE_CHECKING, Any, ClassVar, Generator, Mapping
 from typing                                        import Optional as Nullable, TypedDict, Union
 
@@ -178,7 +179,9 @@ class DocCoverageBase(BaseDirective):
 		Analyze every configured package, once per build.
 
 		A package that can't be analyzed keeps the exception, which a directive or a package's pages show when they need
-		it.
+		it: a :exc:`ReportExtensionError` - e.g. pyEDAA.Reports isn't installed, or its analysis failed -, an
+		:exc:`OSError` reading a source file, a :exc:`SyntaxError` or :exc:`tokenize.TokenError` parsing one, or a
+		:exc:`UnicodeDecodeError` decoding one. Any other exception is a bug, and ends the build.
 
 		:param sphinxApplication: Sphinx application instance.
 		"""
@@ -190,7 +193,7 @@ class DocCoverageBase(BaseDirective):
 		for reportID, packageConfiguration in cls._packageConfigurations.items():
 			try:
 				cls._reports[reportID], cls._results[reportID] = cls._AnalyzePackage(packageConfiguration)
-			except Exception as ex:
+			except (ReportExtensionError, OSError, SyntaxError, TokenError, UnicodeDecodeError) as ex:
 				cls._analysisErrors[reportID] = ex
 
 	@classmethod
@@ -217,17 +220,27 @@ class DocCoverageBase(BaseDirective):
 		:returns:                           The package's coverage, aggregated, and docstr_coverage's results per
 		                                    expected doc-string, which a module's listing marks.
 		:raises ReportsPackageMissingError: If pyEDAA.Reports or docstr_coverage isn't installed.
+		:raises ReportExtensionError:       If pyEDAA.Reports' analysis fails, e.g. the directory doesn't exist.
+		:raises OSError:                    If a source file can't be read.
+		:raises SyntaxError:                If a source file isn't valid Python.
+		:raises tokenize.TokenError:        If a source file ends inside a statement or string.
+		:raises UnicodeDecodeError:         If a source file isn't UTF-8.
 		"""
 		try:
+			from pyEDAA.Reports.DocumentationCoverage        import DocCoverageError
 			from pyEDAA.Reports.DocumentationCoverage.Python import DocStrCoverage as DocStrCovAnalyzer
 		except ImportError as cause:
 			raise ReportsPackageMissingError(
 				"Analyzing the documentation coverage", "'pyEDAA.Reports' and 'docstr_coverage'"
 			) from cause
 
-		docStrCov = DocStrCovAnalyzer(packageConfiguration["name"], packageConfiguration["directory"])
-		results = docStrCov.Analyze()
-		coverage = docStrCov.Convert()
+		try:
+			docStrCov = DocStrCovAnalyzer(packageConfiguration["name"], packageConfiguration["directory"])
+			results = docStrCov.Analyze()
+			coverage = docStrCov.Convert()
+		except DocCoverageError as ex:
+			raise ReportExtensionError(f"Package '{packageConfiguration['name']}' can't be analyzed.") from ex
+
 		coverage.Aggregate()
 
 		return coverage, results

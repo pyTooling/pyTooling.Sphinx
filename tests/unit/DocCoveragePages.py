@@ -43,8 +43,9 @@ from sphinx.testing.util               import SphinxTestApp
 from pyTooling.Testing                 import testsuite, testcase
 
 from pyTooling.Sphinx                  import ReportDomain
+from pyTooling.Sphinx.CondensedSource  import CondensedSource
 from pyTooling.Sphinx.DocCoverage      import DocCoverageBase
-from pyTooling.Sphinx.DocCoveragePages import CondensedSource, DocCoverageReportPages
+from pyTooling.Sphinx.DocCoveragePages import DocCoverageReportPages
 
 from tests.unit.Extension              import Project
 
@@ -200,7 +201,9 @@ class Pages(DocCoverageProject):
 
 		self.assertEqual([], self._warningLines())
 		body = self._body("index")
-		for href, text in (("doccov/tests.myPackage.html", "tests.myPackage"), ("doccov/tests.myPackage/Shapes.html", "Shapes")):
+		for href, text in (
+			("doccov/tests.myPackage.html", "tests.myPackage"), ("doccov/tests.myPackage/Shapes.html", "Shapes")
+		):
 			with self.subTest(text=text):
 				self.assertIn(f'href="{href}"><span class="xref report report-doccov">{text}</span>', body)
 		self.assertIn("<h1>tests.myPackage", self._body("doccov/tests.myPackage"))
@@ -368,7 +371,7 @@ class Condensing(DocCoverageProject):
 
 		self.assertEqual(
 			[(None, "", ""), (2, "", ""), (3, "documented", ""), (4, "documented", ""), (None, "", "\t")],
-			CondensedSource(source, "m.py", expected, self._module()).Lines
+			CondensedSource.Parse(source, "m.py", expected, self._module()).Lines
 		)
 
 	@testcase("States of fields and variables from the model")
@@ -386,10 +389,32 @@ class Condensing(DocCoverageProject):
 		ClassCoverage("A", parent=module).Fields["y"] = CoverageState.Undocumented
 		source = "X = 1\nZ = 2\n\nclass A:\n\ty: int\n"
 
-		lines = CondensedSource(source, "m.py", [("A", "undocumented")], module).Lines
+		lines = CondensedSource.Parse(source, "m.py", [("A", "undocumented")], module).Lines
 		self.assertIn((1, "documented", ""), lines)
 		self.assertIn((2, "", ""), lines)
 		self.assertIn((5, "undocumented", ""), lines)
+
+	@testcase("Constructor")
+	def Constructor(self) -> None:
+		"""
+		The constructor takes the condensed lines; it rejects None, a non-iterable and a line, which isn't a tuple.
+
+		Constructs condensed sources from lines and from wrong values.
+		"""
+		lines = [(1, "documented", ""), (None, "", "\t")]
+		self.assertEqual(lines, CondensedSource(lines).Lines)
+
+		with self.assertRaises(ValueError) as context:
+			CondensedSource(None)
+		self.assertEqual("Parameter 'lines' is None.", str(context.exception))
+
+		with self.assertRaises(TypeError) as context:
+			CondensedSource(1)
+		self.assertEqual("Parameter 'lines' is not iterable.", str(context.exception))
+
+		with self.assertRaises(TypeError) as context:
+			CondensedSource([[1, "", ""]])
+		self.assertEqual("Parameter 'lines' contains an element, which is not of type 'tuple'.", str(context.exception))
 
 	@testcase("Analysis not matching the source")
 	def Mismatch(self) -> None:
@@ -398,8 +423,8 @@ class Condensing(DocCoverageProject):
 
 		Condenses a module with a function the analysis doesn't name.
 		"""
-		with self.assertLogs("sphinx.pyTooling.Sphinx.DocCoveragePages", "WARNING") as logs:
-			lines = CondensedSource("def f():\n\tpass\n", "m.py", [("g", "documented")], self._module()).Lines
+		with self.assertLogs("sphinx.pyTooling.Sphinx.CondensedSource", "WARNING") as logs:
+			lines = CondensedSource.Parse("def f():\n\tpass\n", "m.py", [("g", "documented")], self._module()).Lines
 
 		self.assertEqual([(1, "", ""), (None, "", "\t")], lines)
 		self.assertIn("The documentation coverage analysis of 'm.py' doesn't match the source", logs.output[0])
@@ -498,6 +523,33 @@ class Configuration(DocCoverageProject):
 			],
 			self._warningLines()
 		)
+
+	@testcase("Invalid source")
+	def InvalidSource(self) -> None:
+		"""
+		A package with a module, which isn't valid Python, can't be analyzed: its table and its pages report the error.
+
+		Builds the table of a package with a syntax error in a module.
+		"""
+		package = self._path / "broken"
+		package.mkdir()
+		(package / "__init__.py").write_text('"""A broken package."""\n', encoding="utf-8")
+		(package / "Module.py").write_text("x = = 1\n", encoding="utf-8")
+
+		self._build(
+			"Index\n#####\n\n.. report:doc-coverage::\n   :reportid: doc\n",
+			pyTooling_DocCoverage_Packages={
+				"doc": {"name": "broken", "directory": str(package), "pages": "doccov", "fail_below": 80, "levels": "default"}
+			}
+		)
+
+		warnings = "\n".join(self._warningLines())
+		self.assertIn(
+			"ERROR: Caught ReportExtensionError when generating the pages of documentation coverage 'doc'.", warnings
+		)
+		self.assertIn("  SyntaxError: ", warnings)
+		self.assertIn("ERROR: Caught SyntaxError when analyzing package 'broken'.", warnings)
+		self.assertIn("<p>Caught SyntaxError when analyzing package ", self._body("index"))
 
 	@testcase("Without pages")
 	def WithoutPages(self) -> None:
