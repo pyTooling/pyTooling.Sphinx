@@ -77,75 +77,213 @@ from unicodedata                       import category, name as unicodeName, uni
 from docutils                          import nodes
 from sphinx.transforms.post_transforms import SphinxPostTransform
 
+from pyTooling.Common                  import StringEnum, getFullyQualifiedName
 from pyTooling.Decorators              import export, readonly
+from pyTooling.MetaClasses             import ExtendedType
 from pyTooling.Sphinx                  import BaseDirective, SphinxExtensionError, strip
 from pyTooling.Sphinx.Node             import CopyButton
 from pyTooling.Sphinx.Tree             import SEPARATOR_PATTERN, icon
 
 
-__all__ = ["TABLE_CLASS", "LABELS"]
+__all__ = ["TABLE_CLASS"]
 
 #: The CSS class of every table the directive writes, by which :class:`RemoveUnicodeGlyphs` finds them.
 TABLE_CLASS = "pytooling-unicode-table"
 
-#: The labels of a code point without a name, by its general category, as the Unicode standard (section 4.8) forms
-#: them: ``<label-XXXX>``.
-#:
-#: Category ``Cn`` is a reserved code point or a noncharacter, which :func:`codePointLabel` tells apart.
-LABELS = {
-	"Cc": "control",
-	"Co": "private-use",
-	"Cs": "surrogate",
-	"Cn": "reserved",
-}
+
+@export
+class CodePointType(StringEnum):
+	"""
+	The type of a code point, as the Unicode standard (section 2.4, table 2-3) defines it.
+
+	A code point without a name is labelled by its type (section 4.8): ``<control-0009>``. A letter, a symbol or a format
+	character has a name.
+	"""
+
+	Graphic =      "graphic"       #: A letter, mark, number, punctuation, symbol or space.
+	Format =       "format"        #: An invisible character affecting its neighbours, or a line or paragraph separator.
+	Control =      "control"       #: A control character, e.g. a tab.
+	PrivateUse =   "private-use"   #: A character assigned by a private agreement, not by Unicode.
+	Surrogate =    "surrogate"     #: Half of a UTF-16 surrogate pair, never a character of its own.
+	Noncharacter = "noncharacter"  #: Reserved for a program's internal use; one of the 66 noncharacters.
+	Reserved =     "reserved"      #: Not assigned in the Unicode version of :mod:`unicodedata`.
 
 
 @export
-def isNoncharacter(character: str) -> bool:
+class CodePoint(metaclass=ExtendedType, slots=True):
 	"""
-	Check whether a character is one of the 66 noncharacters, which Unicode reserves for a program's internal use.
+	A Unicode code point: its value, and what :mod:`unicodedata` knows about it - its general category, its type and its
+	name.
 
-	The noncharacters are U+FDD0 to U+FDEF, and the last two code points of every plane, e.g. U+FFFE and U+FFFF.
-
-	:param character: The character.
-	:returns:         ``True`` if the character is a noncharacter.
+	A code point is written ``U+<hex>`` with at least four digits, e.g. ``U+2699``.
 	"""
-	codePoint = ord(character)
-	return 0xfdd0 <= codePoint <= 0xfdef or codePoint & 0xfffe == 0xfffe
 
+	_value: int  #: The code point's value, in range 0 to 0x10FFFF.
 
-@export
-def isSelector(character: str) -> bool:
-	"""
-	Check whether a character selects how its neighbours are drawn, instead of being drawn itself.
+	def __init__(self, value: int) -> None:
+		"""
+		Initializes a code point by its value.
 
-	Such a character is a variation selector, e.g. U+FE0F selecting an emoji's colourful presentation, or the zero width
-	joiner U+200D, which joins emoji into one, e.g. a man and a computer into a technologist.
+		:param value:       The code point's value.
+		:raises ValueError: If parameter ``value`` is ``None``.
+		:raises TypeError:  If parameter ``value`` isn't of type :class:`int`.
+		:raises ValueError: If parameter ``value`` is out of range 0 to 0x10FFFF.
+		"""
+		if value is None:
+			raise ValueError("Parameter 'value' is None.")
+		elif not isinstance(value, int):
+			ex = TypeError("Parameter 'value' is not of type 'int'.")
+			ex.add_note(f"Got type '{getFullyQualifiedName(value)}'.")
+			raise ex
+		elif not 0 <= value <= 0x10ffff:
+			ex = ValueError("Parameter 'value' is out of range 0 to 0x10FFFF.")
+			ex.add_note(f"Got value '{value:#x}'.")
+			raise ex
 
-	:param character: The character.
-	:returns:         ``True`` if the character is a variation selector or the zero width joiner.
-	"""
-	codePoint = ord(character)
-	return 0xfe00 <= codePoint <= 0xfe0f or 0xe0100 <= codePoint <= 0xe01ef or codePoint == 0x200d
+		self._value = value
 
+	@classmethod
+	def FromCharacter(cls, character: str) -> Self:
+		"""
+		Create the code point of a character.
 
-@export
-def codePointLabel(character: str) -> str:
-	"""
-	Return a character's name, or the label the Unicode standard gives a code point without a name.
+		:param character:   The character.
+		:returns:           The character's code point.
+		:raises ValueError: If parameter ``character`` is ``None``.
+		:raises TypeError:  If parameter ``character`` isn't of type :class:`str`.
+		:raises ValueError: If parameter ``character`` isn't a single character.
+		"""
+		if character is None:
+			raise ValueError("Parameter 'character' is None.")
+		elif not isinstance(character, str):
+			ex = TypeError("Parameter 'character' is not of type 'str'.")
+			ex.add_note(f"Got type '{getFullyQualifiedName(character)}'.")
+			raise ex
+		elif len(character) != 1:
+			ex = ValueError("Parameter 'character' isn't a single character.")
+			ex.add_note(f"Got {len(character)} characters.")
+			raise ex
 
-	A label is ``<label-XXXX>``, e.g. ``<control-0009>``, ``<private-use-E000>``, ``<reserved-0378>`` or
-	``<noncharacter-FFFF>``: the kind of the code point, and its hexadecimal value with at least four digits.
+		return cls(ord(character))
 
-	:param character: The character.
-	:returns:         The character's name, or its label.
-	"""
-	if (name := unicodeName(character, "")) != "":
-		return name
+	@readonly
+	def Value(self) -> int:
+		"""
+		Read-only property to access the code point's value (:attr:`_value`).
 
-	codeCategory = category(character)
-	label = "noncharacter" if codeCategory == "Cn" and isNoncharacter(character) else LABELS[codeCategory]
-	return f"<{label}-{ord(character):04X}>"
+		:returns: The value.
+		"""
+		return self._value
+
+	@readonly
+	def Character(self) -> str:
+		"""
+		Read-only property to return the character of the code point.
+
+		:returns: The character.
+		"""
+		return chr(self._value)
+
+	@readonly
+	def Category(self) -> str:
+		"""
+		Read-only property to return the code point's general category, as :mod:`unicodedata` knows it.
+
+		:returns: The general category's abbreviation, e.g. ``Lu`` for an uppercase letter or ``Cn`` for an unassigned
+		          code point.
+		"""
+		return category(chr(self._value))
+
+	@readonly
+	def Type(self) -> CodePointType:
+		"""
+		Read-only property to return the code point's type, derived from its general category.
+
+		A code point of category ``Cn`` is a noncharacter or reserved.
+
+		:returns: The type.
+		"""
+		generalCategory = self.Category
+		if generalCategory == "Cn":
+			return CodePointType.Noncharacter if self.IsNoncharacter else CodePointType.Reserved
+		elif generalCategory == "Cc":
+			return CodePointType.Control
+		elif generalCategory == "Co":
+			return CodePointType.PrivateUse
+		elif generalCategory == "Cs":
+			return CodePointType.Surrogate
+		elif generalCategory in ("Cf", "Zl", "Zp"):
+			return CodePointType.Format
+
+		return CodePointType.Graphic
+
+	@readonly
+	def Name(self) -> str:
+		"""
+		Read-only property to return the code point's name, or the label the Unicode standard gives a code point without
+		a name.
+
+		A label is ``<type-XXXX>``, e.g. ``<control-0009>``, ``<private-use-E000>``, ``<reserved-0378>`` or
+		``<noncharacter-FFFF>``: the code point's :attr:`Type`, and its hexadecimal value with at least four digits.
+
+		:returns: The name, or the label.
+		"""
+		if (name := unicodeName(chr(self._value), "")) != "":
+			return name
+
+		return f"<{self.Type}-{self._value:04X}>"
+
+	@readonly
+	def IsAssigned(self) -> bool:
+		"""
+		Read-only property to return whether the code point is assigned in the Unicode version of :mod:`unicodedata`.
+
+		A noncharacter is assigned: Unicode reserves it permanently.
+
+		:returns: ``True``, if the code point isn't reserved.
+		"""
+		return self.Type is not CodePointType.Reserved
+
+	@readonly
+	def IsNoncharacter(self) -> bool:
+		"""
+		Read-only property to return whether the code point is one of the 66 noncharacters, which Unicode reserves for a
+		program's internal use.
+
+		The noncharacters are U+FDD0 to U+FDEF, and the last two code points of every plane, e.g. U+FFFE and U+FFFF.
+
+		:returns: ``True``, if the code point is a noncharacter.
+		"""
+		return 0xfdd0 <= self._value <= 0xfdef or self._value & 0xfffe == 0xfffe
+
+	@readonly
+	def IsSelector(self) -> bool:
+		"""
+		Read-only property to return whether the code point selects how its neighbours are drawn, instead of being drawn
+		itself.
+
+		Such a code point is a variation selector, e.g. U+FE0F selecting an emoji's colourful presentation, or the zero
+		width joiner U+200D, which joins emoji into one, e.g. a man and a computer into a technologist.
+
+		:returns: ``True``, if the code point is a variation selector or the zero width joiner.
+		"""
+		return 0xfe00 <= self._value <= 0xfe0f or 0xe0100 <= self._value <= 0xe01ef or self._value == 0x200d
+
+	def __str__(self) -> str:
+		"""
+		Return the code point as it is written: ``U+<hex>`` with at least four digits.
+
+		:returns: The code point, e.g. ``U+2699``.
+		"""
+		return f"U+{self._value:04X}"
+
+	def __repr__(self) -> str:
+		"""
+		Return a representation of the code point for debugging.
+
+		:returns: The code point and its name, e.g. ``<CodePoint U+2699 GEAR>``.
+		"""
+		return f"<CodePoint {self} {self.Name}>"
 
 
 @export
@@ -153,7 +291,7 @@ class UnicodeEntry(NamedTuple):
 	"""
 	An entry of a ``unicode-table``: an icon's characters, and the description written behind it.
 
-	:attr:`Name` and :attr:`CodePoints` are computed from the characters, so they can't contradict the icon.
+	:attr:`Name` and :attr:`CodePointText` are computed from the characters, so they can't contradict the icon.
 	"""
 
 	characters:  str  #: The icon's characters, e.g. a gear and variation selector 16.
@@ -200,41 +338,48 @@ class UnicodeEntry(NamedTuple):
 		return cls(characters, description, lineIndex)
 
 	@readonly
+	def CodePoints(self) -> list[CodePoint]:
+		"""
+		Read-only property to return the code points of the icon's characters.
+
+		:returns: The code points, in the order written.
+		"""
+		return [CodePoint.FromCharacter(character) for character in self.characters]
+
+	@readonly
 	def Name(self) -> str:
 		"""
 		Read-only property to return the icon's name: the names of its characters, joined by ``+``.
 
 		Variation selectors and the zero width joiner select how the characters are drawn and aren't named, unless the
 		icon consists of nothing else: ``U+2699 U+FE0F`` is named ``GEAR``. A character without a name contributes its
-		label - see :func:`codePointLabel`.
+		label - see :attr:`CodePoint.Name`.
 
 		:returns: The name, e.g. ``GEAR`` or ``MAN + PERSONAL COMPUTER``.
 		"""
-		named = [character for character in self.characters if not isSelector(character)]
-		return " + ".join(codePointLabel(character) for character in (named if len(named) > 0 else self.characters))
+		codePoints = self.CodePoints
+		named = [codePoint for codePoint in codePoints if not codePoint.IsSelector]
+		return " + ".join(codePoint.Name for codePoint in (named if len(named) > 0 else codePoints))
 
 	@readonly
-	def CodePoints(self) -> str:
+	def CodePointText(self) -> str:
 		"""
 		Read-only property to return the icon's code points, as the icon options of the ``tree`` directive take them.
 
 		:returns: The code points ``U+<hex>`` with at least four digits, separated by spaces, e.g. ``U+2699 U+FE0F``.
 		"""
-		return " ".join(f"U+{ord(character):04X}" for character in self.characters)
+		return " ".join(str(codePoint) for codePoint in self.CodePoints)
 
 	@readonly
-	def UnassignedCharacters(self) -> list[str]:
+	def UnassignedCodePoints(self) -> list[CodePoint]:
 		"""
-		Read-only property to return the characters, which aren't assigned in the Unicode version of :mod:`unicodedata`.
+		Read-only property to return the code points, which aren't assigned in the Unicode version of :mod:`unicodedata`.
 
-		Such a character is a typo - or newer than the Python running the build: Python 3.12 knows Unicode 15.0. A
-		noncharacter is no such character.
+		Such a code point is a typo - or newer than the Python running the build: Python 3.12 knows Unicode 15.0.
 
-		:returns: The unassigned characters, in the order written.
+		:returns: The unassigned code points, in the order written.
 		"""
-		return [
-			character for character in self.characters if category(character) == "Cn" and not isNoncharacter(character)
-		]
+		return [codePoint for codePoint in self.CodePoints if not codePoint.IsAssigned]
 
 
 @export
@@ -287,15 +432,16 @@ class UnicodeTable(BaseDirective):
 		messages: list[nodes.system_message] = []
 		for entry in entries:
 			line = self.content_offset + entry.lineIndex + 1
-			if len(unassigned := entry.UnassignedCharacters) > 0:
-				codePoints = ", ".join(f"U+{ord(character):04X}" for character in unassigned)
+			if len(unassigned := entry.UnassignedCodePoints) > 0:
+				codePoints = ", ".join(str(codePoint) for codePoint in unassigned)
 				messages.append(self.state.document.reporter.warning(
 					f"{self.directiveName}: {codePoints} isn't assigned in Unicode {unidata_version}, which Python's "
 					f"'unicodedata' knows; its name is unknown.",
 					line=line
 				))
 
-			name = entry.Name
+			name =          entry.Name
+			codePointText = entry.CodePointText
 			tableBody += (row := nodes.row())
 			row += nodes.entry("", nodes.paragraph(
 				"", "",
@@ -305,8 +451,8 @@ class UnicodeTable(BaseDirective):
 			row += nodes.entry("", nodes.paragraph(name, name))
 			row += nodes.entry("", nodes.paragraph(
 				"", "",
-				nodes.literal(entry.CodePoints, entry.CodePoints),
-				CopyButton("", copy=entry.CodePoints, label=f"Copy the code points of {name}")
+				nodes.literal(codePointText, codePointText),
+				CopyButton("", copy=codePointText, label=f"Copy the code points of {name}")
 			))
 			if withDescriptions:
 				descriptionNodes, descriptionMessages = self.state.inline_text(entry.description, line)

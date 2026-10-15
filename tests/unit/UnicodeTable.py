@@ -33,7 +33,7 @@ Unit tests for :mod:`pyTooling.Sphinx.UnicodeTable`: reading the directive's con
 computed for an icon.
 """
 from pyTooling.Sphinx              import SphinxExtensionError
-from pyTooling.Sphinx.UnicodeTable import UnicodeEntry, UnicodeTable, codePointLabel, isNoncharacter, isSelector
+from pyTooling.Sphinx.UnicodeTable import CodePoint, CodePointType, UnicodeEntry, UnicodeTable
 from pyTooling.Testing             import Testcase, testsuite, testcase
 
 
@@ -188,11 +188,11 @@ class UnicodeNames(Testcase):
 		"""
 		package = UnicodeEntry("\U0001f4e6", "", 0)
 		self.assertEqual("PACKAGE", package.Name)
-		self.assertEqual("U+1F4E6", package.CodePoints)
+		self.assertEqual("U+1F4E6", package.CodePointText)
 
 		triangle = UnicodeEntry("\u25b8", "", 0)
 		self.assertEqual("BLACK RIGHT-POINTING SMALL TRIANGLE", triangle.Name)
-		self.assertEqual("U+25B8", triangle.CodePoints)
+		self.assertEqual("U+25B8", triangle.CodePointText)
 
 	@testcase("Variation selector")
 	def VariationSelector(self) -> None:
@@ -204,7 +204,7 @@ class UnicodeNames(Testcase):
 		gear = UnicodeEntry("\u2699\ufe0f", "", 0)
 
 		self.assertEqual("GEAR", gear.Name)
-		self.assertEqual("U+2699 U+FE0F", gear.CodePoints)
+		self.assertEqual("U+2699 U+FE0F", gear.CodePointText)
 
 	@testcase("Joined sequence")
 	def Joiner(self) -> None:
@@ -216,7 +216,7 @@ class UnicodeNames(Testcase):
 		technologist = UnicodeEntry("\U0001f468\u200d\U0001f4bb", "", 0)
 
 		self.assertEqual("MAN + PERSONAL COMPUTER", technologist.Name)
-		self.assertEqual("U+1F468 U+200D U+1F4BB", technologist.CodePoints)
+		self.assertEqual("U+1F468 U+200D U+1F4BB", technologist.CodePointText)
 
 	@testcase("Selector alone")
 	def SelectorOnly(self) -> None:
@@ -237,7 +237,7 @@ class UnicodeNames(Testcase):
 		entry = UnicodeEntry("\u0378", "", 0)
 
 		self.assertEqual("<reserved-0378>", entry.Name)
-		self.assertEqual(["\u0378"], entry.UnassignedCharacters)
+		self.assertEqual(["U+0378"], [str(codePoint) for codePoint in entry.UnassignedCodePoints])
 
 	@testcase("Characters without a name")
 	def Labels(self) -> None:
@@ -256,18 +256,84 @@ class UnicodeNames(Testcase):
 			with self.subTest(label=label):
 				entry = UnicodeEntry(character, "", 0)
 				self.assertEqual(label, entry.Name)
-				self.assertEqual([], entry.UnassignedCharacters)
+				self.assertEqual([], entry.UnassignedCodePoints)
 
-	@testcase("Labels")
-	def CodePointLabel(self) -> None:
+
+@testsuite("Code points")
+class CodePoints(Testcase):
+	"""A code point: its value, character, type and name."""
+
+	@testcase("Value and character")
+	def ValueAndCharacter(self) -> None:
 		"""
-		A character with a name is named; every other one gets a label.
+		A code point created from a character has the character's value, and is written 'U+<hex>' with at least four digits.
+
+		Checks the gear and the package emoji.
+		"""
+		gear = CodePoint.FromCharacter("\u2699")
+		self.assertEqual(0x2699, gear.Value)
+		self.assertEqual("\u2699", gear.Character)
+		self.assertEqual("U+2699", str(gear))
+		self.assertEqual("U+1F4E6", str(CodePoint(0x1f4e6)))
+
+	@testcase("Invalid values")
+	def InvalidValues(self) -> None:
+		"""
+		A value of no code point, or a text, which isn't a single character, is rejected.
+
+		Checks None, a string, a negative value, a value beyond U+10FFFF, and texts of zero and two characters.
+		"""
+		with self.assertRaises(ValueError):
+			CodePoint(None)
+
+		with self.assertRaises(TypeError):
+			CodePoint("A")
+
+		with self.assertRaises(ValueError):
+			CodePoint(-1)
+
+		with self.assertRaises(ValueError):
+			CodePoint(0x110000)
+
+		with self.assertRaises(ValueError):
+			CodePoint.FromCharacter("")
+
+		with self.assertRaises(ValueError):
+			CodePoint.FromCharacter("AB")
+
+	@testcase("Types")
+	def Types(self) -> None:
+		"""
+		A code point's type is derived from its general category; a noncharacter is told apart from a reserved code point.
+
+		Checks a code point of every type.
+		"""
+		types = {
+			0x0041: CodePointType.Graphic,
+			0x0020: CodePointType.Graphic,
+			0x200d: CodePointType.Format,
+			0x2028: CodePointType.Format,
+			0x0009: CodePointType.Control,
+			0xe000: CodePointType.PrivateUse,
+			0xd800: CodePointType.Surrogate,
+			0xffff: CodePointType.Noncharacter,
+			0x0378: CodePointType.Reserved,
+		}
+		for value, codePointType in types.items():
+			with self.subTest(codePoint=f"U+{value:04X}"):
+				self.assertIs(codePointType, CodePoint(value).Type)
+				self.assertEqual(codePointType is not CodePointType.Reserved, CodePoint(value).IsAssigned)
+
+	@testcase("Names and labels")
+	def Names(self) -> None:
+		"""
+		A code point with a name is named; every other one gets a label of its type.
 
 		Checks a letter, a surrogate and a noncharacter of plane 1.
 		"""
-		self.assertEqual("LATIN CAPITAL LETTER A", codePointLabel("A"))
-		self.assertEqual("<surrogate-D800>", codePointLabel("\ud800"))
-		self.assertEqual("<noncharacter-1FFFE>", codePointLabel("\U0001fffe"))
+		self.assertEqual("LATIN CAPITAL LETTER A", CodePoint(0x41).Name)
+		self.assertEqual("<surrogate-D800>", CodePoint(0xd800).Name)
+		self.assertEqual("<noncharacter-1FFFE>", CodePoint(0x1fffe).Name)
 
 	@testcase("Noncharacters")
 	def Noncharacters(self) -> None:
@@ -276,13 +342,13 @@ class UnicodeNames(Testcase):
 
 		Checks the bounds of the range and of a plane, and their neighbours.
 		"""
-		for character in ("\ufdd0", "\ufdef", "\ufffe", "\uffff", "\U0010fffe", "\U0010ffff"):
-			with self.subTest(codePoint=f"U+{ord(character):04X}"):
-				self.assertTrue(isNoncharacter(character))
+		for value in (0xfdd0, 0xfdef, 0xfffe, 0xffff, 0x10fffe, 0x10ffff):
+			with self.subTest(codePoint=f"U+{value:04X}"):
+				self.assertTrue(CodePoint(value).IsNoncharacter)
 
-		for character in ("\ufdcf", "\ufdf0", "\ufffd", "\U00010000"):
-			with self.subTest(codePoint=f"U+{ord(character):04X}"):
-				self.assertFalse(isNoncharacter(character))
+		for value in (0xfdcf, 0xfdf0, 0xfffd, 0x10000):
+			with self.subTest(codePoint=f"U+{value:04X}"):
+				self.assertFalse(CodePoint(value).IsNoncharacter)
 
 	@testcase("Selectors")
 	def Selectors(self) -> None:
@@ -291,10 +357,10 @@ class UnicodeNames(Testcase):
 
 		Checks the bounds of both ranges of variation selectors, the joiner and the non-joiner.
 		"""
-		for character in ("\ufe00", "\ufe0f", "\U000e0100", "\U000e01ef", "\u200d"):
-			with self.subTest(codePoint=f"U+{ord(character):04X}"):
-				self.assertTrue(isSelector(character))
+		for value in (0xfe00, 0xfe0f, 0xe0100, 0xe01ef, 0x200d):
+			with self.subTest(codePoint=f"U+{value:04X}"):
+				self.assertTrue(CodePoint(value).IsSelector)
 
-		for character in ("\u200c", "\ufe10", "\U000e01f0"):
-			with self.subTest(codePoint=f"U+{ord(character):04X}"):
-				self.assertFalse(isSelector(character))
+		for value in (0x200c, 0xfe10, 0xe01f0):
+			with self.subTest(codePoint=f"U+{value:04X}"):
+				self.assertFalse(CodePoint(value).IsSelector)
