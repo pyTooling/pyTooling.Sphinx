@@ -115,6 +115,22 @@ class TreeDescription(nodes.inline):
 
 
 @export
+class TreeLegend(nodes.paragraph):
+	"""
+	A tree's legend: a paragraph of :class:`TreeLegendItem` nodes, which HTML draws as one line above or below the tree.
+
+	Formats drawing no icons in a tree don't get it: :class:`~pyTooling.Sphinx.Tree.RemoveTreeLegends` removes it.
+	"""
+
+
+@export
+class TreeLegendItem(nodes.inline):
+	"""
+	An item of a tree's legend: the text explaining an icon. Attribute ``icon`` holds the icon.
+	"""
+
+
+@export
 class Abbreviation(nodes.abbreviation):
 	"""
 	A reference to an abbreviation in its short form, which HTML draws with a box explaining it on hover.

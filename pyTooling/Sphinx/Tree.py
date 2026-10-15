@@ -76,13 +76,29 @@ An entry without a parent is a root, an entry with children is a node, and every
 marked ``-`` gets the icon of its kind. Option ``:icons:`` declares more markers, each with its own icon, whatever the
 entry's kind is - e.g. a folder for an empty directory, which is a leaf.
 
+.. rubric:: Legend
+
+**An icon option may explain its icon**, behind a ``|`` between spaces: ``:leaf-icon: 📄 | file``. Option ``:icons:``
+then declares one marker per line. The texts form the tree's legend, which HTML draws below the tree - or above it, as
+option ``:legend:`` chooses:
+
+.. code-block:: ReST
+
+   .. tree::
+      :legend:    top
+      :root-icon: 📦 | package
+      :node-icon: 📁 | directory
+      :leaf-icon: 📄 | file
+      :icons:     > ⚙️ | settings
+                  # 🐍 | Python module
+
 .. rubric:: HTML and other formats
 
 HTML draws an entry with children as a ``<details>`` element, so a reader folds and unfolds it without JavaScript;
 the stylesheet draws the lines and shows the expanded or the collapsed icon. Every other format - e.g. LaTeX - finds
 no visitor for :class:`~pyTooling.Sphinx.Node.TreeItem` and :class:`~pyTooling.Sphinx.Node.TreeLabel` and renders
 their base-classes instead: a nested bullet list without icons, with a description behind its entry's text and an en
-dash.
+dash. These formats have no legend, as their trees show no icons: :class:`RemoveTreeLegends` removes it.
 
 .. seealso::
 
@@ -91,20 +107,24 @@ dash.
    :mod:`pyTooling.Sphinx`
       |rarr| The extension this belongs to, and what else it brings.
 """
-from re                    import compile as re_compile
-from typing                import Any, Iterable, Optional as Nullable
-from unicodedata           import category, east_asian_width
+from re                                import compile as re_compile
+from typing                            import Any, Iterable, Optional as Nullable
+from unicodedata                       import category, east_asian_width
 
-from docutils              import nodes
-from docutils.parsers.rst  import directives
+from docutils                          import nodes
+from docutils.parsers.rst              import directives
+from sphinx.transforms.post_transforms import SphinxPostTransform
 
-from pyTooling.Decorators  import export
-from pyTooling.Tree        import Node
-from pyTooling.Sphinx      import BaseDirective, SphinxExtensionError, strip
-from pyTooling.Sphinx.Node import TreeDescription, TreeItem, TreeLabel, TreeSeparator
+from pyTooling.Decorators              import export
+from pyTooling.Tree                    import Node
+from pyTooling.Sphinx                  import BaseDirective, SphinxExtensionError, strip
+from pyTooling.Sphinx.Node             import TreeDescription, TreeItem, TreeLabel, TreeLegend, TreeLegendItem
+from pyTooling.Sphinx.Node             import TreeSeparator
 
 
-__all__ = ["DEFAULT_MARKER", "DEFAULT_ICONS", "CODE_POINT_PATTERN", "SEPARATOR_PATTERN", "SEPARATOR"]
+__all__ = [
+	"DEFAULT_MARKER", "DEFAULT_ICONS", "LEGEND_POSITIONS", "CODE_POINT_PATTERN", "SEPARATOR_PATTERN", "SEPARATOR"
+]
 
 #: The marker of an entry whose icon is the one of its kind.
 DEFAULT_MARKER = "-"
@@ -122,6 +142,8 @@ DEFAULT_ICONS = {
 }
 
 #: A word of an icon option written as a Unicode code point, e.g. ``U+1F4C1``.
+LEGEND_POSITIONS = ("top", "bottom", "none")
+
 CODE_POINT_PATTERN = re_compile(r"U\+([0-9A-Fa-f]{1,6})")
 
 #: The separator between an entry's text and its description, as group ``separator``: a ``|`` after whitespace and
@@ -168,36 +190,90 @@ def icon(option: Nullable[str]) -> str:
 
 
 @export
-def markerIcons(option: Nullable[str]) -> dict[str, str]:
+def describedIcon(option: Nullable[str]) -> tuple[str, str]:
 	"""
-	Option converter reading the markers an entry may start with, each with its icon: ``<marker> <icon>``, separated by
-	commas.
+	Option converter reading an icon and the text explaining it in the tree's legend: ``<icon> | <text>``.
 
-	A marker is one character, neither a letter, a digit, a comma nor a space. An icon is read by :func:`icon`.
+	The icon is read by :func:`icon`. The text follows a separator ``|`` between spaces - see :data:`SEPARATOR_PATTERN`
+	-, and is inline ReST. An icon without a text has no item in the legend.
 
 	:param option:      The option's value as it was written; ``None`` if the option has no value.
-	:returns:           The icons, keyed by their marker.
+	:returns:           The icon's characters and the text; empty if the option has no value or no text.
+	:raises ValueError: If the value has more than one separator ``|``.
+	:raises ValueError: If the value has a text, but no icon.
+	"""
+	if option is None:
+		return "", ""
+
+	value = f" {option}"  # a separator at the start follows a space too
+	separators = [match.start() for match in SEPARATOR_PATTERN.finditer(value) if match["separator"] is not None]
+	if len(separators) > 1:
+		raise ValueError(f"'{option.strip()}' has more than one separator ' | '; a '|' in a text is escaped as '\\|'.")
+	elif len(separators) == 0:
+		return icon(option), ""
+
+	characters = icon(value[:separators[0]])
+	text =       value[separators[0] + 1:].strip()
+	if characters == "" and text != "":
+		raise ValueError(f"'{option.strip()}' has a text, but no icon.")
+
+	return characters, text
+
+
+@export
+def legendPosition(option: Nullable[str]) -> str:
+	"""
+	Option converter reading where the legend is drawn: one of :data:`LEGEND_POSITIONS`.
+
+	:param option:      The option's value as it was written; ``None`` if the option has no value.
+	:returns:           The position.
+	:raises ValueError: If the value is none of the positions.
+	"""
+	return directives.choice(option, LEGEND_POSITIONS)
+
+
+@export
+def markerIcons(option: Nullable[str]) -> dict[str, tuple[str, str]]:
+	"""
+	Option converter reading the markers an entry may start with, each with its icon and the text explaining it in the
+	tree's legend: ``<marker> <icon>``, separated by commas, or ``<marker> <icon> | <text>``, one per line.
+
+	A marker is one character, neither a letter, a digit, a comma nor a space. An icon and its text are read by
+	:func:`describedIcon`. A line with a separator ``|`` holds one marker, so a text may contain commas; a line without
+	one is split at its commas.
+
+	:param option:      The option's value as it was written; ``None`` if the option has no value.
+	:returns:           The icons and their texts, keyed by their marker, in the order declared.
 	:raises ValueError: If an item isn't a marker followed by a space and an icon.
 	:raises ValueError: If a marker is a letter, a digit or a comma.
 	:raises ValueError: If a marker is declared twice.
+	:raises ValueError: If an item has more than one separator ``|``.
 	"""
 	if option is None:
 		return {}
 
-	icons: dict[str, str] = {}
-	for item in option.split(","):
-		if (item := item.strip()) == "":
-			continue
+	icons: dict[str, tuple[str, str]] = {}
+	for line in option.splitlines():
+		if any(match["separator"] is not None for match in SEPARATOR_PATTERN.finditer(line)):
+			items = [line]
+		else:
+			items = line.split(",")
 
-		marker, separator, value = item[0], item[1:2], item[2:]
-		if separator.strip() != "" or value.strip() == "":
-			raise ValueError(f"'{item}' is not a marker followed by a space and an icon.")
-		elif marker.isalnum():
-			raise ValueError(f"Marker '{marker}' is a letter or a digit.")
-		elif marker in icons:
-			raise ValueError(f"Marker '{marker}' is declared twice.")
+		for item in items:
+			if (item := item.strip()) == "":
+				continue
 
-		icons[marker] = icon(value)
+			marker =    item[0]
+			separator = item[1:2]
+			value =     item[2:]
+			if separator.strip() != "" or value.strip() == "":
+				raise ValueError(f"'{item}' is not a marker followed by a space and an icon.")
+			elif marker.isalnum():
+				raise ValueError(f"Marker '{marker}' is a letter or a digit.")
+			elif marker in icons:
+				raise ValueError(f"Marker '{marker}' is declared twice.")
+
+			icons[marker] = describedIcon(value)
 
 	return icons
 
@@ -210,7 +286,8 @@ class Tree(BaseDirective):
 	:meth:`_ParseEntries` reads the content into :class:`~pyTooling.Tree.Node` instances, one tree per root, and
 	:meth:`_BuildItem` turns them into nested bullet lists of :class:`~pyTooling.Sphinx.Node.TreeItem` and
 	:class:`~pyTooling.Sphinx.Node.TreeLabel`. The options choose the icons and how many levels are expanded initially;
-	``:class:`` puts additional CSS classes on the tree.
+	``:class:`` puts additional CSS classes on the tree. :meth:`_BuildLegend` turns the texts of the icons into the
+	tree's legend, which ``:legend:`` places above or below the tree.
 
 	If an entry has a description, every entry's text ends with a :class:`~pyTooling.Sphinx.Node.TreeDescription`, and
 	:meth:`_ColumnWidth` estimates how wide the column of the texts in front of the descriptions is.
@@ -226,30 +303,40 @@ class Tree(BaseDirective):
 	# spelling of this override a conflict with one of them
 	#: Mapping of option names to validator functions.
 	option_spec: dict[str, Any] = {  # type: ignore[misc]
-		"root-icon":       icon,
-		"node-icon":       icon,
-		"leaf-icon":       icon,
+		"root-icon":       describedIcon,
+		"node-icon":       describedIcon,
+		"leaf-icon":       describedIcon,
 		"expanded-icon":   icon,
 		"collapsed-icon":  icon,
 		"icons":           markerIcons,
+		"legend":          legendPosition,
 		"expanded-levels": directives.nonnegative_int,
 		"class":           strip,
 	}
 
 	def run(self) -> list[nodes.Node]:
 		"""
-		Draw the hierarchy written in the content.
+		Draw the hierarchy written in the content, and the legend of its icons.
 
-		:returns: The tree as a bullet list, or the message of whatever the content got wrong.
+		Option ``:legend:`` without any icon having a text draws no legend, and is warned about.
+
+		:returns: The tree as a bullet list with its legend above or below it, or the message of whatever the content or
+		          the icons' texts got wrong.
 		"""
+		markers = self.options.get("icons", {})
+		describedIcons = {
+			name: self.options.get(name, (DEFAULT_ICONS[name], "")) for name in ("root-icon", "node-icon", "leaf-icon")
+		}
+		describedIcons.update(markers)
+		position = self.options.get("legend", "bottom")
 		try:
-			markers = self.options.get("icons", {})
 			roots = self._ParseEntries(self.content, (DEFAULT_MARKER, *markers))
+			legend, messages = self._BuildLegend(describedIcons.values(), position)
 		except SphinxExtensionError as ex:
 			return [self.state.document.reporter.error(f"{self.directiveName}: {ex}", line=self.lineno)]
 
-		icons = {name: self.options.get(name, default) for name, default in DEFAULT_ICONS.items()}
-		icons.update(markers)
+		icons = {name: self.options.get(name, DEFAULT_ICONS[name]) for name in ("expanded-icon", "collapsed-icon")}
+		icons.update((key, characters) for key, (characters, _) in describedIcons.items())
 		expandedLevels = self.options.get("expanded-levels", None)
 		descriptionColumn = any(entry["description"] != "" for root in roots for entry in root.IteratePreOrder())
 
@@ -262,7 +349,55 @@ class Tree(BaseDirective):
 			for item in tree.children:
 				item["columnWidth"] = columnWidth
 
-		return [tree]
+		if len(legend.children) == 0:
+			if "legend" in self.options and position != "none":
+				messages.append(self.state.document.reporter.warning(
+					f"{self.directiveName}: ':legend: {position}' without an icon having a text draws no legend.",
+					line=self.lineno
+				))
+			return [tree, *messages]
+		elif position == "top":
+			return [legend, tree, *messages]
+		elif position == "bottom":
+			return [tree, legend, *messages]
+		else:
+			return [tree, *messages]
+
+	def _BuildLegend(
+		self,
+		describedIcons: Iterable[tuple[str, str]],
+		position: str
+	) -> tuple[TreeLegend, list[nodes.system_message]]:
+		"""
+		Build the legend of the tree's icons: an item per icon with a text, in the order given.
+
+		An icon given twice with the same text - e.g. a folder for a node and for a marker - is explained once. A text is
+		parsed as inline ReST at the directive's line, as an option has no line of its own.
+
+		:param describedIcons:        Each icon with its text; an icon with an empty text has no item.
+		:param position:              Where the legend is drawn, one of :data:`LEGEND_POSITIONS`; the legend gets the CSS
+		                              class ``tree-legend-<position>``.
+		:returns:                     The legend - without items, if no icon has a text -, and the messages about the
+		                              texts.
+		:raises SphinxExtensionError: If an icon is given twice with different texts.
+		"""
+		texts: dict[str, str] = {}
+		for characters, text in describedIcons:
+			if text == "":
+				continue
+			elif characters not in texts:
+				texts[characters] = text
+			elif texts[characters] != text:
+				raise SphinxExtensionError(f"Icon '{characters}' has two texts: '{texts[characters]}' and '{text}'.")
+
+		legend = TreeLegend("", classes=["pytooling-tree-legend", f"tree-legend-{position}"])
+		messages: list[nodes.system_message] = []
+		for characters, text in texts.items():
+			textNodes, textMessages = self.state.inline_text(text, self.lineno)
+			legend += TreeLegendItem(text, "", *textNodes, icon=characters)
+			messages.extend(textMessages)
+
+		return legend, messages
 
 	@staticmethod
 	def _ParseEntries(content: Iterable[str], markers: Iterable[str] = (DEFAULT_MARKER, )) -> list[_Entry]:
@@ -433,3 +568,25 @@ class Tree(BaseDirective):
 			for level, cells in sorted(cellsPerLevel.items())
 		)
 		return f"calc(var(--pyTooling-tree-expander-width) + max({widths}))"
+
+
+@export
+class RemoveTreeLegends(SphinxPostTransform):
+	"""
+	A post-transform removing the trees' legends from the output formats, whose trees show no icons: LaTeX, text,
+	manual pages and Texinfo.
+
+	These formats write a tree as a nested bullet list, so a legend would explain icons the reader doesn't see.
+	"""
+
+	default_priority = 200                                 #: Priority among the post-transforms.
+	formats =          ("latex", "text", "man", "texinfo")  #: Output formats the transform runs for.
+
+	def run(self, **kwargs: Any) -> None:
+		"""
+		Remove every legend of a tree.
+
+		:param kwargs: Keyword arguments Sphinx passes to a post-transform; none is used.
+		"""
+		for legend in list(self.document.findall(TreeLegend)):
+			legend.parent.remove(legend)

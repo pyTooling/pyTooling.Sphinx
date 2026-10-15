@@ -481,6 +481,148 @@ class TreeDescriptionRendering(Project):
 		)
 
 
+@testsuite("Trees with a legend in a document")
+class TreeLegendRendering(Project):
+	"""What the 'tree' directive puts into a built page for icons with texts: a legend in HTML, none in text and LaTeX."""
+
+	_document = (
+		"Index\n#####\n\n"
+		".. tree::\n"
+		"{options}"
+		"   :root-icon: U+1F4E6 | package\n"
+		"   :node-icon: U+1F4C1 | directory\n"
+		"   :leaf-icon: U+1F4C4\n"
+		"   :icons:     > U+1F4C1 | directory\n"
+		"               # U+1F40D | Python module, see :ref:`genindex`\n"
+		"\n"
+		"   - root\n"
+		"     - node\n"
+		"       # module.py\n"
+		"     > empty\n"
+	)
+
+	_legend = (
+		'<p aria-hidden="true" class="pytooling-tree-legend tree-legend-{position}">'
+		'<span class="tree-legend-item"><span class="tree-icon">\U0001f4e6</span>'
+		'<span class="tree-text">package</span></span>'
+		'<span class="tree-legend-item"><span class="tree-icon">\U0001f4c1</span>'
+		'<span class="tree-text">directory</span></span>'
+		'<span class="tree-legend-item"><span class="tree-icon">\U0001f40d</span>'
+		'<span class="tree-text">Python module, see '
+		'<a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></span></span></p>'
+	)
+
+	@testcase("Below the tree")
+	def Bottom(self) -> None:
+		"""
+		By default, the legend follows the tree: an item per icon with a text, in the order declared; an icon declared
+		twice with the same text has one item, and an icon without a text none.
+
+		Builds a tree whose node and marker '>' share the folder with the same text, and whose leaves have no text, and
+		checks the legend follows the tree.
+		"""
+		self._build(self._document.format(options=""))
+
+		self.assertEqual([], self._warningLines())
+		html = self._html("index")
+		legend = self._legend.format(position="bottom")
+		self.assertIn(legend, html)
+		self.assertLess(html.index('<ul class="pytooling-tree">'), html.index(legend))
+		self.assertNotIn('<span class="tree-icon">\U0001f4c4</span>', html)
+
+	@testcase("Above the tree")
+	def Top(self) -> None:
+		"""
+		':legend: top' puts the legend in front of the tree.
+
+		Builds the tree with the legend at the top and checks it precedes the tree.
+		"""
+		self._build(self._document.format(options="   :legend:    top\n"))
+
+		self.assertEqual([], self._warningLines())
+		html = self._html("index")
+		legend = self._legend.format(position="top")
+		self.assertIn(legend, html)
+		self.assertLess(html.index(legend), html.index('<ul class="pytooling-tree">'))
+
+	@testcase("No legend")
+	def NoLegend(self) -> None:
+		"""
+		':legend: none' draws no legend, but the icons.
+
+		Builds the tree without legend and checks the page.
+		"""
+		self._build(self._document.format(options="   :legend:    none\n"))
+
+		self.assertEqual([], self._warningLines())
+		html = self._html("index")
+		self.assertNotIn("pytooling-tree-legend", html)
+		self.assertIn('<span class="tree-icon" aria-hidden="true">\U0001f40d</span>', html)
+
+	@testcase("Two texts for one icon")
+	def Conflict(self) -> None:
+		"""
+		An icon declared with two different texts is rejected: the legend would contradict itself.
+
+		Builds a tree whose node and marker share the folder with different texts, and checks the error.
+		"""
+		self._build(
+			"Index\n#####\n\n.. tree::\n   :node-icon: U+1F4C1 | directory\n   :icons: > U+1F4C1 | folder\n\n   - root\n"
+		)
+
+		self.assertEqual(
+			["src/index.rst:4: ERROR: tree: Icon '\U0001f4c1' has two texts: 'directory' and 'folder'. [docutils]"],
+			self._warningLines()
+		)
+
+	@testcase("Legend without texts")
+	def NoTexts(self) -> None:
+		"""
+		':legend:' with no icon having a text draws no legend, and is warned about.
+
+		Builds a tree with ':legend: top' and icons without texts, and checks the warning.
+		"""
+		self._build("Index\n#####\n\n.. tree::\n   :legend: top\n   :leaf-icon: U+1F4C4\n\n   - root\n")
+
+		self.assertEqual(
+			[
+				"src/index.rst:4: WARNING: tree: ':legend: top' without an icon having a text draws no legend. [docutils]"
+			],
+			self._warningLines()
+		)
+		self.assertNotIn("pytooling-tree-legend", self._html("index"))
+
+	@testcase("Text")
+	def Text(self) -> None:
+		"""
+		Plain text draws no icons in a tree, so it has no legend.
+
+		Builds the tree as plain text and checks the legend's texts are missing.
+		"""
+		self._build(self._document.format(options=""), "text")
+
+		self.assertEqual([], self._warningLines())
+		text = (self._path / "build" / "text" / "index.txt").read_text(encoding="utf-8")
+		self.assertIn("* root\n", text)
+		self.assertNotIn("directory", text)
+		self.assertNotIn("Python module", text)
+
+	@testcase("LaTeX")
+	def LaTeX(self) -> None:
+		"""
+		LaTeX draws no icons in a tree, so it has no legend.
+
+		Builds the tree as LaTeX and checks the legend's texts are missing.
+		"""
+		self._build(self._document.format(options=""), "latex")
+
+		self.assertEqual([], self._warningLines())
+		latex = next((self._path / "build" / "latex").glob("*.tex")).read_text(encoding="utf-8")
+		self.assertIn("root", latex)
+		self.assertNotIn("directory", latex)
+		self.assertNotIn("Python module", latex)
+
+
 @testsuite("Abbreviations in a document")
 class AbbreviationRendering(Project):
 	"""What the 'abbreviations' directive and the abbreviation roles put into a built page."""

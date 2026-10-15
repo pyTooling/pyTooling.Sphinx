@@ -31,6 +31,8 @@
   --pyTooling-tree-margin-bottom:         24px;
   --pyTooling-tree-column-gap:            1.5em;
   --pyTooling-tree-description-min-width: 15em;
+  --pyTooling-tree-legend-gap:            1.5em;
+  --pyTooling-tree-legend-margin:         0.5em;
 
   --pyTooling-abbreviation-underline:  1px dotted;
   --pyTooling-abbreviation-background: #fff;
@@ -254,6 +256,30 @@ ul.pytooling-tree span.tree-description {
 /* An entry without a description has an empty one, which mustn't wrap below the text on a narrow screen. */
 ul.pytooling-tree span.tree-description:empty {
   display: none;
+}
+
+/* A tree's legend: one line of items, each an icon and its text, wrapping on a narrow screen. It sits close to its
+   tree, so the tree's margin is kept below the pair. */
+p.pytooling-tree-legend {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--pyTooling-tree-legend-gap);
+}
+
+p.pytooling-tree-legend.tree-legend-top {
+  margin: 0 0 var(--pyTooling-tree-legend-margin) 0 !important;
+}
+
+p.pytooling-tree-legend.tree-legend-bottom {
+  margin: 0 0 var(--pyTooling-tree-margin-bottom) 0 !important;
+}
+
+ul.pytooling-tree:has(+ p.pytooling-tree-legend.tree-legend-bottom) {
+  margin-bottom: var(--pyTooling-tree-legend-margin) !important;
+}
+
+p.pytooling-tree-legend span.tree-icon {
+  margin-right: var(--pyTooling-tree-icon-gap);
 }
 
 

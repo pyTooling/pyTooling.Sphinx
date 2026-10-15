@@ -20,6 +20,8 @@ tree
       An entry may have a **description**, which HTML draws as a second column, as in a table - see
       :ref:`DIR/Tree/Descriptions`.
 
+      An icon may have a **text** explaining it, which HTML draws in the tree's legend - see :ref:`DIR/Tree/Legend`.
+
    .. grid-item::
       :columns: 6
 
@@ -187,6 +189,61 @@ indentation, so every description starts at the same position.
   what the role is given.
 * A description too narrow beside its text - on a narrow screen - wraps below the text.
 
+.. _DIR/Tree/Legend:
+
+Legend
+******
+
+An icon option may explain its icon: a ``|`` between spaces separates the icon from its **text**. The texts form the
+tree's **legend**, which HTML draws as one line below the tree - or above it, as :rst:dir:`tree:legend` chooses.
+
+* A text is inline ReST, as an entry's description is.
+* :rst:dir:`tree:icons` declares a marker with a text on a line of its own, so a text may contain commas. A line
+  without a ``|`` is still a list of markers separated by commas.
+* The legend lists the icons with a text in the order declared: root, node and leaf first, then the markers. An icon
+  without a text isn't listed.
+* An icon declared twice with the same text - e.g. a folder for the nodes and for a marker of empty directories - is
+  listed once. The same icon with two different texts is an error, as the legend would contradict itself.
+* ``:legend: none`` keeps the texts in the source, but draws no legend, e.g. when the page explains the icons once for
+  several trees.
+
+.. code-block:: ReST
+
+   .. tree::
+      :legend:    top
+      :root-icon: 📦 | package
+      :node-icon: 📁 | directory
+      :leaf-icon: 📄 | file
+      :icons:     > 📁 | directory
+                  * 🐍 | Python module, linked to its :ref:`API reference <DIR/Tree/Options>`
+
+      - pyTooling.Sphinx
+        > :file:`doc`
+        - :file:`pyTooling`
+          - :file:`Sphinx`
+            * :mod:`~pyTooling.Sphinx.Tree`
+            * :mod:`~pyTooling.Sphinx.Shields`
+        - :file:`README.md`
+
+This is how the example renders:
+
+.. tree::
+   :legend:    top
+   :root-icon: 📦 | package
+   :node-icon: 📁 | directory
+   :leaf-icon: 📄 | file
+   :icons:     > 📁 | directory
+               * 🐍 | Python module, linked to its :ref:`API reference <DIR/Tree/Options>`
+
+   - pyTooling.Sphinx
+     > :file:`doc`
+     - :file:`pyTooling`
+       - :file:`Sphinx`
+         * :mod:`~pyTooling.Sphinx.Tree`
+         * :mod:`~pyTooling.Sphinx.Shields`
+     - :file:`README.md`
+
+
 .. _DIR/Tree/Options:
 
 Options
@@ -196,17 +253,17 @@ Options
 
    Draws the hierarchy written in the content as a tree.
 
-   .. rst:directive:option:: root-icon: <icon>
+   .. rst:directive:option:: root-icon: <icon> [| <text>]
 
-      The icon of a root. Default: none.
+      The icon of a root, and the text explaining it in the legend. Default: none.
 
-   .. rst:directive:option:: node-icon: <icon>
+   .. rst:directive:option:: node-icon: <icon> [| <text>]
 
-      The icon of a node. Default: none.
+      The icon of a node, and the text explaining it in the legend. Default: none.
 
-   .. rst:directive:option:: leaf-icon: <icon>
+   .. rst:directive:option:: leaf-icon: <icon> [| <text>]
 
-      The icon of a leaf. Default: none.
+      The icon of a leaf, and the text explaining it in the legend. Default: none.
 
    .. rst:directive:option:: expanded-icon: <icon>
 
@@ -220,7 +277,12 @@ Options
 
       More markers an entry may start with, each with the icon an entry marked so gets. A marker is one character,
       neither a letter nor a digit. Declaring ``-`` replaces the icon of every kind. The list may continue on the
-      next lines.
+      next lines. A marker with a text for the legend, ``<marker> <icon> | <text>``, is declared on a line of its own.
+
+   .. rst:directive:option:: legend: top | bottom | none
+
+      Where the legend of the icons with a text is drawn: above the tree, below it, or not at all. Default:
+      ``bottom``. Without an icon having a text, the tree has no legend.
 
    .. rst:directive:option:: expanded-levels: <levels>
 
@@ -282,6 +344,12 @@ replacing the stylesheet - in a stylesheet of its own, listed in ``html_css_file
    * - ``--pyTooling-tree-description-min-width``
      - ``15em``
      - how narrow a description gets beside its text, before it wraps below the text
+   * - ``--pyTooling-tree-legend-gap``
+     - ``1.5em``
+     - the gap between two items of the legend
+   * - ``--pyTooling-tree-legend-margin``
+     - ``0.5em``
+     - the space between the tree and its legend
 
 
 .. _DIR/Tree/Output:
@@ -291,11 +359,12 @@ HTML and other formats
 
 HTML draws an entry with children as a ``<details>`` element, so a reader folds and unfolds it without JavaScript.
 Both expander icons are written, and the stylesheet shows the one matching the entry's state. Icons are hidden from a
-screen reader.
+screen reader, and so is the legend explaining them.
 
 Every other format, e.g. LaTeX, renders the tree as nested bullet lists, without icons: a PDF can't fold, and
 pdfLaTeX stops at a character it has no definition for - which an emoji is. A description follows its entry's text
-behind an en dash: ``Directory – e.g. myPackage/``.
+behind an en dash: ``Directory – e.g. myPackage/``. LaTeX, text, manual pages and Texinfo have no legend, as their
+trees show no icons.
 
 
 .. _DIR/Tree/Errors:
@@ -315,3 +384,18 @@ A mistake in the content is reported on the page, where the tree would be, and i
    tree: '- c' is indented less than the entry above, but not as deep as one of its ancestors.
 
 A mistake in an entry's text, e.g. an unknown role, is reported at the entry's line.
+
+A mistake in the legend's texts is reported likewise, at the directive's line; ``:legend:`` without an icon having a
+text is a warning:
+
+.. code-block:: text
+
+   tree: Icon '📁' has two texts: 'directory' and 'folder'.
+   tree: ':legend: top' without an icon having a text draws no legend.
+
+A mistake in an icon option is reported by docutils as an invalid option value, followed by its reason:
+
+.. code-block:: text
+
+   '📦 | a | b' has more than one separator ' | '; a '|' in a text is escaped as '\|'.
+   '| package' has a text, but no icon.

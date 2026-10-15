@@ -141,11 +141,11 @@ from pyTooling.Sphinx        import Resources as SphinxResources
 from pyTooling.Sphinx.HTML   import translateLandscape as translateLandscapeAsHTML
 from pyTooling.Sphinx.HTML   import translateCoverageListing as translateCoverageListingAsHTML
 from pyTooling.Sphinx.HTML   import translateAbbreviation, translateTreeItem, translateTreeLabel, translateTreeSeparator
-from pyTooling.Sphinx.HTML   import translateTreeDescription
+from pyTooling.Sphinx.HTML   import translateTreeDescription, translateTreeLegend, translateTreeLegendItem
 from pyTooling.Sphinx.LaTeX  import translateLandscape as translateLandscapeAsLaTeX
 from pyTooling.Sphinx.LaTeX  import translateCoverageListing as translateCoverageListingAsLaTeX
 from pyTooling.Sphinx.Node   import Abbreviation, Landscape, RegisteredNode, TreeItem, TreeLabel, TreeSeparator
-from pyTooling.Sphinx.Node   import CoverageListing, TreeDescription
+from pyTooling.Sphinx.Node   import CoverageListing, TreeDescription, TreeLegend, TreeLegendItem
 
 
 __all__ = ["STYLESHEET", "SUBSTITUTIONS", "NODES", "INDENTATION", "LINE_ANCHOR", "REPORT_ROLES"]
@@ -175,6 +175,8 @@ NODES: tuple[RegisteredNode, ...] = (
 	{"name": "TreeLabel",       "node": TreeLabel,       "html": translateTreeLabel},
 	{"name": "TreeSeparator",   "node": TreeSeparator,   "html": translateTreeSeparator},
 	{"name": "TreeDescription", "node": TreeDescription, "html": translateTreeDescription},
+	{"name": "TreeLegend",      "node": TreeLegend,      "html": translateTreeLegend},
+	{"name": "TreeLegendItem",  "node": TreeLegendItem,  "html": translateTreeLegendItem},
 	{"name": "Abbreviation",    "node": Abbreviation,    "html": translateAbbreviation},
 	{"name": "Landscape",       "node": Landscape,       "html": translateLandscapeAsHTML,
 	 "latex": translateLandscapeAsLaTeX},
@@ -941,7 +943,7 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	from pyTooling.Sphinx.Roles             import BREAK_ROLES, PYTHON_CODE_ROLE, STYLE_ROLES
 	from pyTooling.Sphinx.Roles             import breakRole, pythonCodeRole, styleRole
 	from pyTooling.Sphinx.Shields           import Shields
-	from pyTooling.Sphinx.Tree              import Tree
+	from pyTooling.Sphinx.Tree              import RemoveTreeLegends, Tree
 	from pyTooling.Sphinx.Unittest          import CONFIG_PREFIX as UNITTEST_PREFIX
 	from pyTooling.Sphinx.Unittest          import UnittestSummary
 	from pyTooling.Sphinx.UnittestPages     import UnittestReportPages
@@ -994,6 +996,7 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	# the report tables are put into 'Landscape' nodes, whose LaTeX environment is package 'pdflscape''s
 	sphinx.add_latex_package("pdflscape")
 	sphinx.add_post_transform(FixLatexTableWidths)
+	sphinx.add_post_transform(RemoveTreeLegends)
 
 	sphinx.setup_extension("sphinx.ext.graphviz")
 

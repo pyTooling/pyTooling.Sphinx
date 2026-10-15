@@ -39,6 +39,7 @@ from textwrap                import dedent
 from unittest.mock           import MagicMock
 
 from pyTooling.Sphinx           import ReportDomain, setup
+from pyTooling.Sphinx.Tree       import RemoveTreeLegends
 from pyTooling.Sphinx.Workaround import FixLatexTableWidths
 from pyTooling.Testing          import testsuite, testcase
 
@@ -121,7 +122,7 @@ class Registration(ReportProject):
 	def Setup(self) -> None:
 		"""
 		The extension's setup() registers the domain, its directives and configuration values, the LaTeX package and
-		the post-transform.
+		the post-transforms.
 
 		Calls setup() with a mocked application and checks the calls.
 		"""
@@ -133,7 +134,9 @@ class Registration(ReportProject):
 			DIRECTIVES, {call.args[1] for call in app.add_directive_to_domain.call_args_list if call.args[0] == "report"}
 		)
 		app.add_latex_package.assert_called_once_with("pdflscape")
-		app.add_post_transform.assert_called_once_with(FixLatexTableWidths)
+		self.assertEqual(
+			[FixLatexTableWidths, RemoveTreeLegends], [call.args[0] for call in app.add_post_transform.call_args_list]
+		)
 		self.assertLessEqual(CONFIG_VALUES, {call.args[0] for call in app.add_config_value.call_args_list})
 
 	@testcase("Core extension without pyEDAA.Reports")
