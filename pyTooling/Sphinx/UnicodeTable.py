@@ -115,10 +115,12 @@ class CodePoint(metaclass=ExtendedType, slots=True):
 	A Unicode code point: its value, and what :mod:`unicodedata` knows about it - its general category, its type and its
 	name.
 
-	A code point is written ``U+<hex>`` with at least four digits, e.g. ``U+2699``.
+	A code point is written in the standard's notation ``U+<hex>`` with at least four digits, e.g. ``U+2699``
+	(:attr:`Notation`). :func:`str` returns its character.
 	"""
 
-	_value: int  #: The code point's value, in range 0 to 0x10FFFF.
+	_value:     int  #: The code point's value, in range 0 to 0x10FFFF.
+	_character: str  #: The code point's character.
 
 	def __init__(self, value: int) -> None:
 		"""
@@ -140,7 +142,8 @@ class CodePoint(metaclass=ExtendedType, slots=True):
 			ex.add_note(f"Got value '{value:#x}'.")
 			raise ex
 
-		self._value = value
+		self._value =     value
+		self._character = chr(value)
 
 	@classmethod
 	def FromCharacter(cls, character: str) -> Self:
@@ -178,11 +181,11 @@ class CodePoint(metaclass=ExtendedType, slots=True):
 	@readonly
 	def Character(self) -> str:
 		"""
-		Read-only property to return the character of the code point.
+		Read-only property to access the code point's character (:attr:`_character`).
 
 		:returns: The character.
 		"""
-		return chr(self._value)
+		return self._character
 
 	@readonly
 	def Category(self) -> str:
@@ -192,7 +195,7 @@ class CodePoint(metaclass=ExtendedType, slots=True):
 		:returns: The general category's abbreviation, e.g. ``Lu`` for an uppercase letter or ``Cn`` for an unassigned
 		          code point.
 		"""
-		return category(chr(self._value))
+		return category(self._character)
 
 	@readonly
 	def Type(self) -> CodePointType:
@@ -203,19 +206,19 @@ class CodePoint(metaclass=ExtendedType, slots=True):
 
 		:returns: The type.
 		"""
-		generalCategory = self.Category
-		if generalCategory == "Cn":
-			return CodePointType.Noncharacter if self.IsNoncharacter else CodePointType.Reserved
-		elif generalCategory == "Cc":
-			return CodePointType.Control
-		elif generalCategory == "Co":
-			return CodePointType.PrivateUse
-		elif generalCategory == "Cs":
-			return CodePointType.Surrogate
-		elif generalCategory in ("Cf", "Zl", "Zp"):
-			return CodePointType.Format
-
-		return CodePointType.Graphic
+		match category(self._character):
+			case "Cn":
+				return CodePointType.Noncharacter if self.IsNoncharacter else CodePointType.Reserved
+			case "Cc":
+				return CodePointType.Control
+			case "Co":
+				return CodePointType.PrivateUse
+			case "Cs":
+				return CodePointType.Surrogate
+			case "Cf" | "Zl" | "Zp":
+				return CodePointType.Format
+			case _:
+				return CodePointType.Graphic
 
 	@readonly
 	def Name(self) -> str:
@@ -228,7 +231,7 @@ class CodePoint(metaclass=ExtendedType, slots=True):
 
 		:returns: The name, or the label.
 		"""
-		if (name := unicodeName(chr(self._value), "")) != "":
+		if (name := unicodeName(self._character, "")) != "":
 			return name
 
 		return f"<{self.Type}-{self._value:04X}>"
@@ -269,13 +272,22 @@ class CodePoint(metaclass=ExtendedType, slots=True):
 		"""
 		return 0xfe00 <= self._value <= 0xfe0f or 0xe0100 <= self._value <= 0xe01ef or self._value == 0x200d
 
-	def __str__(self) -> str:
+	@readonly
+	def Notation(self) -> str:
 		"""
-		Return the code point as it is written: ``U+<hex>`` with at least four digits.
+		Read-only property to return the code point in the standard's notation: ``U+<hex>`` with at least four digits.
 
 		:returns: The code point, e.g. ``U+2699``.
 		"""
 		return f"U+{self._value:04X}"
+
+	def __str__(self) -> str:
+		"""
+		Return the code point's character.
+
+		:returns: The character, e.g. ``⚙``.
+		"""
+		return self._character
 
 	def __repr__(self) -> str:
 		"""
@@ -283,7 +295,7 @@ class CodePoint(metaclass=ExtendedType, slots=True):
 
 		:returns: The code point and its name, e.g. ``<CodePoint U+2699 GEAR>``.
 		"""
-		return f"<CodePoint {self} {self.Name}>"
+		return f"<CodePoint {self.Notation} {self.Name}>"
 
 
 @export
@@ -368,7 +380,7 @@ class UnicodeEntry(NamedTuple):
 
 		:returns: The code points ``U+<hex>`` with at least four digits, separated by spaces, e.g. ``U+2699 U+FE0F``.
 		"""
-		return " ".join(str(codePoint) for codePoint in self.CodePoints)
+		return " ".join(codePoint.Notation for codePoint in self.CodePoints)
 
 	@readonly
 	def UnassignedCodePoints(self) -> list[CodePoint]:
@@ -433,7 +445,7 @@ class UnicodeTable(BaseDirective):
 		for entry in entries:
 			line = self.content_offset + entry.lineIndex + 1
 			if len(unassigned := entry.UnassignedCodePoints) > 0:
-				codePoints = ", ".join(str(codePoint) for codePoint in unassigned)
+				codePoints = ", ".join(codePoint.Notation for codePoint in unassigned)
 				messages.append(self.state.document.reporter.warning(
 					f"{self.directiveName}: {codePoints} isn't assigned in Unicode {unidata_version}, which Python's "
 					f"'unicodedata' knows; its name is unknown.",

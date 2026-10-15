@@ -237,7 +237,7 @@ class UnicodeNames(Testcase):
 		entry = UnicodeEntry("\u0378", "", 0)
 
 		self.assertEqual("<reserved-0378>", entry.Name)
-		self.assertEqual(["U+0378"], [str(codePoint) for codePoint in entry.UnassignedCodePoints])
+		self.assertEqual(["U+0378"], [codePoint.Notation for codePoint in entry.UnassignedCodePoints])
 
 	@testcase("Characters without a name")
 	def Labels(self) -> None:
@@ -266,15 +266,16 @@ class CodePoints(Testcase):
 	@testcase("Value and character")
 	def ValueAndCharacter(self) -> None:
 		"""
-		A code point created from a character has the character's value, and is written 'U+<hex>' with at least four digits.
+		A code point created from a character has the character's value; its notation is 'U+<hex>', four digits or more.
 
 		Checks the gear and the package emoji.
 		"""
 		gear = CodePoint.FromCharacter("\u2699")
 		self.assertEqual(0x2699, gear.Value)
 		self.assertEqual("\u2699", gear.Character)
-		self.assertEqual("U+2699", str(gear))
-		self.assertEqual("U+1F4E6", str(CodePoint(0x1f4e6)))
+		self.assertEqual("U+2699", gear.Notation)
+		self.assertEqual("\u2699", str(gear))
+		self.assertEqual("U+1F4E6", CodePoint(0x1f4e6).Notation)
 
 	@testcase("Invalid values")
 	def InvalidValues(self) -> None:
