@@ -40,12 +40,14 @@ from sphinx.writers.html5  import HTML5Translator
 from pyTooling.Decorators  import export
 from pyTooling.Sphinx.Node import Abbreviation, Landscape, TreeDescription, TreeItem, TreeLabel, TreeLegend
 from pyTooling.Sphinx.Node import TreeLegendItem, TreeSeparator
-from pyTooling.Sphinx.Node import COVERAGE_STATES, CoverageListing, visitFunc, departFunc
+from pyTooling.Sphinx.Node import COVERAGE_STATES, DOCUMENTATION_STATES, CoverageListing, DocCoverageListing
+from pyTooling.Sphinx.Node import visitFunc, departFunc
 
 
 __all__ = [
 	"translateLandscape", "translateTreeItem", "translateTreeLabel", "translateTreeSeparator", "translateTreeDescription",
-	"translateTreeLegend", "translateTreeLegendItem", "translateAbbreviation", "translateCoverageListing"
+	"translateTreeLegend", "translateTreeLegendItem", "translateAbbreviation", "translateCoverageListing",
+	"translateDocCoverageListing"
 ]
 
 
@@ -310,15 +312,58 @@ translateAbbreviation: tuple[visitFunc, departFunc] = (visit_Abbreviation, depar
 
 
 @export
+def highlightTokens(translator: HTML5Translator, tokens: list[tuple[str, str]]) -> str:
+	"""
+	Write a listing line's tokens in HTML, each in a ``<span>`` of its Pygments class, so Sphinx' Pygments stylesheet
+	colors it.
+
+	:param translator: The HTML translator writing the page.
+	:param tokens:     The line's tokens as ``(CSS class, text)`` pairs; a token without a class is written as text.
+	:returns:          The line's HTML.
+	"""
+	return "".join(
+		translator.encode(text) if cssClass == "" else f'<span class="{cssClass}">{translator.encode(text)}</span>'
+		for cssClass, text in tokens
+	)
+
+
+@export
+def writeListing(translator: HTML5Translator, node: nodes.Element, lines: list[str], states: dict[str, str]) -> None:
+	"""
+	Write a listing in HTML: a header with the file's path and a legend of the states, then the lines.
+
+	The lines are a ``<pre>`` inside the ``<div>`` elements of Sphinx' highlighting, so Sphinx' Pygments stylesheet colors
+	the tokens.
+
+	:param translator: The HTML translator writing the page.
+	:param node:       The listing, whose attribute ``path`` holds the file's path.
+	:param lines:      The lines, each written as HTML.
+	:param states:     The states the legend explains, by CSS class suffix: the label of each.
+	"""
+	classes = "highlight-default notranslate report-coverage-listing"
+	legend = "".join(
+		f'<span class="report-coverage-legend-{state or "none"}">{translator.encode(label)}</span>'
+		for state, label in states.items()
+	)
+	translator.body.append(translator.starttag(node, "div", "", CLASS=classes))
+	translator.body.append(
+		f'<div class="report-coverage-header"><span class="report-coverage-path">{translator.encode(node["path"])}</span>'
+		f'<span class="report-coverage-legend">{legend}</span></div>'
+	)
+	translator.body.append('<div class="highlight"><pre>')
+	translator.body.extend(lines)
+	translator.body.append("</pre></div></div>\n")
+
+
+@export
 def visit_CoverageListing(translator: HTML5Translator, node: CoverageListing) -> None:
 	"""
 	Write a source file's code coverage in HTML, completely.
 
-	A header shows the file's path and a legend of the coverage states. The listing is a ``<pre>`` in Sphinx'
-	highlighting ``<div>``s, so Sphinx' Pygments stylesheet colors the tokens. Each line is a ``<span>`` with class
-	``report-line`` and ``report-line-<state>``, holding its number, its hits - if the report has any - and its tokens.
-	A line, which ran without taking all its branches, says on hover how many were taken. The node's text - the plain
-	source - isn't written again.
+	A header shows the file's path and a legend of the coverage states (see :func:`writeListing`). Each line is a
+	``<span>`` with class ``report-line`` and ``report-line-<state>``, holding its number, its hits - if the report has
+	any - and its tokens. A line, which ran without taking all its branches, says on hover how many were taken. The
+	node's text - the plain source - isn't written again.
 
 	:param translator: The HTML translator writing the page.
 	:param node:       The listing.
@@ -338,25 +383,9 @@ def visit_CoverageListing(translator: HTML5Translator, node: CoverageListing) ->
 		if withHits:
 			gutter += f'<span class="linenos report-hits">{hitsText}</span>'
 
-		code = "".join(
-			translator.encode(text) if cssClass == "" else f'<span class="{cssClass}">{translator.encode(text)}</span>'
-			for cssClass, text in tokens
-		)
-		lines.append(f'<span class="{classes}"{attributes}>{gutter}{code}\n</span>')
+		lines.append(f'<span class="{classes}"{attributes}>{gutter}{highlightTokens(translator, tokens)}\n</span>')
 
-	classes = "highlight-default notranslate report-coverage-listing"
-	legend = "".join(
-		f'<span class="report-coverage-legend-{state or "none"}">{translator.encode(label)}</span>'
-		for state, label in COVERAGE_STATES.items()
-	)
-	translator.body.append(translator.starttag(node, "div", "", CLASS=classes))
-	translator.body.append(
-		f'<div class="report-coverage-header"><span class="report-coverage-path">{translator.encode(node["path"])}</span>'
-		f'<span class="report-coverage-legend">{legend}</span></div>'
-	)
-	translator.body.append('<div class="highlight"><pre>')
-	translator.body.extend(lines)
-	translator.body.append("</pre></div></div>\n")
+	writeListing(translator, node, lines, COVERAGE_STATES)
 
 	raise nodes.SkipNode
 
@@ -373,3 +402,46 @@ def depart_CoverageListing(translator: HTML5Translator, node: CoverageListing) -
 
 translateCoverageListing: tuple[visitFunc, departFunc] = (visit_CoverageListing, depart_CoverageListing)
 """Visit and depart function writing a :class:`~pyTooling.Sphinx.Node.CoverageListing` in HTML."""
+
+
+@export
+def visit_DocCoverageListing(translator: HTML5Translator, node: DocCoverageListing) -> None:
+	"""
+	Write a Python module's documentation coverage in HTML, completely.
+
+	A header shows the module's path and a legend of the documentation states (see :func:`writeListing`). Each line is
+	a ``<span>`` with class ``report-line`` and ``report-line-<state>``, holding its number and its tokens; an elided
+	body's ``...`` has no number and the class ``report-line-elided``. The node's text - the condensed source - isn't
+	written again.
+
+	:param translator: The HTML translator writing the page.
+	:param node:       The listing.
+	:raises SkipNode:  Always, so the node's text isn't written again.
+	"""
+	lines: list[str] = []
+	for number, status, tokens in node["lines"]:
+		classes = "report-line" if status == "" else f"report-line report-line-{status}"
+		if number is None:
+			classes += " report-line-elided"
+
+		gutter = f'<span class="linenos">{"" if number is None else number}</span>'
+		lines.append(f'<span class="{classes}">{gutter}{highlightTokens(translator, tokens)}\n</span>')
+
+	writeListing(translator, node, lines, DOCUMENTATION_STATES)
+
+	raise nodes.SkipNode
+
+
+@export
+def depart_DocCoverageListing(translator: HTML5Translator, node: DocCoverageListing) -> None:
+	"""
+	Close a Python module's documentation coverage in HTML, which writes nothing: :func:`visit_DocCoverageListing` wrote
+	it all.
+
+	:param translator: The HTML translator writing the page.
+	:param node:       The listing.
+	"""
+
+
+translateDocCoverageListing: tuple[visitFunc, departFunc] = (visit_DocCoverageListing, depart_DocCoverageListing)
+"""Visit and depart function writing a :class:`~pyTooling.Sphinx.Node.DocCoverageListing` in HTML."""

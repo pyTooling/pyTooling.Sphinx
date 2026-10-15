@@ -42,7 +42,7 @@ from docutils             import nodes
 from pyTooling.Decorators import export
 
 
-__all__ = ["visitFunc", "departFunc", "COVERAGE_STATES"]
+__all__ = ["visitFunc", "departFunc", "COVERAGE_STATES", "DOCUMENTATION_STATES"]
 
 #: The coverage states of a listing's lines, as the listing's legend names them, by state; ``""`` for a line, which
 #: isn't executable.
@@ -52,6 +52,16 @@ COVERAGE_STATES = {
 	"uncovered": "uncovered",
 	"excluded":  "excluded",
 	"":          "not executable",
+}
+
+#: The documentation states of a condensed listing's lines, as the listing's legend names them, by state; ``""`` for a
+#: line, whose documentation isn't counted.
+DOCUMENTATION_STATES = {
+	"documented":   "documented",
+	"undocumented": "undocumented",
+	"ignored":      "ignored",
+	"excluded":     "excluded",
+	"":             "not counted",
 }
 
 type visitFunc =  Callable[[Any, Any], Any]
@@ -167,4 +177,23 @@ class CoverageListing(nodes.literal_block):
 	coverage states.
 
 	The node's text is the plain source, so a builder without visitors for this node writes it as a literal block.
+	"""
+
+
+@export
+class DocCoverageListing(nodes.literal_block):
+	"""
+	A Python module's documentation coverage: its condensed source, syntax highlighted, each line marked by its
+	documentation state.
+
+	The source is condensed to what is documented: a function's or class' decorators, its header and its doc-string,
+	fields and variables; a body is elided to one ``...`` line.
+
+	Attribute ``lines`` holds a tuple per line: the line number - ``None`` for an elided body's ``...`` -, the state
+	(``documented``, ``undocumented``, ``ignored``, ``excluded``, or ``""`` for a line, whose documentation isn't
+	counted), and the line's tokens as ``(CSS class, text)`` pairs - the short classes of Pygments' token types, which
+	Sphinx' Pygments stylesheet colors. Attribute ``path`` holds the module's path, which the listing's header shows
+	beside the legend of the documentation states.
+
+	The node's text is the condensed source, so a builder without visitors for this node writes it as a literal block.
 	"""

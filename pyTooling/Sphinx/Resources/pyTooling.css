@@ -473,7 +473,8 @@ table.report-unittest-table > tbody > tr.testcase-passed */ {
   background: hsl(120 75% 90%);
 }
 
-/* A source file's code coverage: a line per <span>, its background and left border by its coverage state. */
+/* A source file's code coverage: a line per <span>, its background and left border by its coverage state. A Python
+   module's documentation coverage is drawn alike, its states sharing the colours of the coverage states. */
 div.report-coverage-listing pre {
   tab-size: var(--pyTooling-coverage-tab-size);
   -moz-tab-size: var(--pyTooling-coverage-tab-size);
@@ -482,7 +483,8 @@ div.report-coverage-listing span.report-line {
   display: block;
   border-left: var(--pyTooling-coverage-marker-width) solid transparent;
 }
-div.report-coverage-listing span.report-line-covered {
+div.report-coverage-listing span.report-line-covered,
+div.report-coverage-listing span.report-line-documented {
   background: var(--pyTooling-coverage-covered);
   border-left-color: var(--pyTooling-coverage-covered-marker);
 }
@@ -490,13 +492,18 @@ div.report-coverage-listing span.report-line-partial {
   background: var(--pyTooling-coverage-partial);
   border-left-color: var(--pyTooling-coverage-partial-marker);
 }
-div.report-coverage-listing span.report-line-uncovered {
+div.report-coverage-listing span.report-line-uncovered,
+div.report-coverage-listing span.report-line-undocumented {
   background: var(--pyTooling-coverage-uncovered);
   border-left-color: var(--pyTooling-coverage-uncovered-marker);
 }
-div.report-coverage-listing span.report-line-excluded {
+div.report-coverage-listing span.report-line-excluded,
+div.report-coverage-listing span.report-line-ignored {
   background: var(--pyTooling-coverage-excluded);
   border-left-color: var(--pyTooling-coverage-excluded-marker);
+}
+div.report-coverage-listing span.report-line-elided {
+  opacity: 0.6;
 }
 div.report-coverage-listing span.linenos {
   display: inline-block;
@@ -536,7 +543,8 @@ div.report-coverage-listing span.report-coverage-legend > span::before {
   vertical-align: -0.1em;
   border-left: var(--pyTooling-coverage-marker-width) solid transparent;
 }
-div.report-coverage-listing span.report-coverage-legend-covered::before {
+div.report-coverage-listing span.report-coverage-legend-covered::before,
+div.report-coverage-listing span.report-coverage-legend-documented::before {
   background: var(--pyTooling-coverage-covered);
   border-left-color: var(--pyTooling-coverage-covered-marker);
 }
@@ -544,11 +552,13 @@ div.report-coverage-listing span.report-coverage-legend-partial::before {
   background: var(--pyTooling-coverage-partial);
   border-left-color: var(--pyTooling-coverage-partial-marker);
 }
-div.report-coverage-listing span.report-coverage-legend-uncovered::before {
+div.report-coverage-listing span.report-coverage-legend-uncovered::before,
+div.report-coverage-listing span.report-coverage-legend-undocumented::before {
   background: var(--pyTooling-coverage-uncovered);
   border-left-color: var(--pyTooling-coverage-uncovered-marker);
 }
-div.report-coverage-listing span.report-coverage-legend-excluded::before {
+div.report-coverage-listing span.report-coverage-legend-excluded::before,
+div.report-coverage-listing span.report-coverage-legend-ignored::before {
   background: var(--pyTooling-coverage-excluded);
   border-left-color: var(--pyTooling-coverage-excluded-marker);
 }

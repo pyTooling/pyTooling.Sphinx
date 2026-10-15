@@ -197,7 +197,7 @@ License
    Python Class Reference <pyTooling.Sphinx/pyTooling.Sphinx>
    unittests/index
    coverage/index
-   Doc. Coverage Report <DocCoverage>
+   Doc. Coverage Report <doccoverage/index>
    Static Type Check Report ➚ <typing/index>
 
 .. raw:: latex
