@@ -580,7 +580,7 @@ class RemoveTreeLegends(SphinxPostTransform):
 	These formats write a tree as a nested bullet list, so a legend would explain icons the reader doesn't see.
 	"""
 
-	default_priority = 200                                 #: Priority among the post-transforms.
+	default_priority = 200                                  #: Priority among the post-transforms.
 	formats =          ("latex", "text", "man", "texinfo")  #: Output formats the transform runs for.
 
 	def run(self, **kwargs: Any) -> None:
