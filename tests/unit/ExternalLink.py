@@ -37,7 +37,7 @@ from zlib                          import compress
 
 from pyTooling.Sphinx              import SphinxExtensionError, setup
 from pyTooling.Sphinx.ExternalLink import HOST_ICONS, ExternalLinkIcons, LinkIcon, MarkDownloadLinks, MarkExternalLinks
-from pyTooling.Sphinx.ExternalLink import MarkIntersphinxLinks, checkExternalLinkConfiguration
+from pyTooling.Sphinx.ExternalLink import AddDownloadSizes, MarkIntersphinxLinks, checkExternalLinkConfiguration
 from pyTooling.Testing             import Testcase, testsuite, testcase
 
 from tests.unit.Extension          import Project
@@ -56,7 +56,7 @@ class Registration(Testcase):
 	@testcase("Setup with a mock")
 	def Setup(self) -> None:
 		"""
-		The extension's setup() registers the three post-transforms, the configuration values and their check.
+		The extension's setup() registers the four post-transforms, the configuration values and their check.
 
 		Calls setup() with a mocked application and checks the calls.
 		"""
@@ -67,23 +67,30 @@ class Registration(Testcase):
 		self.assertIn(MarkExternalLinks, transforms)
 		self.assertIn(MarkIntersphinxLinks, transforms)
 		self.assertIn(MarkDownloadLinks, transforms)
+		self.assertIn(AddDownloadSizes, transforms)
 		app.add_config_value.assert_any_call("pyTooling_ExternalLink_Icons", None, "html", (str, ExternalLinkIcons))
 		app.add_config_value.assert_any_call("pyTooling_ExternalLink_NewTab", True, "html", bool)
 		app.add_config_value.assert_any_call("pyTooling_ExternalLink_Hosts", {}, "html", dict)
+		app.add_config_value.assert_any_call("pyTooling_ExternalLink_DownloadSizes", True, "html", bool)
+		app.add_config_value.assert_any_call("pyTooling_ExternalLink_RemoteSizes", [], "html", (list, tuple))
+		app.add_config_value.assert_any_call("pyTooling_ExternalLink_RemoteSizeTimeout", 5.0, "html", (int, float))
 		self.assertIn(("config-inited", checkExternalLinkConfiguration), [call.args for call in app.connect.call_args_list])
 
 	@testcase("Priorities")
 	def Priorities(self) -> None:
 		"""
-		Links written with their URI are marked before Sphinx resolves the references (priority 10), the others after.
+		Links written with their URI are marked before Sphinx resolves the references (priority 10), the others after;
+		the sizes are written after all are marked.
 
 		Checks the post-transforms' priorities and output formats.
 		"""
 		self.assertLess(MarkExternalLinks.default_priority, 10)
 		self.assertGreater(MarkIntersphinxLinks.default_priority, 10)
+		self.assertGreater(AddDownloadSizes.default_priority, MarkIntersphinxLinks.default_priority)
 		self.assertEqual(("html", ), MarkExternalLinks.formats)
 		self.assertEqual(("html", ), MarkIntersphinxLinks.formats)
 		self.assertEqual(("html", ), MarkDownloadLinks.formats)
+		self.assertEqual(("html", ), AddDownloadSizes.formats)
 
 
 @testsuite("External link selection")
@@ -216,9 +223,12 @@ class Configuration(Testcase):
 		Checks a configuration with a selection and two hosts, one without an icon, which gets the generic one.
 		"""
 		config = {
-			"pyTooling_ExternalLink_Icons":  "all",
-			"pyTooling_ExternalLink_NewTab": False,
-			"pyTooling_ExternalLink_Hosts":  {"GitLab.example.org": "gitlab", "pypi.org": None},
+			"pyTooling_ExternalLink_Icons":             "all",
+			"pyTooling_ExternalLink_NewTab":            False,
+			"pyTooling_ExternalLink_Hosts":             {"GitLab.example.org": "gitlab", "pypi.org": None},
+			"pyTooling_ExternalLink_DownloadSizes":     True,
+			"pyTooling_ExternalLink_RemoteSizes":       [],
+			"pyTooling_ExternalLink_RemoteSizeTimeout": 5.0,
 		}
 		checkExternalLinkConfiguration(None, config)
 
@@ -236,15 +246,21 @@ class Configuration(Testcase):
 		Checks the configuration values' defaults.
 		"""
 		config = {
-			"pyTooling_ExternalLink_Icons":  None,
-			"pyTooling_ExternalLink_NewTab": True,
-			"pyTooling_ExternalLink_Hosts":  {},
+			"pyTooling_ExternalLink_Icons":             None,
+			"pyTooling_ExternalLink_NewTab":            True,
+			"pyTooling_ExternalLink_Hosts":             {},
+			"pyTooling_ExternalLink_DownloadSizes":     True,
+			"pyTooling_ExternalLink_RemoteSizes":       [],
+			"pyTooling_ExternalLink_RemoteSizeTimeout": 5.0,
 		}
 		checkExternalLinkConfiguration(None, config)
 
 		self.assertIs(ExternalLinkIcons.Explicit, config["pyTooling_ExternalLink_Icons"])
 		self.assertTrue(config["pyTooling_ExternalLink_NewTab"])
 		self.assertEqual({}, config["pyTooling_ExternalLink_Hosts"])
+		self.assertTrue(config["pyTooling_ExternalLink_DownloadSizes"])
+		self.assertEqual((), config["pyTooling_ExternalLink_RemoteSizes"])
+		self.assertEqual(5.0, config["pyTooling_ExternalLink_RemoteSizeTimeout"])
 
 	@testcase("Errors")
 	def Errors(self) -> None:
@@ -268,14 +284,17 @@ class Configuration(Testcase):
 			 ["Got type 'int'."], True),
 			("explicit", {"a.org": "hg"}, "conf.py: pyTooling_ExternalLink_Hosts: Icon 'hg' of host 'a.org' is not an icon.",
 			 ["Allowed values: external, mail, github, gitlab, python, numpy, pypy, pytest, pydantic, "
-			  "readthedocs, sphinx, download."], True),
+			  "readthedocs, sphinx, download, archive."], True),
 			("explicit", {},              "conf.py: pyTooling_ExternalLink_NewTab: Value is not of type 'bool'.",
 			 ["Got type 'str'."], "yes"),
 		):
 			config = {
-				"pyTooling_ExternalLink_Icons":  icons,
-				"pyTooling_ExternalLink_NewTab": newTab,
-				"pyTooling_ExternalLink_Hosts":  hosts,
+				"pyTooling_ExternalLink_Icons":             icons,
+				"pyTooling_ExternalLink_NewTab":            newTab,
+				"pyTooling_ExternalLink_Hosts":             hosts,
+				"pyTooling_ExternalLink_DownloadSizes":     True,
+				"pyTooling_ExternalLink_RemoteSizes":       [],
+				"pyTooling_ExternalLink_RemoteSizeTimeout": 5.0,
 			}
 			with self.subTest(message=message):
 				with self.assertRaises(SphinxExtensionError) as context:
@@ -299,7 +318,7 @@ class Rendering(Project):
 		"* relative `license <license.html>`__\n"
 		"* internal :ref:`genindex`\n"
 		"* intersphinx :py:class:`Other.Thing` and :py:class:`Local.Thing`\n"
-		"* download :download:`archive <archive.zip>` and :download:`remote <https://example.org/archive.zip>`\n"
+		"* download :download:`report <report.pdf>` and :download:`remote <https://example.org/report.pdf>`\n"
 		"\n"
 		".. image:: logo.png\n"
 		"   :target: https://github.com/pyTooling\n"
@@ -325,7 +344,7 @@ class Rendering(Project):
 			inventories[name] = str(inventory)
 
 		(self._path / "src" / "logo.png").write_bytes(b"")
-		(self._path / "src" / "archive.zip").write_bytes(b"")
+		(self._path / "src" / "report.pdf").write_bytes(b"")
 		self._build(
 			self._document,
 			builder,
@@ -363,7 +382,7 @@ class Rendering(Project):
 			'<a class="pytooling-download-link pytooling-link-icon-download reference download internal" download="" '
 			'href="_downloads/',
 			'<a class="pytooling-download-link pytooling-link-icon-download reference download external" download="" '
-			'href="https://example.org/archive.zip">',
+			'href="https://example.org/report.pdf">',
 		):
 			with self.subTest(link=link):
 				self.assertIn(link, html)

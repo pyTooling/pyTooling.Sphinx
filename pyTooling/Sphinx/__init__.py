@@ -92,9 +92,10 @@ document of every project. This extension declares them once:
 
 * the **nodes** the directives emit, listed in :data:`NODES` with their visitors per output format.
 
-* the **external link icons** - in HTML, an icon behind each external link, chosen by its target -, with the
-  configuration values ``pyTooling_ExternalLink_Icons``, ``pyTooling_ExternalLink_NewTab`` and
-  ``pyTooling_ExternalLink_Hosts`` (:mod:`~pyTooling.Sphinx.ExternalLink`).
+* the **external link icons** - in HTML, an icon behind each external link, chosen by its target, and the size behind
+  each download -, with the configuration values ``pyTooling_ExternalLink_Icons``, ``pyTooling_ExternalLink_NewTab``,
+  ``pyTooling_ExternalLink_Hosts``, ``pyTooling_ExternalLink_DownloadSizes``, ``pyTooling_ExternalLink_RemoteSizes``
+  and ``pyTooling_ExternalLink_RemoteSizeTimeout`` (:mod:`~pyTooling.Sphinx.ExternalLink`).
 
 Two classes aren't registered, because they are base-classes for a project's own directives:
 :class:`~pyTooling.Sphinx.BaseDirective` offers typed option access and table construction
@@ -970,7 +971,7 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	from pyTooling.Sphinx.DocCoveragePages  import DocCoverageReportPages
 	from pyTooling.Sphinx.ExternalLink      import CONFIG_PREFIX as EXTERNAL_LINK_PREFIX, BaseExternalLinkTransform
 	from pyTooling.Sphinx.ExternalLink      import MarkDownloadLinks, MarkExternalLinks, MarkIntersphinxLinks
-	from pyTooling.Sphinx.ExternalLink      import checkExternalLinkConfiguration
+	from pyTooling.Sphinx.ExternalLink      import AddDownloadSizes, checkExternalLinkConfiguration
 	from pyTooling.Sphinx.Roles             import BREAK_ROLES, PYTHON_CODE_ROLE, STYLE_ROLES
 	from pyTooling.Sphinx.Roles             import breakRole, pythonCodeRole, styleRole
 	from pyTooling.Sphinx.Shields           import Shields
@@ -1051,6 +1052,7 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	sphinx.add_post_transform(MarkExternalLinks)
 	sphinx.add_post_transform(MarkIntersphinxLinks)
 	sphinx.add_post_transform(MarkDownloadLinks)
+	sphinx.add_post_transform(AddDownloadSizes)
 
 	sphinx.connect("config-inited", extendProlog)
 	# after the configuration values above are registered, and before any document is read - a requirements file

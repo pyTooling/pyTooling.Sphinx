@@ -646,11 +646,13 @@ div.report-coverage-listing span.report-coverage-legend-none::before {
 
    A marked link gets the class 'pytooling-link-icon-<icon>'. Its '::after' pseudo-element draws the icon: a mask in
    the icon's shape, filled with the link's colour. Without text, the pseudo-element offers no line break opportunity,
-   so the icon stays on the line of the link's last word. A screen reader reads its alternative text instead.
+   so the icon stays on the line of the link's last word. A screen reader reads its alternative text instead. A link
+   to an archive also gets the class 'pytooling-archive-<extension>', e.g. 'pytooling-archive-tar-gz', whose
+   alternative text names the archive's format.
 
    Each icon is an SVG image in a data URI, continued over several lines by escaped newlines, as a custom property a
    project can redefine:
-   * 'external', 'mail' and 'download' are drawn for pyTooling.Sphinx, as lines;
+   * 'external', 'mail', 'download' and 'archive' are drawn for pyTooling.Sphinx, as lines;
    * the others are the brands' marks from Simple Icons 16.35.0 (https://simpleicons.org/, CC0 1.0 Universal); the
      marks are trademarks of their owners. */
 :root {
@@ -663,6 +665,10 @@ div.report-coverage-listing span.report-coverage-legend-none::before {
   --pyTooling-link-icon-download: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24\
     24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3\
     v12M7 10l5 5 5-5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2'/%3E%3C/svg%3E");
+  --pyTooling-link-icon-archive: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24\
+    24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 3\
+    H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7z'/%3E%3Cpath d='M15 3v4h4M11 3v1M11 7v1M11 11v1'/%3E%3Crect\
+    x='9' y='15' width='4' height='3' rx='1'/%3E%3C/svg%3E");
   --pyTooling-link-icon-github: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24\
     24'%3E%3Cpath d='M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01\
     -1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729\
@@ -835,6 +841,10 @@ a.pytooling-link-icon-download {
   --pyTooling-link-icon: var(--pyTooling-link-icon-download);
 }
 
+a.pytooling-link-icon-archive {
+  --pyTooling-link-icon: var(--pyTooling-link-icon-archive);
+}
+
 a.pytooling-link-icon-mail::after {
   content: "";
   content: "" / "(e-mail address)";
@@ -938,6 +948,104 @@ a.pytooling-link-icon-readthedocs[target="_blank"]::after {
 a.pytooling-link-icon-sphinx[target="_blank"]::after {
   content: "";
   content: "" / "(external link, Sphinx, opens in a new tab)";
+}
+
+a.pytooling-archive-zip::after {
+  content: "";
+  content: "" / "(external link, ZIP archive)";
+}
+
+a.pytooling-archive-tar-gz::after,
+a.pytooling-archive-tgz::after {
+  content: "";
+  content: "" / "(external link, tar.gz archive)";
+}
+
+a.pytooling-archive-tar-bz2::after {
+  content: "";
+  content: "" / "(external link, tar.bz2 archive)";
+}
+
+a.pytooling-archive-tar-xz::after {
+  content: "";
+  content: "" / "(external link, tar.xz archive)";
+}
+
+a.pytooling-archive-tar-zst::after {
+  content: "";
+  content: "" / "(external link, tar.zst archive)";
+}
+
+a.pytooling-archive-7z::after {
+  content: "";
+  content: "" / "(external link, 7z archive)";
+}
+
+a.pytooling-archive-zip[target="_blank"]::after {
+  content: "";
+  content: "" / "(external link, ZIP archive, opens in a new tab)";
+}
+
+a.pytooling-archive-tar-gz[target="_blank"]::after,
+a.pytooling-archive-tgz[target="_blank"]::after {
+  content: "";
+  content: "" / "(external link, tar.gz archive, opens in a new tab)";
+}
+
+a.pytooling-archive-tar-bz2[target="_blank"]::after {
+  content: "";
+  content: "" / "(external link, tar.bz2 archive, opens in a new tab)";
+}
+
+a.pytooling-archive-tar-xz[target="_blank"]::after {
+  content: "";
+  content: "" / "(external link, tar.xz archive, opens in a new tab)";
+}
+
+a.pytooling-archive-tar-zst[target="_blank"]::after {
+  content: "";
+  content: "" / "(external link, tar.zst archive, opens in a new tab)";
+}
+
+a.pytooling-archive-7z[target="_blank"]::after {
+  content: "";
+  content: "" / "(external link, 7z archive, opens in a new tab)";
+}
+
+a.pytooling-download-link.pytooling-archive-zip::after {
+  content: "";
+  content: "" / "(download, ZIP archive)";
+}
+
+a.pytooling-download-link.pytooling-archive-tar-gz::after,
+a.pytooling-download-link.pytooling-archive-tgz::after {
+  content: "";
+  content: "" / "(download, tar.gz archive)";
+}
+
+a.pytooling-download-link.pytooling-archive-tar-bz2::after {
+  content: "";
+  content: "" / "(download, tar.bz2 archive)";
+}
+
+a.pytooling-download-link.pytooling-archive-tar-xz::after {
+  content: "";
+  content: "" / "(download, tar.xz archive)";
+}
+
+a.pytooling-download-link.pytooling-archive-tar-zst::after {
+  content: "";
+  content: "" / "(download, tar.zst archive)";
+}
+
+a.pytooling-download-link.pytooling-archive-7z::after {
+  content: "";
+  content: "" / "(download, 7z archive)";
+}
+
+/* A download's size, and an archive's format, behind its link. */
+span.pytooling-download-size {
+  white-space: nowrap;
 }
 
 /* sphinx_rtd_theme draws a download glyph of its own before the text of a download link, and sets the text's first
