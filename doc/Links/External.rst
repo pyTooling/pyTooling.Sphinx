@@ -22,6 +22,9 @@ External link icons
       A marked link **opens in a new browser tab**, unless ``pyTooling_ExternalLink_NewTab`` is ``False``; an e-mail
       address opens the mail program, as before.
 
+      A **download** gets a download icon - an archive an archive icon - and its **file's size** behind it - see
+      :ref:`LINK/External/Downloads`.
+
    .. grid-item::
       :columns: 6
 
@@ -58,6 +61,11 @@ Icons
    * - :download:`pyTooling.Sphinx' logo <../_static/logo.png>`
      - ``download``
      - A link of Sphinx' ``:download:`` role, to a file of the documentation or of another site.
+   * - :download:`GHDL 6.0.0 for Windows
+       <https://github.com/ghdl/ghdl/releases/download/v6.0.0/ghdl-mcode-6.0.0-ucrt64.zip>`
+     - ``archive``
+     - A link to an archive: a file name ending in an archive's extension, e.g. ``.zip`` or ``.tar.gz``, in any case -
+       see :data:`~pyTooling.Sphinx.ExternalLink.ARCHIVE_FORMATS`. It replaces the download icon and the host's icon.
    * - :gh:`pyTooling/pyTooling.Sphinx`
      - ``github``
      - ``github.com``
@@ -120,8 +128,92 @@ Marked links
    * - A toctree entry and the navigation.
      - No.
    * - A link of Sphinx' ``:download:`` role, to a file of the documentation or of another site.
-     - The download icon, unless ``pyTooling_ExternalLink_Icons`` is ``none``. It stays in the browser's tab, which
-       saves the file.
+     - The download icon, or the archive icon for an archive, unless ``pyTooling_ExternalLink_Icons`` is ``none``. It
+       stays in the browser's tab, which saves the file.
+
+
+.. _LINK/External/Downloads:
+
+Downloads
+*********
+
+A file to download is linked with Sphinx' ``:download:`` role - a file of the documentation, and another site's file,
+e.g. a release's asset on GitHub, alike:
+
+.. code-block:: ReST
+
+   Download the :download:`logo <_static/logo.png>`, or :download:`GHDL 6.0.0 for Windows
+   <https://github.com/ghdl/ghdl/releases/download/v6.0.0/ghdl-mcode-6.0.0-ucrt64.zip>`.
+
+This is how the example renders - this documentation asks no other site for a size, so the second link has none:
+
+   Download the :download:`logo <../_static/logo.png>`, or :download:`GHDL 6.0.0 for Windows
+   <https://github.com/ghdl/ghdl/releases/download/v6.0.0/ghdl-mcode-6.0.0-ucrt64.zip>`.
+
+* The link gets the download icon, or the archive icon if the file is an archive. It stays in the browser's tab, which
+  saves the file.
+* The **file's size** follows the link, and for an archive its format: *logo (61.3 kiB)*, *GHDL 6.0.0 for Windows
+  (ZIP, 22.6 MiB)*. The units are binary - 1 kiB is 1024 bytes -: ``B`` below 1 kiB, then ``kiB``, ``MiB`` and
+  ``GiB`` with one decimal.
+
+.. hint::
+
+   Link every download with ``:download:``. A link written with its URI to an archive, e.g. to
+   ``https://example.org/pkg-1.0.zip``, gets the archive icon and the size too, but only as a fallback for documents
+   that don't follow this rule: a link to any other file, e.g. a PDF, isn't recognized as a download.
+
+
+.. _LINK/External/Downloads/Local:
+
+Files of the documentation
+==========================
+
+The size of a file of the documentation is its size on disk when the documentation is built. Every download gets it,
+unless ``pyTooling_ExternalLink_DownloadSizes`` is ``False``. A file Sphinx doesn't find gets no size; Sphinx warns
+about it.
+
+
+.. _LINK/External/Downloads/Remote:
+
+Other sites' files
+==================
+
+The extension asks another site for a file's size only if the file's URI matches a pattern of
+``pyTooling_ExternalLink_RemoteSizes`` - by default, it asks no site. It sends an HTTP ``HEAD`` request, follows
+redirections - e.g. of a GitHub release's asset to its storage -, and reads the answer's ``Content-Length``. Each URI is
+asked once per build, however often it is linked.
+
+* A pattern is a glob pattern, compared case-sensitively with the whole URI: ``*`` matches any characters - also
+  ``/`` -, ``?`` one character, and ``[...]`` one of the characters listed.
+* Only a URI of scheme ``http`` or ``https`` is asked for.
+* The extension waits ``pyTooling_ExternalLink_RemoteSizeTimeout`` seconds for an answer, 5 by default.
+
+.. code-block:: Python
+
+   # doc/conf.py
+   pyTooling_ExternalLink_RemoteSizes = [
+     "https://github.com/pyTooling/*/releases/download/*",   # the releases' assets of an organization's projects
+     "https://example.org/files/*.zip",
+   ]
+   pyTooling_ExternalLink_RemoteSizeTimeout = 2.5
+
+If the size stays unknown - no answer within the time, an HTTP error, or an answer without ``Content-Length`` - the
+link gets no size, and Sphinx warns at the link, with the warning type ``pyTooling.download_size`` appended in
+brackets:
+
+.. code-block:: text
+
+   a.rst:2: WARNING: size of download 'https://example.org/a.zip' unknown: no answer within 2.5 seconds
+   a.rst:4: WARNING: size of download 'https://example.org/b.zip' unknown: the server answered 404 Not Found
+
+A project that accepts a missing size suppresses the warning by its type:
+
+.. code-block:: Python
+
+   # doc/conf.py
+   suppress_warnings = [
+     "pyTooling.download_size",
+   ]
 
 
 .. _LINK/External/Configuration:
@@ -155,16 +247,31 @@ Configuration
      - ``{}``
      - More hosts, each with the name of its icon - see :ref:`LINK/External/Icons`. A host given here wins over a
        host of :data:`~pyTooling.Sphinx.ExternalLink.HOST_ICONS`; ``None`` is ``external``.
+   * - ``pyTooling_ExternalLink_DownloadSizes``
+     - ``True``
+     - Whether a download gets its file's size behind its link - see :ref:`LINK/External/Downloads`.
+   * - ``pyTooling_ExternalLink_RemoteSizes``
+     - ``[]``
+     - The glob patterns of the URIs of other sites' files whose size is asked for - see
+       :ref:`LINK/External/Downloads/Remote`. Without a pattern, no site is asked.
+   * - ``pyTooling_ExternalLink_RemoteSizeTimeout``
+     - ``5.0``
+     - The seconds to wait for a site's answer to the request for a size; a positive number.
 
 .. code-block:: Python
 
    # doc/conf.py
-   pyTooling_ExternalLink_Icons =  "all"
-   pyTooling_ExternalLink_NewTab = False                # links open in the same tab
-   pyTooling_ExternalLink_Hosts =  {
+   pyTooling_ExternalLink_Icons =             "all"
+   pyTooling_ExternalLink_NewTab =            False     # links open in the same tab
+   pyTooling_ExternalLink_Hosts =             {
      "gitlab.example.org": "gitlab",     # a GitLab instance of one's own
      "pypi.org":           "external",   # no Python logo for the package index
    }
+   pyTooling_ExternalLink_DownloadSizes =     True
+   pyTooling_ExternalLink_RemoteSizes =       [
+     "https://gitlab.example.org/*/-/releases/*",
+   ]
+   pyTooling_ExternalLink_RemoteSizeTimeout = 5.0
 
 A malformed value stops the build:
 
@@ -172,8 +279,8 @@ A malformed value stops the build:
 
    conf.py: pyTooling_ExternalLink_Icons: 'some' is not a selection of links.
    Allowed values: none, explicit, all.
-   conf.py: pyTooling_ExternalLink_Hosts: Icon 'hg' of host 'example.org' is not an icon.
-   Allowed values: external, mail, github, gitlab, python, numpy, pypy, pytest, pydantic, readthedocs, sphinx, download.
+   conf.py: pyTooling_ExternalLink_RemoteSizeTimeout: Value is not a positive, finite number.
+   Got value '0'.
 
 
 .. _LINK/External/Styling:
@@ -201,6 +308,9 @@ in a stylesheet of its own, listed in ``html_css_files``:
      - an SVG image
      - the icon's shape, e.g. ``--pyTooling-link-icon-github``
 
+The size behind a download is a ``<span class="pytooling-download-size">``, which a project's stylesheet may style, e.g.
+in a smaller font.
+
 An icon is a mask filled with the link's colour, so only the shape of its image counts:
 
 .. code-block:: CSS
@@ -226,13 +336,23 @@ Two post-transforms mark the links in HTML, for every builder of the HTML family
    <a class="extlink-gh pytooling-external-link pytooling-link-icon-github reference external"
       href="https://GitHub.com/pyTooling/pyTooling.Sphinx">pyTooling/pyTooling.Sphinx</a>
 
+Two more post-transforms work on the downloads, in HTML too: :class:`~pyTooling.Sphinx.ExternalLink.MarkDownloadLinks`
+marks them with the CSS class ``pytooling-download-link`` and the download or archive icon, and
+:class:`~pyTooling.Sphinx.ExternalLink.AddDownloadSizes` writes their sizes.
+
 * The icon is drawn by the link's ``::after`` pseudo-element, so it stays on the line of the link's last word.
 * A screen reader reads the icon's alternative text instead, e.g. *(external link, opens in a new tab)* or
   *(e-mail address)*.
 * In a forced-colours mode, e.g. Windows' high contrast themes, the icon keeps the link's colour.
+* A link to an archive also gets the CSS class ``pytooling-archive-<extension>``, e.g. ``pytooling-archive-tar-gz``;
+  its alternative text names the format, e.g. *(download, ZIP archive)*.
+* sphinx_rtd_theme draws a download glyph of its own before a download link's text. A marked download link shows its
+  icon behind the text only, like any other link; with ``pyTooling_ExternalLink_Icons`` set to ``none``, the theme's
+  glyph stays.
 
-Every other format - e.g. LaTeX - writes the links as before, without a mark.
+Every other format - e.g. LaTeX - writes the links as before, without a mark and without a size: LaTeX writes a
+``:download:`` link as its text, without the file, so a PDF offers no file whose size would help.
 
 The brands' icons - ``github`` to ``readthedocs`` - are their marks from `Simple Icons <https://simpleicons.org/>`__
-16.35.0, published under CC0 1.0 Universal; the marks are trademarks of their owners. ``external`` and ``mail`` are
-drawn for pyTooling.Sphinx.
+16.35.0, published under CC0 1.0 Universal; the marks are trademarks of their owners. ``external``, ``mail``,
+``download`` and ``archive`` are drawn for pyTooling.Sphinx.
