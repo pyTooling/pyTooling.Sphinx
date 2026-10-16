@@ -40,7 +40,7 @@ from unittest.mock                   import MagicMock
 
 from pyTooling.Sphinx                import ReportDomain, setup
 from pyTooling.Sphinx.ExternalLink   import AddDownloadSizes, MarkDownloadLinks, MarkExternalLinks, MarkIntersphinxLinks
-from pyTooling.Sphinx.GitHubMarkdown import ReplaceSVGImages
+from pyTooling.Sphinx.GitHubMarkdown import RasterizeShieldsBadges
 from pyTooling.Sphinx.Tree           import RemoveTreeLegends
 from pyTooling.Sphinx.UnicodeTable   import RemoveUnicodeGlyphs
 from pyTooling.Sphinx.Workaround     import FixLatexTableWidths
@@ -141,7 +141,7 @@ class Registration(ReportProject):
 		)
 		self.assertEqual(
 			[
-				FixLatexTableWidths, RemoveTreeLegends, RemoveUnicodeGlyphs, ReplaceSVGImages, MarkExternalLinks,
+				FixLatexTableWidths, RemoveTreeLegends, RemoveUnicodeGlyphs, RasterizeShieldsBadges, MarkExternalLinks,
 				MarkIntersphinxLinks, MarkDownloadLinks, AddDownloadSizes
 			],
 			[call.args[0] for call in app.add_post_transform.call_args_list]

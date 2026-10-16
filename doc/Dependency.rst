@@ -114,6 +114,10 @@ optional - only a project converting Markdown needs them - and installed with th
      - ``~= 0.6``
      - parsing GitHub's autolinks and footnotes
 
+An SVG image in the Markdown - other than a shields.io badge, which is fetched as PNG - needs Sphinx' extension
+:mod:`sphinx.ext.imgconverter` in :file:`conf.py`'s ``extensions`` and `ImageMagick <https://imagemagick.org/>`__ for
+LaTeX/PDF output, as LaTeX can't include SVG.
+
 .. rubric:: Bundled Data
 
 The converter's emoji table - :file:`pyTooling/Sphinx/Resources/GitHubEmoji.txt`, GitHub's emoji with their characters

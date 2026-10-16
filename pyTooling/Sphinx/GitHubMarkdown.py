@@ -64,7 +64,11 @@ A heading becomes a topic or a rubric, never a section, and raw HTML is translat
 .. rubric:: LaTeX
 
 An emoji is a node of its own (:class:`~pyTooling.Sphinx.Node.Emoji`), whose characters LaTeX writes as they are, for
-LuaLaTeX and an emoji font. :class:`ReplaceSVGImages` replaces the SVG images LaTeX can't include.
+LuaLaTeX and an emoji font.
+
+LaTeX can't include an SVG image, e.g. a badge. :class:`RasterizeShieldsBadges` fetches a shields.io badge as PNG;
+every other SVG image needs Sphinx' ImageMagick converter, :mod:`sphinx.ext.imgconverter`, in :file:`conf.py`'s
+``extensions`` - without it, LaTeX stops at the image with "Unknown graphics extension: .svg".
 
 .. attention::
 
@@ -79,7 +83,6 @@ from urllib.parse                      import urlsplit
 
 from docutils                          import nodes
 from sphinx.transforms.post_transforms import SphinxPostTransform
-from sphinx.util.logging               import getLogger
 
 from pyTooling.Common                  import getFullyQualifiedName, readResourceFile
 from pyTooling.Decorators              import export, readonly
@@ -442,13 +445,13 @@ class GitHubMarkdown(metaclass=ExtendedType, slots=True):
 
 
 @export
-class ReplaceSVGImages(SphinxPostTransform):
+class RasterizeShieldsBadges(SphinxPostTransform):
 	"""
-	A post-transform replacing the SVG images of converted Markdown in LaTeX, which can't include SVG.
+	A post-transform fetching the shields.io badges of converted Markdown as PNG in LaTeX, which can't include SVG.
 
-	A shields.io badge is fetched as PNG from :data:`~pyTooling.Sphinx.Shields.SHIELDS_SERVICE_PNG`. Another image whose
-	URI ends in ``.svg`` is replaced by its alternative text, with a warning of type ``github`` and subtype ``image`` -
-	unless :file:`conf.py` lists :mod:`sphinx.ext.imgconverter`, which converts SVG.
+	A badge's URI is moved to :data:`~pyTooling.Sphinx.Shields.SHIELDS_SERVICE_PNG`, without a suffix ``.svg``. Every
+	other SVG image is left to :mod:`sphinx.ext.imgconverter`, which converts it with ImageMagick, if :file:`conf.py`
+	lists it in ``extensions``.
 	"""
 
 	default_priority = 50           #: Priority among the post-transforms: before Sphinx downloads remote images.
@@ -456,12 +459,13 @@ class ReplaceSVGImages(SphinxPostTransform):
 
 	def run(self, **kwargs: Any) -> None:
 		"""
-		Replace the SVG images of converted Markdown - the images of class :data:`~pyTooling.Sphinx.Markdown.IMAGE_CLASS`.
+		Move the shields.io badges of converted Markdown to the service rasterizing them.
+
+		The images of converted Markdown have class :data:`~pyTooling.Sphinx.Markdown.IMAGE_CLASS`.
 
 		:param kwargs: Keyword arguments Sphinx passes to a post-transform; none is used.
 		"""
-		converts = "sphinx.ext.imgconverter" in self.config.extensions
-		for image in list(self.document.findall(nodes.image)):
+		for image in self.document.findall(nodes.image):
 			if IMAGE_CLASS not in image["classes"]:
 				continue
 
@@ -470,9 +474,3 @@ class ReplaceSVGImages(SphinxPostTransform):
 				raster = urlsplit(SHIELDS_SERVICE_PNG)._replace(path=uri.path.removesuffix(".svg"), query=uri.query)
 				image["uri"] =        raster.geturl()
 				image["candidates"] = {"?": image["uri"]}
-			elif uri.path.lower().endswith(".svg") and not converts:
-				getLogger(__name__).warning(
-					f"SVG image '{image['uri']}' not supported by LaTeX; replaced by its alternative text.",
-					type="github", subtype="image", location=image
-				)
-				image.parent.replace(image, nodes.Text(image.get("alt", "")))

@@ -82,7 +82,7 @@ if TYPE_CHECKING:  # pragma: no cover
 __all__ = ["IMAGE_CLASS", "ALERTS", "HTML_ELEMENTS"]
 
 #: The CSS class of every image the translator writes, by which
-#: :class:`~pyTooling.Sphinx.GitHubMarkdown.ReplaceSVGImages` finds them.
+#: :class:`~pyTooling.Sphinx.GitHubMarkdown.RasterizeShieldsBadges` finds them.
 IMAGE_CLASS = "github-image"
 
 #: The admonition each kind of GitHub alert becomes, by the kind as written: ``> [!NOTE]``.

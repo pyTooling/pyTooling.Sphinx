@@ -629,26 +629,24 @@ class Rendering(Project):
 	@testcase("SVG image in LaTeX")
 	def SVGImage(self) -> None:
 		"""
-		An SVG image is replaced by its alternative text in LaTeX, with a warning at the image's line; HTML keeps it.
+		An SVG image, which isn't a shields.io badge, is left as it is in LaTeX - for sphinx.ext.imgconverter -, and in
+		HTML.
 		"""
-		document = "Index\n#####\n\n.. markdown::\n\n   ![build status](https://example.org/badge.svg)\n"
+		(self._path / "src" / "badge.svg").write_text(
+			'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>\n',
+			encoding="utf-8"
+		)
+		document = "Index\n#####\n\n.. markdown::\n\n   ![build status](badge.svg)\n"
 		self._build(document, "latex", conf=self._conf)
 
-		self.assertEqual(
-			[
-				"src/index.rst:6: WARNING: SVG image 'https://example.org/badge.svg' not supported by LaTeX; replaced by its "
-				"alternative text. [github.image]"
-			],
-			self._warningLines()
-		)
+		self.assertEqual([], self._warningLines())
 		latex = next((self._path / "build" / "latex").glob("*.tex")).read_text(encoding="utf-8")
-		self.assertIn("build status", latex)
-		self.assertNotIn("badge.svg", latex)
+		self.assertIn("\\sphinxincludegraphics{{badge}.svg}", latex)
 
 		self._build(document, conf=self._conf)
 
 		self.assertEqual([], self._warningLines())
-		self.assertIn('src="https://example.org/badge.svg"', self._html("index"))
+		self.assertIn('src="_images/badge.svg"', self._html("index"))
 
 	@testcase("shields.io badge in LaTeX")
 	def ShieldsBadge(self) -> None:
