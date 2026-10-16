@@ -26,8 +26,6 @@ jobs:
       codecov:           'true'
       codacy:            'true'
       dorny:             'true'
-      auto_tag:          'false'
-      pypi_dry_run:      'true'
     secrets:
       PYPI_TOKEN:    ${{ secrets.PYPI_TOKEN }}
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
