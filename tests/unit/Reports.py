@@ -137,7 +137,7 @@ class Registration(ReportProject):
 			DIRECTIVES, {call.args[1] for call in app.add_directive_to_domain.call_args_list if call.args[0] == "report"}
 		)
 		self.assertEqual(
-			[("pdflscape", ), ("ulem", "normalem")], [call.args for call in app.add_latex_package.call_args_list]
+			[("pdflscape", ), ("pyTooling.Sphinx", )], [call.args for call in app.add_latex_package.call_args_list]
 		)
 		self.assertEqual(
 			[

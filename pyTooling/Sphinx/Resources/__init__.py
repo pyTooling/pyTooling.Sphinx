@@ -40,6 +40,11 @@ Scripts:
 
 * :file:`pyTooling.js` - copies a text into the clipboard, when a reader clicks a copy button of a Unicode table.
 
+LaTeX packages:
+
+* :file:`pyTooling.Sphinx.sty` - the commands LaTeX writes for the style roles ``:strike:`` and ``:underline:``, which
+  draw their lines with package ``ulem``.
+
 Data:
 
 * :file:`GitHubEmoji.txt` - GitHub's emoji, their code points and shortcodes, which

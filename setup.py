@@ -63,7 +63,7 @@ with WarningCollector() as warnings:
 			},
 			dataFiles={
 				packageName:                ["py.typed"],
-				f"{packageName}.Resources": ["*.css", "*.js", "*.txt"]
+				f"{packageName}.Resources": ["*.css", "*.js", "*.sty", "*.txt"]
 			},
 			debug=True
 		)

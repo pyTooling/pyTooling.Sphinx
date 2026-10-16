@@ -47,7 +47,7 @@ from docutils.utils                             import new_document
 from sphinx.transforms.post_transforms.images   import ImageDownloader
 
 from pyTooling.Exceptions                       import MissingDependencyError
-from pyTooling.Sphinx                           import LATEX_PREAMBLE
+from pyTooling.Sphinx                           import LATEX_PACKAGE
 from pyTooling.Sphinx.GitHubMarkdown            import GitHubMarkdown
 from pyTooling.Sphinx.Node                      import Emoji
 from pyTooling.Testing                          import Testcase, testsuite, testcase
@@ -559,7 +559,7 @@ class Rendering(Project):
 		LaTeX writes emoji as Unicode characters, checkboxes as box symbols, line breaks and strikethrough with commands.
 
 		An emoji's ASCII characters - the ``#`` of a keycap - are escaped. A line break is written as ``\\newline`` and
-		strikethrough with package ``ulem``, whose commands the preamble defines.
+		strikethrough as ``\\DUrole{strike}``, which the extension's LaTeX package defines.
 		"""
 		self._build(self._document, "latex", conf=self._conf)
 
@@ -573,8 +573,7 @@ class Rendering(Project):
 		self.assertIn("\\newline{}", latex)
 		self.assertIn("\\(\\boxtimes\\) done", latex)
 		self.assertIn("\\(\\square\\) open", latex)
-		self.assertIn("\\usepackage[normalem]{ulem}", latex)
-		self.assertIn(LATEX_PREAMBLE, latex)
+		self.assertIn(f"\\usepackage{{{LATEX_PACKAGE}}}", latex)
 
 	_alerts = (
 		"Index\n#####\n\n"
@@ -626,16 +625,6 @@ class Rendering(Project):
 		):
 			with self.subTest(kind=kind):
 				self.assertRegex(latex, rf"\\begin{{sphinxadmonition}}{{{kind}}}{{{title}:}}\s+\\sphinxAtStartPar\s+{text}")
-
-	@testcase("LaTeX preamble of the project")
-	def ProjectPreamble(self) -> None:
-		"""
-		The preamble of the project's configuration is kept, the extension's commands follow it.
-		"""
-		self._build("Index\n#####\n", "latex", latex_elements={"preamble": "% project preamble"})
-
-		latex = next((self._path / "build" / "latex").glob("*.tex")).read_text(encoding="utf-8")
-		self.assertIn(f"% project preamble{LATEX_PREAMBLE}", latex)
 
 	@testcase("SVG image in LaTeX")
 	def SVGImage(self) -> None:

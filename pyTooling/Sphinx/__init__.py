@@ -46,7 +46,8 @@ document of every project. This extension declares them once:
 .. rubric:: What it registers
 
 * the **style roles**, together with the stylesheet they need - so the styling is a CSS file instead of a
-  ``raw:: html`` block smuggled into every page:
+  ``raw:: html`` block smuggled into every page - and the LaTeX package :file:`pyTooling.Sphinx.sty`, which strikes
+  through and underlines in LaTeX:
 
   * ``:bolditalic:``, ``:underline:``, ``:strike:`` and ``:xlarge:`` - weight, decoration and size;
   * ``:red:``, ``:green:``, ``:blue:`` and ``:purple:`` - colour, each from a CSS custom property a project can
@@ -165,7 +166,7 @@ from pyTooling.Sphinx.Node   import Emoji, LineBreak, TaskListCheckbox, TreeLege
 
 
 __all__ = [
-	"STYLESHEET", "SCRIPT", "SUBSTITUTIONS", "LATEX_PREAMBLE", "NODES", "INDENTATION", "LINE_ANCHOR", "REPORT_ROLES"
+	"STYLESHEET", "SCRIPT", "LATEX_PACKAGE", "SUBSTITUTIONS", "NODES", "INDENTATION", "LINE_ANCHOR", "REPORT_ROLES"
 ]
 
 #: Name of the stylesheet, in :mod:`pyTooling.Sphinx.Resources`.
@@ -174,6 +175,10 @@ STYLESHEET = "pyTooling.css"
 #: Name of the script, in :mod:`pyTooling.Sphinx.Resources`: it gives the copy buttons of the ``unicode-table``
 #: directive their function.
 SCRIPT = "pyTooling.js"
+
+#: Name of the LaTeX package, whose file :file:`pyTooling.Sphinx.sty` is in :mod:`pyTooling.Sphinx.Resources`: it
+#: defines the commands LaTeX writes for the style roles ``:strike:`` and ``:underline:``.
+LATEX_PACKAGE = "pyTooling.Sphinx"
 
 #: Substitutions that have to stay substitutions, because ``|br|`` is written as one in every project.
 #:
@@ -186,13 +191,6 @@ SUBSTITUTIONS = """
 .. |br| replace:: :br:`.`
 
 .. |hr| replace:: :hr:`.`
-"""
-
-#: LaTeX commands appended to the preamble: the lines of the style roles ``:strike:`` and ``:underline:`` - and of
-#: strikethrough in converted Markdown -, drawn by package ``ulem``, which :func:`setup` requests.
-LATEX_PREAMBLE = r"""
-\providecommand*{\DUrolestrike}[1]{\sout{#1}}
-\providecommand*{\DUroleunderline}[1]{\uline{#1}}
 """
 
 #: The nodes the extension registers, each with its visitors per output format.
@@ -610,6 +608,22 @@ def installStaticFiles(sphinx: Sphinx) -> None:
 
 
 @export
+def installLaTeXPackage(sphinx: Sphinx) -> None:
+	"""
+	Call-back for Sphinx' ``builder-inited`` event, writing the LaTeX package :data:`LATEX_PACKAGE` into the build of a
+	LaTeX builder, where the document's ``\\usepackage`` finds it.
+
+	:param sphinx: The Sphinx application.
+	"""
+	if sphinx.builder.format != "latex":
+		return
+
+	content = readResourceFile(SphinxResources, f"{LATEX_PACKAGE}.sty")
+	with (Path(sphinx.outdir) / f"{LATEX_PACKAGE}.sty").open("w", encoding="utf-8") as file:
+		file.write(content)
+
+
+@export
 def extendProlog(sphinx: Sphinx, config: Any) -> None:
 	"""
 	Call-back for Sphinx' ``config-inited`` event, appending the shared substitutions to ``rst_prolog``.
@@ -622,21 +636,6 @@ def extendProlog(sphinx: Sphinx, config: Any) -> None:
 	:param config: The configuration, after :file:`conf.py` was read.
 	"""
 	config.rst_prolog = (config.rst_prolog or "") + SUBSTITUTIONS
-
-
-@export
-def extendLaTeXPreamble(sphinx: Sphinx, config: Any) -> None:
-	"""
-	Call-back for Sphinx' ``config-inited`` event, appending :data:`LATEX_PREAMBLE` to ``latex_elements["preamble"]``.
-
-	The configuration's mapping is replaced by a copy, so the default mapping of the configuration value isn't changed.
-
-	:param sphinx: The Sphinx application.
-	:param config: The configuration, after :file:`conf.py` was read.
-	"""
-	elements = dict(config.latex_elements)
-	elements["preamble"] = elements.get("preamble", "") + LATEX_PREAMBLE
-	config.latex_elements = elements
 
 
 @export
@@ -1062,8 +1061,8 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 
 	# the report tables are put into 'Landscape' nodes, whose LaTeX environment is package 'pdflscape''s
 	sphinx.add_latex_package("pdflscape")
-	# the lines of strikethrough and underline, see 'LATEX_PREAMBLE'
-	sphinx.add_latex_package("ulem", "normalem")
+	# the extension's own package, which 'installLaTeXPackage' copies into the build
+	sphinx.add_latex_package(LATEX_PACKAGE)
 	sphinx.add_post_transform(FixLatexTableWidths)
 	sphinx.add_post_transform(RemoveTreeLegends)
 	sphinx.add_post_transform(RemoveUnicodeGlyphs)
@@ -1091,7 +1090,6 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	sphinx.add_post_transform(AddDownloadSizes)
 
 	sphinx.connect("config-inited", extendProlog)
-	sphinx.connect("config-inited", extendLaTeXPreamble)
 	# after the configuration values above are registered, and before any document is read - a requirements file
 	# that doesn't exist should end the build here rather than in the middle of a page
 	sphinx.connect("config-inited", prepareEntrypoints)
@@ -1103,6 +1101,7 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 		sphinx.connect("html-page-context", reportPages.HideSource)
 	sphinx.connect("build-finished", reportBuildTime)
 	sphinx.connect("builder-inited", installStaticFiles)
+	sphinx.connect("builder-inited", installLaTeXPackage)
 
 	# The extension's version is the package's, so a second number to keep in step would only ever disagree.
 	return {"version": __version__, "parallel_read_safe": True, "parallel_write_safe": True}
