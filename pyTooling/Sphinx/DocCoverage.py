@@ -35,8 +35,7 @@ package and module.
 Unlike the other reports, there is no report file: the package's source directory is analyzed by the Python reader
 of :mod:`pyEDAA.Reports` (:class:`~pyEDAA.Reports.DocumentationCoverage.Python.Analyzer`) once per build, when the
 builder is initialized. The packages are declared in :file:`conf.py` under ``pyTooling_DocCoverage_Packages``,
-each with an identifier a directive names in its ``:reportid:`` option. An entry with the key ``pages`` gets a page
-per package and module, generated below that document name (see :class:`DocCoverageReportPages`):
+each with an identifier a directive names in its ``:reportid:`` option:
 
 .. code-block:: Python
 
@@ -54,8 +53,8 @@ per package and module, generated below that document name (see :class:`DocCover
 The coverage levels - limits, descriptions and CSS classes - are declared under ``pyTooling_DocCoverage_Levels``;
 :attr:`DocCoverageBase.defaultCoverageDefinitions` holds the ``default`` palette.
 
-A package declared with the key ``pages`` gets a document per package and per module, named below that key's document
-name by its dotted name, e.g. ``<pages>/myPackage/Units/Length``:
+A package declared with the key ``pages`` gets a document per package and per module (:class:`DocCoverageReportPages`),
+named below that key's document name by its dotted name, e.g. ``<pages>/myPackage/Units/Length``:
 
 * A package's page shows its counters, tables of its sub-packages and modules, each linked to its page, and the
   condensed listing of its ``__init__.py``.
@@ -115,6 +114,73 @@ __all__ = ["CONFIG_PREFIX"]
 
 #: Prefix every configuration value of the documentation coverage directives carries in :file:`conf.py`.
 CONFIG_PREFIX = "pyTooling_DocCoverage"
+
+
+@export
+def subPackagesAndModules(package: Item) -> tuple[list[Item], list[Item]]:
+	"""
+	Return the sub-packages and the modules of a package, each sorted by name.
+
+	:param package: The package's item.
+	:returns:       The sub-packages' and the modules' items.
+	"""
+	from pyEDAA.Reports.DocumentationCoverage import ItemKind
+
+	packages = sorted((item for item in package.Items if item.Kind is ItemKind.Package), key=lambda item: item.Name)
+	modules =  sorted((item for item in package.Items if item.Kind is ItemKind.Module), key=lambda item: item.Name)
+
+	return packages, modules
+
+
+@export
+def fileCounters(unit: Item) -> CoverageCounters:
+	"""
+	Return the counters of the items declared in a package's ``__init__.py`` or in a module's file.
+
+	:param unit: The package's or module's item.
+	:returns:    The file's counters; zero items for a namespace package, which has no ``__init__.py``.
+	"""
+	from pyEDAA.Reports.DocumentationCoverage import CoverageCounters
+
+	return CoverageCounters() if unit.File is None else unit.File.Counters
+
+
+@export
+def isUnreadable(unit: Item) -> bool:
+	"""
+	Check if a package's ``__init__.py`` or a module's file couldn't be read or parsed.
+
+	The Python reader excludes such a file's item, without a documentation state.
+
+	:param unit: The package's or module's item.
+	:returns:    ``True``, if the file couldn't be read or parsed.
+	"""
+	from pyEDAA.Reports.DocumentationCoverage import CoverageState
+
+	return unit.File is not None and unit.Status == CoverageState.Excluded
+
+
+@export
+def coverageCell(
+	unit: Nullable[Item],
+	coverage: float,
+	levels: dict[Union[int, str], dict[str, str]]
+) -> tuple[str, str]:
+	"""
+	Return the text of a row's coverage cell and the CSS class of the row's coverage level.
+
+	A package's or module's file, which couldn't be read or parsed, has the text ``can't be read`` and the level
+	``error``.
+
+	:param unit:     The package's or module's item, whose row it is; ``None`` for a summary row.
+	:param coverage: The row's coverage, in range 0.0..1.0.
+	:param levels:   The coverage levels.
+	:returns:        The cell's text and the level's CSS class.
+	"""
+	if unit is not None and isUnreadable(unit):
+		return "can't be read", DocCoverageBase.LevelOf(levels, -1.0, "class")
+
+	return f"{coverage:.1%}", DocCoverageBase.LevelOf(levels, coverage, "class")
 
 
 @export
@@ -456,33 +522,6 @@ class DocCoverageBase(BaseDirective):
 		"""
 		return self.LevelOf(self._levels, currentLevel, configKey)
 
-	@staticmethod
-	def _SubPackagesAndModules(package: Item) -> tuple[list[Item], list[Item]]:
-		"""
-		Return the sub-packages and the modules of a package, each sorted by name.
-
-		:param package: The package's item.
-		:returns:       The sub-packages' and the modules' items.
-		"""
-		from pyEDAA.Reports.DocumentationCoverage import ItemKind
-
-		packages = sorted((item for item in package.Items if item.Kind is ItemKind.Package), key=lambda item: item.Name)
-		modules =  sorted((item for item in package.Items if item.Kind is ItemKind.Module), key=lambda item: item.Name)
-
-		return packages, modules
-
-	@staticmethod
-	def _FileCounters(unit: Item) -> CoverageCounters:
-		"""
-		Return the counters of the items declared in a package's ``__init__.py`` or in a module's file.
-
-		:param unit: The package's or module's item.
-		:returns:    The file's counters; zero items for a namespace package, which has no ``__init__.py``.
-		"""
-		from pyEDAA.Reports.DocumentationCoverage import CoverageCounters
-
-		return CoverageCounters() if unit.File is None else unit.File.Counters
-
 
 @export
 class DocCoverage(DocCoverageBase):
@@ -563,46 +602,42 @@ class DocCoverage(DocCoverageBase):
 		"""
 		Add a row for a package, then - recursively - rows for its sub-packages and modules.
 
-		A package's row counts the items declared in its ``__init__.py``, a module's row those declared in the module.
-		The hierarchy is shown by indentation, a package by 📦 and a module by ⚙️.
+		A package's row counts the items declared in its ``__init__.py``, a module's row those declared in the module; a
+		file, which couldn't be read or parsed, has the coverage level ``error``. The hierarchy is shown by indentation, a
+		package by 📦 and a module by ⚙️.
 
 		:param tableBody: The table body the rows are added to.
 		:param package:   The package's item.
 		:param level:     Optional, the package's depth in the hierarchy. Default: ``0``.
 		"""
-		packages, modules = self._SubPackagesAndModules(package)
+		def addRow(unit: Item, prefix: str, cssClass: str) -> None:
+			"""
+			Nested function adding the row of a package or module.
 
-		packageCounters = self._FileCounters(package)
-		tableBody += nodes.row(
-			"",
-			nodes.entry("", self._NameCell(package, f"{INDENTATION * level}📦")),
-			nodes.entry("", nodes.Text(f"{packageCounters.Expected}")),
-			nodes.entry("", nodes.Text(f"{packageCounters.Covered}")),
-			nodes.entry("", nodes.Text(f"{packageCounters.Uncovered}")),
-			nodes.entry("", nodes.Text(f"{packageCounters.Coverage:.1%}")),
-			classes=[
-				"report-package",
-				self._ConvertToColor(packageCounters.Coverage, "class")
-			],
-		)
+			:param unit:     The package's or module's item.
+			:param prefix:   The indentation and the icon written before the name.
+			:param cssClass: The CSS class of the row's kind.
+			"""
+			counters = fileCounters(unit)
+			coverage, levelClass = coverageCell(unit, counters.Coverage, self._levels)
+			tableBody.append(nodes.row(
+				"",
+				nodes.entry("", self._NameCell(unit, prefix)),
+				nodes.entry("", nodes.Text(f"{counters.Expected}")),
+				nodes.entry("", nodes.Text(f"{counters.Covered}")),
+				nodes.entry("", nodes.Text(f"{counters.Uncovered}")),
+				nodes.entry("", nodes.Text(coverage)),
+				classes=[cssClass, levelClass],
+			))
 
+		packages, modules = subPackagesAndModules(package)
+
+		addRow(package, f"{INDENTATION * level}📦", "report-package")
 		for subPackage in packages:
 			self._RenderLevel(tableBody, subPackage, level + 1)
 
 		for module in modules:
-			moduleCounters = self._FileCounters(module)
-			tableBody += nodes.row(
-				"",
-				nodes.entry("", self._NameCell(module, f"{INDENTATION * (level + 1)}{INDENTATION}⚙️")),
-				nodes.entry("", nodes.Text(f"{moduleCounters.Expected}")),
-				nodes.entry("", nodes.Text(f"{moduleCounters.Covered}")),
-				nodes.entry("", nodes.Text(f"{moduleCounters.Uncovered}")),
-				nodes.entry("", nodes.Text(f"{moduleCounters.Coverage:.1%}")),
-				classes=[
-					"report-module",
-					self._ConvertToColor(moduleCounters.Coverage, "class")
-				],
-			)
+			addRow(module, f"{INDENTATION * (level + 1)}{INDENTATION}⚙️", "report-module")
 
 	def _NameCell(self, unit: Item, prefix: str) -> nodes.Node:
 		"""
@@ -872,7 +907,7 @@ class DocCoverageReportPages(ReportPages):
 		:param entity:   The package's or module's item.
 		:returns:        The children as ``(role name, object)`` pairs.
 		"""
-		packages, modules = DocCoverageBase._SubPackagesAndModules(entity)
+		packages, modules = subPackagesAndModules(entity)
 
 		return [("doccov", child) for child in (*packages, *modules)]
 
@@ -934,7 +969,8 @@ class DocCoverageReportPages(ReportPages):
 	def _SummarySection(self, docName: str, entity: Item) -> nodes.section:
 		"""
 		Create a page's section *Summary*: the parent package, the doc-string's state, and the counters - of the module's
-		file or the package's ``__init__.py``, and a package's overall -, colored by coverage level.
+		file or the package's ``__init__.py``, and a package's overall -, colored by coverage level. A file, which
+		couldn't be read or parsed, has the coverage level ``error``.
 
 		:param docName: Name of the page's document.
 		:param entity:  The package's or module's item.
@@ -947,7 +983,9 @@ class DocCoverageReportPages(ReportPages):
 		if entity.Parent is not entity.Root:
 			self._Field(fieldList, "Package", self._Reference("doccov", entity.Parent, docName))
 
-		if entity.File is not None:
+		if isUnreadable(entity):
+			self._Field(fieldList, "Doc-string", nodes.Text("can't be read"))
+		elif entity.File is not None:
 			self._Field(fieldList, "Doc-string", nodes.Text(DOCUMENTATION_STATES[documentationState(entity.Status)]))
 
 		table, tableBody = self._Table(
@@ -958,33 +996,34 @@ class DocCoverageReportPages(ReportPages):
 
 		rows = []
 		if entity.File is not None:
-			rows.append((f"{entity.File.Name}", "", DocCoverageBase._FileCounters(entity)))
+			rows.append((f"{entity.File.Name}", "", entity, fileCounters(entity)))
 
 		if entity.Kind is ItemKind.Package:
-			rows.append((f"Overall ({self._Directory(entity).FileCount} files)", "report-summary", entity.Counters))
+			rows.append((f"Overall ({self._Directory(entity).FileCount} files)", "report-summary", None, entity.Counters))
 
-		for name, cssClass, counters in rows:
-			level = DocCoverageBase.LevelOf(self._levels, counters.Coverage, "class")
+		for name, cssClass, unit, counters in rows:
+			coverage, level = coverageCell(unit, counters.Coverage, self._levels)
 			tableBody += (row := nodes.row("", classes=[cssClass, level] if cssClass != "" else [level]))
 			row += nodes.entry("", nodes.paragraph("", name))
 			row += nodes.entry("", nodes.paragraph("", f"{counters.Expected}"))
 			row += nodes.entry("", nodes.paragraph("", f"{counters.Covered}"))
 			row += nodes.entry("", nodes.paragraph("", f"{counters.Uncovered}"))
-			row += nodes.entry("", nodes.paragraph("", f"{counters.Coverage:.1%}"))
+			row += nodes.entry("", nodes.paragraph("", coverage))
 
 		return section
 
 	def _ChildrenSections(self, page: nodes.section, docName: str, package: Item) -> list[str]:
 		"""
 		Add a package's sections of its sub-packages and modules: a table each, every row linked to its page and colored
-		by coverage level. A sub-package's row counts it with all its modules; a module has none.
+		by coverage level. A sub-package's row counts it with all its modules; a module has none. A package or module,
+		whose file couldn't be read or parsed, has the coverage level ``error``.
 
 		:param page:    The package's page.
 		:param docName: Name of the page's document.
 		:param package: The package's or module's item.
 		:returns:       The document names of the listed pages.
 		"""
-		packages, modules = DocCoverageBase._SubPackagesAndModules(package)
+		packages, modules = subPackagesAndModules(package)
 
 		children: list[str] = []
 		for title, column, identifier, units in (
@@ -1001,13 +1040,13 @@ class DocCoverageReportPages(ReportPages):
 			)
 			section += table
 			for unit in units:
-				level = DocCoverageBase.LevelOf(self._levels, unit.Counters.Coverage, "class")
+				coverage, level = coverageCell(unit, unit.Counters.Coverage, self._levels)
 				tableBody += (row := nodes.row("", classes=[level]))
 				row += nodes.entry("", nodes.paragraph("", "", self._Reference("doccov", unit, docName)))
 				row += nodes.entry("", nodes.paragraph("", f"{unit.Counters.Expected}"))
 				row += nodes.entry("", nodes.paragraph("", f"{unit.Counters.Covered}"))
 				row += nodes.entry("", nodes.paragraph("", f"{unit.Counters.Uncovered}"))
-				row += nodes.entry("", nodes.paragraph("", f"{unit.Counters.Coverage:.1%}"))
+				row += nodes.entry("", nodes.paragraph("", coverage))
 				if (entry := self.Entry(unit)) is not None:
 					children.append(entry.docName)
 
@@ -1017,8 +1056,9 @@ class DocCoverageReportPages(ReportPages):
 		"""
 		Create a page's section *Source*: the condensed listing of the module, or of the package's ``__init__.py``.
 
-		The source file is read in its declared encoding. A source file, which can't be read or parsed, is logged as a
-		warning, and the section says so.
+		The source file is read in its declared encoding. A source file, which the analysis couldn't read or parse, isn't
+		read again; the section says so. A source file, which can't be read or parsed now, is logged as a warning, and
+		the section says so.
 
 		:param entity:     The package's or module's item, which has a file.
 		:param sourceFile: The source file.
@@ -1026,6 +1066,10 @@ class DocCoverageReportPages(ReportPages):
 		"""
 		section = nodes.section("", nodes.title("Source", "Source"), ids=["source"])
 		path = (entity.Root.Name / entity.File.Path).as_posix()
+		if isUnreadable(entity):
+			section += nodes.paragraph(text=f"The source file '{path}' can't be read or parsed.")
+			return section
+
 		try:
 			with tokenize_open(sourceFile) as file:
 				source = file.read()

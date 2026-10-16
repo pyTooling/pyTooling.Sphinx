@@ -44,7 +44,7 @@ it as a listing.
 from __future__                                    import annotations
 
 from ast                                           import AST, AnnAssign, Assign, AsyncFunctionDef, ClassDef, Constant
-from ast                                           import Expr, FunctionDef, TypeAlias, iter_child_nodes
+from ast                                           import Expr, FunctionDef, If, Try, TypeAlias, iter_child_nodes
 from ast                                           import parse, stmt
 from typing                                        import TYPE_CHECKING, Generator, Iterable
 from typing                                        import Optional as Nullable, Self, Union
@@ -135,7 +135,7 @@ class _Condenser(metaclass=ExtendedType, slots=True):
 		:param path: The module's path, as the warning names it.
 		:returns:    The condensed lines (see :attr:`CondensedSource.Lines`).
 		"""
-		tree = parse("\n".join(self._source))
+		tree = parse("\n".join(self._source), filename=path)
 
 		items: dict[int, Item] = {}
 		if (file := self._module.File) is not None:
@@ -194,8 +194,8 @@ class _Condenser(metaclass=ExtendedType, slots=True):
 
 	def _Block(self, statements: list[stmt], variables: bool) -> None:
 		"""
-		Take a block's statements: classes and functions condensed, variables or fields as written, other statements
-		elided - consecutive ones to a single ``...``.
+		Take a block's statements: classes and functions condensed, variables or fields as written, a statement holding
+		them with its clauses' headers, other statements elided - consecutive ones to a single ``...``.
 
 		:param statements: The block's statements, without a doc-string.
 		:param variables:  Whether assignments are variables or fields - in a module or class - and taken.
@@ -222,8 +222,10 @@ class _Condenser(metaclass=ExtendedType, slots=True):
 			elif docStringState is not None and self._IsDocString(statement):
 				self._Gap(statement.lineno - 1)
 				self._Emit(statement.lineno, statement.end_lineno, docStringState)
-			elif any(True for _ in self._OutermostDefinitions(statement)):
-				self._Compound(statement)
+			elif any(True for _ in self._OutermostDefinitions(statement)) or (
+				variables and self._HoldsAssignments(statement)
+			):
+				self._Compound(statement, variables)
 			else:
 				if not elided:
 					self._Gap(statement.lineno - 1)
@@ -267,20 +269,34 @@ class _Condenser(metaclass=ExtendedType, slots=True):
 
 		self._Block(body, isinstance(definition, ClassDef))
 
-	def _Compound(self, statement: stmt) -> None:
+	def _Compound(self, statement: stmt, variables: bool) -> None:
 		"""
-		Take a statement holding classes or functions as written, its classes and functions condensed.
+		Take a statement holding classes, functions, variables or fields: the headers of its clauses as written, each
+		clause's block like a body.
 
-		Such a statement is e.g. an ``if`` choosing between two definitions.
+		Such a statement is e.g. an ``if`` choosing between two definitions, or a ``try`` assigning a variable.
 
 		:param statement: The statement.
+		:param variables: Whether assignments are variables or fields - in a module or class - and taken.
 		"""
 		self._Gap(statement.lineno - 1)
-		for definition in self._OutermostDefinitions(statement):
-			self._Emit(statement.lineno, self._FirstLine(definition) - 1, "")
-			self._Definition(definition)
+		for block in (
+			getattr(statement, "body", []),
+			*(clause.body for clause in (*getattr(statement, "handlers", []), *getattr(statement, "cases", []))),
+			getattr(statement, "orelse", []),
+			getattr(statement, "finalbody", [])
+		):
+			if len(block) == 0:
+				continue
 
-		self._Emit(statement.lineno, statement.end_lineno, "")
+			# the clause's header - 'if ...:', 'else:', 'except ...:' -, without the blank lines and comments around it
+			for number in range(self._last + 1, self._FirstLine(block[0])):
+				if (line := self._source[number - 1].strip()) == "" or line.startswith("#"):
+					self._Gap(number)
+				else:
+					self._Emit(number, number, "")
+
+			self._Block(block, variables)
 
 	@staticmethod
 	def _FirstLine(statement: stmt) -> int:
@@ -319,6 +335,22 @@ class _Condenser(metaclass=ExtendedType, slots=True):
 			yield from cls._Definitions(child)
 
 	@classmethod
+	def _HoldsAssignments(cls, statement: stmt) -> bool:
+		"""
+		Check if a statement is an ``if`` or ``try`` assigning a variable or field, which the analysis reads: in its
+		body or ``else`` block, or in such a statement nested in them.
+
+		:param statement: The statement.
+		:returns:         ``True``, if the statement holds an assignment.
+		"""
+		if not isinstance(statement, (If, Try)):
+			return False
+
+		return any(
+			isinstance(child, ASSIGNMENTS) or cls._HoldsAssignments(child) for child in (*statement.body, *statement.orelse)
+		)
+
+	@classmethod
 	def _OutermostDefinitions(cls, node: AST) -> Generator[Definition, None, None]:
 		"""
 		Yield the classes and functions below a node, which aren't inside another class or function below it.
@@ -346,8 +378,8 @@ class CondensedSource(metaclass=ExtendedType, slots=True):
 	  is elided to one ``...`` at the body's indentation. A definition written in one line is taken as written.
 	* A variable of the module and a field of a class is taken as written: with a ``#:`` comment on its line or in the
 	  lines above it, and a doc-string literal following it.
-	* A statement holding a class or function - e.g. an ``if`` or a ``try`` - is taken as written, its classes and
-	  functions condensed.
+	* A statement holding a class or function - e.g. an ``if`` or a ``try`` -, and an ``if`` or ``try`` assigning a
+	  variable or field, is taken with the headers of its clauses as written; each clause's block is taken like a body.
 	* Comments between statements are left out; consecutive blank lines become one.
 
 	A class', function's, field's or variable's lines are marked by the documentation state of its item in

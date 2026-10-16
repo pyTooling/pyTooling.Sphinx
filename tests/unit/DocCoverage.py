@@ -43,7 +43,7 @@ from sphinx.testing.util              import SphinxTestApp
 from pyTooling.Testing                import testsuite, testcase
 
 from pyTooling.Sphinx                 import ReportDomain
-from pyTooling.Sphinx.CondensedSource import CondensedSource
+from pyTooling.Sphinx.CondensedSource import CondensedSource, documentationState
 from pyTooling.Sphinx.DocCoverage     import DocCoverageBase, DocCoverageReportPages
 
 from tests.unit.Extension             import Project
@@ -78,6 +78,27 @@ class DocCoverageProject(Project):
 			"doc": {"name": "myPackage", "directory": str(PACKAGE), "pages": pages, "fail_below": 80, "levels": "default"}
 		}
 		return self._build(index, builder, pyTooling_DocCoverage_Packages=packages)
+
+	def _buildPackage(self, files: dict[str, bytes]) -> Path:
+		"""
+		Write a package's files and build the project with the package declared with pages below 'doccov'.
+
+		:param files: The files' contents, by their path relative to the package's directory.
+		:returns:     The package's directory, named 'pkg'.
+		"""
+		package = self._path / "pkg"
+		for path, content in files.items():
+			(package / path).parent.mkdir(parents=True, exist_ok=True)
+			(package / path).write_bytes(content)
+
+		self._build(
+			"Index\n#####\n\n.. report:doc-coverage::\n   :reportid: doc\n",
+			pyTooling_DocCoverage_Packages={
+				"doc": {"name": "pkg", "directory": str(package), "pages": "doccov", "fail_below": 80, "levels": "default"}
+			}
+		)
+
+		return package
 
 	def _body(self, name: str) -> str:
 		"""
@@ -372,7 +393,123 @@ class Listing(DocCoverageProject):
 		self.assertIn('<span class="report-line report-line-documented"><span class="linenos">5</span>', body)
 		self.assertIn('<span class="report-line"><span class="linenos">8</span><span class="k">else</span>', body)
 		self.assertIn('<span class="report-line report-line-undocumented"><span class="linenos">9</span>', body)
-		self.assertIn('<span class="report-line report-line-documented"><span class="linenos">12</span>', body)
+		for number in range(12, 16):
+			with self.subTest(line=number):
+				self.assertIn(f'<span class="report-line report-line-documented"><span class="linenos">{number}</span>', body)
+
+	@testcase("Variables and fields in 'if' and 'try'")
+	def IfAndTry(self) -> None:
+		"""
+		A variable or field assigned in an 'if' or 'try' of a module or class is shown and marked; the clauses' headers
+		are kept, other statements elided.
+
+		Builds a package with a module assigning a variable in an 'if' and in a 'try', and a field in an 'if'.
+		"""
+		self._buildPackage({
+			"__init__.py": b'"""A package."""\n',
+			"Mod.py": dedent("""\
+				\"\"\"A module.\"\"\"
+				if True:
+					T = int  #: A type.
+				else:
+					T = str
+
+				try:
+					import json
+					HAS = True  #: Json available.
+				except ImportError:
+					HAS = False
+
+
+				class C:
+					\"\"\"A class.\"\"\"
+
+					if True:
+						g: int  #: A guarded field.
+				""").encode("utf-8")
+		})
+
+		self.assertEqual([], self._warningLines())
+		body = self._body("doccov/pkg/Mod")
+		for number, state in ((2, ""), (3, "documented"), (4, ""), (5, ""), (7, ""), (9, "documented"), (10, ""),
+				(11, ""), (17, ""), (18, "documented")):
+			with self.subTest(line=number):
+				classes = "report-line" if state == "" else f"report-line report-line-{state}"
+				self.assertIn(f'<span class="{classes}"><span class="linenos">{number}</span>', body)
+		self.assertNotIn('<span class="linenos">8</span>', body)
+		self.assertIn('<span class="report-line report-line-elided"><span class="linenos"></span>\t<span class="o">', body)
+
+	@testcase("Ignored items")
+	def Ignored(self) -> None:
+		"""
+		A property's setter and an '@overload' stub are marked 'ignored'.
+
+		Builds a package with a module holding a property with setter and an overloaded function.
+		"""
+		self._buildPackage({
+			"__init__.py": b'"""A package."""\n',
+			"Mod.py": dedent("""\
+				\"\"\"A module.\"\"\"
+				from typing import overload
+
+
+				class C:
+					\"\"\"A class.\"\"\"
+
+					@property
+					def P(self) -> int:
+						\"\"\"A property.\"\"\"
+						return 1
+
+					@P.setter
+					def P(self, value: int) -> None:
+						pass
+
+
+				@overload
+				def f(x: int) -> int: ...
+				def f(x):
+					\"\"\"A function.\"\"\"
+					return x
+				""").encode("utf-8")
+		})
+
+		self.assertEqual([], self._warningLines())
+		body = self._body("doccov/pkg/Mod")
+		for number, state in ((8, "documented"), (13, "ignored"), (14, "ignored"), (18, "ignored"), (19, "ignored"),
+				(20, "documented")):
+			with self.subTest(line=number):
+				self.assertIn(f'<span class="report-line report-line-{state}"><span class="linenos">{number}</span>', body)
+
+	@testcase("Empty '__init__.py'")
+	def EmptyInit(self) -> None:
+		"""
+		An empty '__init__.py' has nothing to document: its doc-string isn't counted, its listing is empty.
+
+		Builds a package with an empty '__init__.py'.
+		"""
+		self._buildPackage({"__init__.py": b"", "Mod.py": b'"""A module."""\n'})
+
+		self.assertEqual([], self._warningLines())
+		body = self._body("doccov/pkg")
+		self.assertIn("<p>not counted</p>", body)
+		self.assertIn('<span class="report-coverage-path">pkg/__init__.py</span>', body)
+		self.assertNotIn('<span class="report-line', body)
+
+	@testcase("Declared encoding")
+	def Encoding(self) -> None:
+		"""
+		A source file is read in the encoding it declares.
+
+		Builds a package with a Latin-1 encoded module, which declares its encoding.
+		"""
+		self._buildPackage({
+			"__init__.py": b'"""A package."""\n',
+			"Mod.py": '# -*- coding: latin-1 -*-\n"""Maße und Größen."""\n'.encode("latin-1")
+		})
+
+		self.assertEqual([], self._warningLines())
+		self.assertIn("Maße und Größen.", self._body("doccov/pkg/Mod"))
 
 
 @testsuite("Condensed source")
@@ -460,6 +597,41 @@ class Condensing(DocCoverageProject):
 		self.assertIn((3, "", ""), lines)
 		self.assertIn((5, "undocumented", ""), lines)
 		self.assertIn((6, "undocumented", ""), lines)
+
+	@testcase("Documentation states")
+	def DocumentationStates(self) -> None:
+		"""
+		A coverage state maps to the listing's state as the model counts it: empty, excluded, ignored, covered.
+
+		Maps the coverage states an item of the Python reader has.
+		"""
+		from pyEDAA.Reports.DocumentationCoverage import CoverageState
+
+		for coverageState, state in (
+			(CoverageState.Empty,                                                       ""),
+			(CoverageState.Excluded,                                                    "excluded"),
+			(CoverageState.Documented | CoverageState.Covered | CoverageState.Excluded, "excluded"),
+			(CoverageState.Undocumented | CoverageState.Ignored,                        "ignored"),
+			(CoverageState.Documented | CoverageState.Covered,                          "documented"),
+			(CoverageState.Excused | CoverageState.Covered,                             "documented"),
+			(CoverageState.Undocumented,                                                "undocumented"),
+		):
+			with self.subTest(coverageState=coverageState):
+				self.assertEqual(state, documentationState(coverageState))
+
+	@testcase("Excluded item")
+	def Excluded(self) -> None:
+		"""
+		An excluded item's lines are marked 'excluded'.
+
+		Condenses a module with an excluded function.
+		"""
+		module = self._module()
+		self._item(module, "f", "Function", "Excluded", 1)
+
+		self.assertEqual(
+			[(1, "excluded", ""), (None, "", "\t")], CondensedSource.Parse("def f():\n\tpass\n", "m.py", module).Lines
+		)
 
 	@testcase("Constructor")
 	def Constructor(self) -> None:
@@ -597,14 +769,18 @@ class Configuration(DocCoverageProject):
 	@testcase("Invalid source")
 	def InvalidSource(self) -> None:
 		"""
-		A module, which isn't valid Python, is warned about and excluded; its page says, that its source can't be parsed.
+		A module or '__init__.py', which isn't valid Python, is warned about once and excluded; its row and page say so.
 
-		Builds the table of a package with a syntax error in a module.
+		Its row has the coverage level 'error' and says, that it can't be read; its page says, that its source can't be
+		read or parsed.
+
+		Builds the table of a package with a syntax error in a module and in a sub-package's '__init__.py'.
 		"""
 		package = self._path / "broken"
-		package.mkdir()
+		(package / "Sub").mkdir(parents=True)
 		(package / "__init__.py").write_text('"""A broken package."""\n', encoding="utf-8")
 		(package / "Module.py").write_text("x = = 1\n", encoding="utf-8")
+		(package / "Sub" / "__init__.py").write_text("def f(:\n", encoding="utf-8")
 
 		self._build(
 			"Index\n#####\n\n.. report:doc-coverage::\n   :reportid: doc\n",
@@ -618,17 +794,33 @@ class Configuration(DocCoverageProject):
 			[
 				"WARNING: Caught SourceFileWarning when analyzing package 'broken'.",
 				"  Source file 'Module.py' can't be analyzed.",
-				"  SyntaxError: invalid syntax (Module.py, line 1)"
+				"  SyntaxError: invalid syntax (Module.py, line 1)",
+				"WARNING: Caught SourceFileWarning when analyzing package 'broken'.",
+				"  Source file 'Sub/__init__.py' can't be analyzed."
 			],
-			warnings[:3]
+			warnings[:5]
 		)
-		self.assertEqual(4, len(warnings))
+		self.assertEqual(6, len(warnings))
+		self.assertTrue(warnings[5].startswith("  SyntaxError: "))
+
+		index = self._body("index")
+		for kind, name in (("module", "Module"), ("package", "Sub")):
+			with self.subTest(row=name):
+				self.assertRegex(
+					index,
+					f'<tr class="report-{kind} report-cov-error row-(even|odd)">.*?>{name}</span>.*?\n<td>0</td>\n<td>0</td>\n'
+					f"<td>0</td>\n<td>can't be read</td>"
+				)
+
+		body = self._body("doccov/broken/Module")
+		self.assertIn("<p>can't be read</p>", body)
 		self.assertIn(
-			"broken/Module.py' of the documentation coverage can't be read or parsed: invalid syntax", warnings[3]
+			'<tr class="report-cov-error row-even"><td><p>Module.py</p></td>\n<td><p>0</p></td>\n<td><p>0</p></td>\n'
+			"<td><p>0</p></td>\n<td><p>can't be read</p></td>", body
 		)
-		self.assertIn('<span class="xref report report-doccov">Module</span>', self._body("index"))
-		self.assertIn(
-			"<p>The source file 'broken/Module.py' can't be read or parsed.</p>", self._body("doccov/broken/Module")
+		self.assertIn("<p>The source file 'broken/Module.py' can't be read or parsed.</p>", body)
+		self.assertIn('<tr class="report-cov-error row-even"><td><p><a class="reference internal" href="broken/Sub.html"',
+			self._body("doccov/broken")
 		)
 
 	@testcase("Without pages")
