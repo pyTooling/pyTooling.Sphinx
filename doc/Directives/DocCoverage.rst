@@ -9,18 +9,19 @@ report:doc-coverage
       :columns: 6
 
       The ``report:doc-coverage`` directive renders the documentation coverage of a Python package as a table: a row
-      per package and module, with the number of members expected to have a doc-string, the documented and the
-      undocumented ones. The package hierarchy is shown by indentation and 📦, a module by ⚙️, and each row is
-      coloured by its coverage level. ``report:doc-coverage-legend`` renders the coverage levels.
+      per package and module, with the number of items expected to be documented - e.g. classes, functions and
+      fields -, the documented and the undocumented ones. The package hierarchy is shown by indentation and 📦, a
+      module by ⚙️, and each row is coloured by its coverage level. ``report:doc-coverage-legend`` renders the coverage
+      levels.
 
-      There is no report file: the package's source directory is analyzed with
-      `docstr_coverage <https://github.com/HunterMcGushion/docstr_coverage>`__ once per build. Packages are declared in
+      There is no report file: the package's source directory is :ref:`analyzed <DIR/DocCoverage/Analysis>` by the
+      Python reader of :gh:`pyEDAA.Reports <edaa-org/pyEDAA.Reports>` once per build. Packages are declared in
       :file:`conf.py`, each with an identifier the directives name in their :rst:dir:`report:doc-coverage:reportid`
       option.
 
       A package can get a :ref:`page per package and module <DIR/DocCoverage/Pages>`: a module's page shows its source
-      condensed to signatures and doc-strings, each marked by its documentation state. The table links to the pages,
-      and the role :rst:role:`doccov` refers to them.
+      condensed to signatures, doc-strings, fields and variables, each marked by its documentation state. The table
+      links to the pages, and the role :rst:role:`doccov` refers to them.
 
       The directives are part of :mod:`pyTooling.Sphinx`; they need the
       :ref:`extra reports <DIR/UnittestSummary/Setup>`.
@@ -113,6 +114,32 @@ The configuration is checked when the build starts. A directory that doesn't exi
 entries after it aren't read. The packages are analyzed once per build, before any document is read.
 
 
+.. _DIR/DocCoverage/Analysis:
+
+Analysis
+********
+
+A package is read from its source files - every :file:`*.py` file below its directory, each in its declared encoding -
+into the language-neutral documentation coverage model of :gh:`pyEDAA.Reports <edaa-org/pyEDAA.Reports>`, by its
+`Python reader <https://edaa-org.github.io/pyEDAA.Reports/DocCoverage/index.html>`__. Every documentable item is
+counted:
+
+* Packages, modules, classes, functions, methods and properties are documented by a non-empty doc-string. A comment of
+  docstr_coverage directly above a declaration - ``# docstr-coverage: inherited`` or
+  ``# docstr-coverage: excused `reason``` - excuses a missing doc-string.
+* A class' fields and a module's variables are documented where Sphinx' autodoc finds their documentation: a ``#:``
+  comment behind the statement or in the lines above it, or a doc-string literal following it.
+* Ignored - not expected to be documented - are, e.g., a property's setter, an ``@overload`` stub, and a name like
+  ``__all__``.
+* A package without :file:`__init__.py` - a namespace package - has nothing to document.
+
+A row of the table counts the items declared in its file: a module's, or a package's :file:`__init__.py`. The summary
+row counts all items of the package.
+
+A source file, which can't be read or parsed, is logged as a warning; its module is excluded from the analysis, and
+the analysis continues.
+
+
 .. _DIR/DocCoverage/Pages:
 
 Pages per package and module
@@ -125,7 +152,8 @@ and module's names, e.g. ``doccoverage/src/myPackage/Units/Length``.
 A **package's page** shows its parent package, the state of its ``__init__.py``'s doc-string, and its counters: those
 of its ``__init__.py``, and overall - with all its packages and modules -, each colored by its coverage level. Then a
 table of its packages and a table of its modules, each linked to its page and colored by its coverage level; a
-package's row counts it with all its packages and modules. Last, the **condensed listing** of its ``__init__.py``.
+package's row counts it with all its packages and modules. Last, the **condensed listing** of its ``__init__.py``. A
+namespace package - without ``__init__.py`` - shows only its overall counters and has no listing.
 
 A **module's page** shows its parent package, the state of its doc-string, its counters, and its condensed listing.
 
@@ -145,8 +173,8 @@ of Sphinx' Pygments style, as every code block. A line is shown as written, with
 * Comments between statements are left out; consecutive blank lines become one.
 
 Consecutive elided statements become a single ``...`` line without a line number, at the statements' indentation, so
-a function's body becomes ``...``. Each line of a class or function - its decorators, header and doc-string - is
-marked by the documentation state docstr_coverage found for it:
+a function's body becomes ``...``. Each line of a class or function - its decorators, header and doc-string - and of a
+field or variable is marked by the documentation state of its item in the :ref:`analysis <DIR/DocCoverage/Analysis>`:
 
 .. list-table::
    :header-rows: 1
@@ -155,18 +183,18 @@ marked by the documentation state docstr_coverage found for it:
    * - State
      - Line
    * - ``documented``
-     - The class or function has a doc-string - or an excuse comment, e.g. ``# docstr-coverage:inherited``.
+     - The item is documented: a class or function by a doc-string - or an excuse comment, e.g.
+       ``# docstr-coverage: inherited`` -, a field or variable by a ``#:`` comment or a doc-string literal.
    * - ``undocumented``
-     - The class or function has no doc-string.
+     - The item has no documentation.
    * - ``ignored``
-     - The class or function isn't counted, e.g. matching an ignore pattern.
+     - The item isn't expected to be documented, e.g. a property's setter or ``__all__``.
    * - ``excluded``
      - The item is excluded from the analysis.
    * - (none)
-     - The line isn't counted: a variable, a field, a blank line, a statement holding definitions.
+     - The line isn't counted: a blank line, a statement holding definitions, a repeated assignment of a variable.
 
-The module's doc-string is marked too; a missing one is stated in the page's summary. docstr_coverage doesn't count
-variables and fields, so they aren't marked - unless pyEDAA.Reports' model holds a state for one.
+The module's doc-string is marked by the module's state, which the page's summary states too.
 
 A header above the listing shows the module's path and a legend of these states.
 
