@@ -43,5 +43,6 @@ Scripts:
 Data:
 
 * :file:`GitHubEmoji.txt` - GitHub's emoji, their code points and shortcodes, which
-  :class:`~pyTooling.Sphinx.GitHubMarkdown.GitHubMarkdown` converts.
+  :class:`~pyTooling.Sphinx.GitHubMarkdown.GitHubMarkdown` converts. Generated from github/gemoji (MIT license,
+  Copyright (c) 2019 GitHub, Inc.); its header names the version and holds the license text.
 """

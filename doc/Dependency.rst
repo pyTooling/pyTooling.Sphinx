@@ -114,6 +114,12 @@ optional - only a project converting Markdown needs them - and installed with th
      - ``~= 0.6``
      - parsing GitHub's autolinks and footnotes
 
+.. rubric:: Bundled Data
+
+The converter's emoji table - :file:`pyTooling/Sphinx/Resources/GitHubEmoji.txt`, GitHub's emoji with their characters
+and shortcodes - is generated from `gemoji <https://github.com/github/gemoji>`__ v4.1.0, which GitHub, Inc. distributes
+under the MIT license. The file's header holds the license text.
+
 .. _DEP/testing:
 
 Unit Testing / Coverage (Optional)

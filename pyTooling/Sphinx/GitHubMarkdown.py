@@ -49,6 +49,13 @@ converter does the same in text outside of code and links (see :meth:`GitHubMark
 hash only if the commit exists; the converter can't ask, so it links a word of hexadecimal digits holding a digit and a
 letter.
 
+.. rubric:: Emoji
+
+The emoji, their characters and shortcodes, are GitHub's own list: the table :data:`EMOJI_FILE` is generated from
+github/gemoji's :file:`db/emoji.json`, which GitHub, Inc. distributes under the MIT license; the table's header names the
+version and holds the license text. A custom GitHub emoji, e.g. ``:octocat:``, is an image without characters, and isn't
+in the list.
+
 .. rubric:: Headings and raw HTML
 
 A heading becomes a topic or a rubric, never a section, and raw HTML is translated element by element, as
@@ -89,7 +96,8 @@ if TYPE_CHECKING:  # pragma: no cover
 
 __all__ = ["EMOJI_FILE", "REPOSITORY_PATTERN", "REFERENCE_PATTERN"]
 
-#: Name of the emoji table in :mod:`pyTooling.Sphinx.Resources`: a line per emoji, its code points and its shortcodes.
+#: Name of the emoji table in :mod:`pyTooling.Sphinx.Resources`: a line per emoji, its code points and its shortcodes,
+#: generated from github/gemoji (MIT license, Copyright (c) 2019 GitHub, Inc.).
 EMOJI_FILE = "GitHubEmoji.txt"
 
 #: A GitHub repository: ``<owner>/<name>``.

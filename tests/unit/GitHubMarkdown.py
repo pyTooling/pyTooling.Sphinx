@@ -348,8 +348,8 @@ class Emojis(Testcase):
 	@testcase("Shortcodes")
 	def Shortcodes(self) -> None:
 		"""
-		A shortcode is the emoji's characters, an alias too; the variation selector is restored where GitHub's table
-		leaves it out.
+		A shortcode is the emoji's characters as gemoji lists them - with variation selector 16 where it has one -, an
+		alias too.
 		"""
 		self.assertEqual(
 			[
