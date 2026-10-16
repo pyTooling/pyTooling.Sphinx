@@ -121,14 +121,17 @@ Analysis
 
 A package is read from its source files - every :file:`*.py` file below its directory, each in its declared encoding -
 into the language-neutral documentation coverage model of :gh:`pyEDAA.Reports <edaa-org/pyEDAA.Reports>`, by its
-`Python reader <https://edaa-org.github.io/pyEDAA.Reports/DocCoverage/index.html>`__. Every documentable item is
-counted:
+`Python reader <https://edaa-org.github.io/pyEDAA.Reports/DocCoverage/index.html#doccov-python>`__. Every
+documentable item is counted - also fields, variables, and items of a protected (``_x``) or private (``__x``) name. The
+reader's default selection (``CountedItems.Default``) isn't configurable yet.
 
 * Packages, modules, classes, functions, methods and properties are documented by a non-empty doc-string. A comment of
   docstr_coverage directly above a declaration - ``# docstr-coverage: inherited`` or
   ``# docstr-coverage: excused `reason``` - excuses a missing doc-string.
 * A class' fields and a module's variables are documented where Sphinx' autodoc finds their documentation: a ``#:``
   comment behind the statement or in the lines above it, or a doc-string literal following it.
+* A field or variable assigned in an ``if`` or ``try`` statement of a class or module is counted too, e.g. in
+  ``if TYPE_CHECKING:``.
 * Ignored - not expected to be documented - are, e.g., a property's setter, an ``@overload`` stub, and a name like
   ``__all__``.
 * A package without :file:`__init__.py` - a namespace package - has nothing to document.
@@ -137,7 +140,8 @@ A row of the table counts the items declared in its file: a module's, or a packa
 row counts all items of the package.
 
 A source file, which can't be read or parsed, is logged as a warning; its module is excluded from the analysis, and
-the analysis continues.
+the analysis continues. Its row - in the table and on the pages - has the coverage level ``error`` and says
+*can't be read*.
 
 
 .. _DIR/DocCoverage/Pages:
@@ -167,8 +171,9 @@ of Sphinx' Pygments style, as every code block. A line is shown as written, with
   is elided.
 * A module's variables and a class' fields are shown with their ``#:`` comments - behind them or in the lines above -
   and a doc-string literal following them.
-* A statement holding classes or functions - e.g. an ``if`` choosing between two definitions - is shown as written,
-  its classes and functions condensed.
+* A statement holding classes or functions - e.g. an ``if`` choosing between two definitions -, and an ``if`` or
+  ``try`` assigning a variable or field, is shown with the headers of its clauses - ``if ...:``, ``else:``,
+  ``except ...:`` -; each clause's block is shown like a body.
 * A definition written in one line - ``def f(): pass`` - is shown as written.
 * Comments between statements are left out; consecutive blank lines become one.
 
@@ -192,7 +197,7 @@ field or variable is marked by the documentation state of its item in the :ref:`
    * - ``excluded``
      - The item is excluded from the analysis.
    * - (none)
-     - The line isn't counted: a blank line, a statement holding definitions, a repeated assignment of a variable.
+     - The line isn't counted: a blank line, a clause's header, a repeated assignment of a variable.
 
 The module's doc-string is marked by the module's state, which the page's summary states too.
 
