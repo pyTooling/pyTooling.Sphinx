@@ -161,7 +161,6 @@ class Registration(ReportProject):
 			pyTooling.Sphinx.setup(MagicMock())
 			assert "pyTooling.Sphinx.Unittest" in sys.modules, "the report directives weren't imported"
 			assert not any(name.startswith("pyEDAA") for name in sys.modules), "pyEDAA.Reports was imported"
-			assert "docstr_coverage" not in sys.modules, "docstr_coverage was imported"
 		""")
 		root = Path(__file__).parent.parent.parent
 		result = subprocess_run(
@@ -227,8 +226,7 @@ class Registration(ReportProject):
 			result.stdout
 		)
 		self.assertIn(
-			"ReportsPackageMissingError: Analyzing the documentation coverage needs 'pyEDAA.Reports' and 'docstr_coverage', "
-			"which isn't installed.",
+			"ReportsPackageMissingError: Analyzing the documentation coverage needs 'pyEDAA.Reports', which isn't installed.",
 			result.stdout
 		)
 		self.assertIn("Install it with: pip install pyTooling.Sphinx[reports]", result.stdout)
