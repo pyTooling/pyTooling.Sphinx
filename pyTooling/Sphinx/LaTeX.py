@@ -34,6 +34,7 @@ Visitors writing pyTooling.Sphinx's nodes in LaTeX.
 Each node has a ``visit_*`` and a ``depart_*`` function and a ``translate*`` pair of both, which
 :data:`~pyTooling.Sphinx.NODES` registers. A node without visitors here is written by the visitors of its base-class.
 """
+from re                        import compile as re_compile
 from textwrap                  import dedent
 
 from docutils                  import nodes
@@ -69,6 +70,9 @@ DOCUMENTATION_MARKERS = {
 }
 
 TAB_WIDTH = 4  #: Number of columns a tab advances to, as LaTeX doesn't expand tabs in a listing.
+
+_ASCII_RUNS = re_compile(r"([\x00-\x7f]+)")
+"""A run of ASCII characters, which splits an emoji's characters into the parts LaTeX writes differently."""
 
 
 @export
@@ -242,15 +246,23 @@ translateDocCoverageListing: tuple[visitFunc, departFunc] = (visit_DocCoverageLi
 @export
 def visit_Emoji(translator: LaTeXTranslator, node: Emoji) -> None:
 	"""
-	Write an emoji in LaTeX, completely: its shortcode with colons, as pdfLaTeX has no emoji.
+	Write an emoji in LaTeX, completely: command ``\\pyToolingEmoji`` of :data:`~pyTooling.Sphinx.LATEX_PREAMBLE` with
+	the emoji's characters and its shortcode.
 
-	The party popper is written as ``:tada:``.
+	The command writes the characters in the emoji font of :file:`pytooling.sty`, if it is loaded, e.g. with LuaLaTeX;
+	else - e.g. with pdfLaTeX, which has no emoji - the shortcode with colons, e.g. ``:tada:``. A run of non-ASCII
+	characters is passed through ``\\detokenize``, so a character :file:`pytooling.sty` maps to ``\\emoji`` itself isn't
+	expanded again; an ASCII character - e.g. ``#`` of a keycap - is escaped.
 
 	:param translator: The LaTeX translator writing the document.
 	:param node:       The emoji.
-	:raises SkipNode:  Always, so the emoji's characters aren't written.
+	:raises SkipNode:  Always, so the node's text isn't written again.
 	"""
-	translator.body.append(translator.encode(f":{node['shortcode']}:"))
+	characters = "".join(
+		f"\\detokenize{{{part}}}" if not part.isascii() else translator.encode(part)
+		for part in _ASCII_RUNS.split(node.astext()) if part != ""
+	)
+	translator.body.append(f"\\pyToolingEmoji{{{characters}}}{{{translator.encode(node['shortcode'])}}}")
 
 	raise nodes.SkipNode
 
@@ -301,7 +313,7 @@ translateTaskListCheckbox: tuple[visitFunc, departFunc] = (visit_TaskListCheckbo
 @export
 def visit_LineBreak(translator: LaTeXTranslator, node: LineBreak) -> None:
 	"""
-	Write a line break in LaTeX, completely: ``\\newline``, which - unlike ``\\\\`` - doesn't end a table's row.
+	Write a line break in LaTeX, completely: ``\\newline``, which breaks the line in any environment.
 
 	:param translator: The LaTeX translator writing the document.
 	:param node:       The line break.

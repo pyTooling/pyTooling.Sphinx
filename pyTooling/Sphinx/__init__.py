@@ -190,11 +190,16 @@ SUBSTITUTIONS = """
 .. |hr| replace:: :hr:`.`
 """
 
-#: LaTeX commands appended to the preamble: the lines of the style roles ``:strike:`` and ``:underline:`` - and of
-#: strikethrough in converted Markdown -, drawn by package ``ulem``, which :func:`setup` requests.
+#: LaTeX commands appended to the preamble.
+#:
+#: * The lines of the style roles ``:strike:`` and ``:underline:`` - and of strikethrough in converted Markdown -, drawn
+#:   by package ``ulem``, which :func:`setup` requests.
+#: * ``\pyToolingEmoji{<characters>}{<shortcode>}``, which writes an emoji with command ``\emoji`` of the MiKTeX
+#:   image's :file:`pytooling.sty` - in its emoji font -, or, if that isn't loaded, as its shortcode with colons.
 LATEX_PREAMBLE = r"""
 \providecommand*{\DUrolestrike}[1]{\sout{#1}}
 \providecommand*{\DUroleunderline}[1]{\uline{#1}}
+\providecommand*{\pyToolingEmoji}[2]{\ifdefined\emoji\emoji{#1}\else:#2:\fi}
 """
 
 #: The nodes the extension registers, each with its visitors per output format.

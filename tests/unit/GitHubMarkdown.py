@@ -525,7 +525,7 @@ class Rendering(Project):
 		"Index\n#####\n\n"
 		".. markdown::\n\n"
 		"   # Notes\n\n"
-		"   :tada: ~~gone~~ #12\n"
+		"   :tada: ~~gone~~ #12 :hash: :man_technologist:\n"
 		"   line\n\n"
 		"   - [x] done\n"
 		"   - [ ] open\n"
@@ -544,7 +544,7 @@ class Rendering(Project):
 		self.assertIn('<span class="github-emoji" title=":tada:">\N{PARTY POPPER}</span>', html)
 		self.assertIn('<span class="strike">gone</span>', html)
 		self.assertIn('href="https://github.com/pyTooling/pyTooling/issues/12"', html)
-		self.assertIn(">#12</a><br />", html)
+		self.assertIn('title=":man_technologist:">\N{MAN}\N{ZERO WIDTH JOINER}\N{PERSONAL COMPUTER}</span><br />', html)
 		self.assertIn(
 			'<input class="github-task-list-checkbox" type="checkbox" disabled="" checked="" aria-label="Completed task" />',
 			html
@@ -556,15 +556,23 @@ class Rendering(Project):
 	@testcase("LaTeX")
 	def LaTeX(self) -> None:
 		"""
-		LaTeX writes an emoji as its shortcode, the checkboxes as box symbols, a line break as ``\\newline`` and
-		strikethrough with package ``ulem``, whose commands the preamble defines.
+		LaTeX writes emoji, checkboxes, line breaks and strikethrough with commands it has.
+
+		An emoji is written with the preamble's command, which uses pytooling.sty's emoji font or the shortcode; the
+		checkboxes as box symbols, a line break as ``\\newline`` and strikethrough with package ``ulem``, whose commands
+		the preamble defines.
 		"""
 		self._build(self._document, "latex", conf=self._conf)
 
 		self.assertEqual([], self._warningLines())
 		latex = next((self._path / "build" / "latex").glob("*.tex")).read_text(encoding="utf-8")
-		self.assertNotIn("\N{PARTY POPPER}", latex)
-		self.assertIn(":tada: \\DUrole{strike}{gone}", latex)
+		self.assertIn("\\pyToolingEmoji{\\detokenize{\N{PARTY POPPER}}}{tada} \\DUrole{strike}{gone}", latex)
+		self.assertIn(
+			"\\pyToolingEmoji{\\#\\detokenize{\N{VARIATION SELECTOR-16}\N{COMBINING ENCLOSING KEYCAP}}}{hash}", latex
+		)
+		self.assertIn(
+			"\\pyToolingEmoji{\\detokenize{\N{MAN}\N{ZERO WIDTH JOINER}\N{PERSONAL COMPUTER}}}{man\\_technologist}", latex
+		)
 		self.assertIn("\\newline{}", latex)
 		self.assertIn("\\(\\boxtimes\\) done", latex)
 		self.assertIn("\\(\\square\\) open", latex)

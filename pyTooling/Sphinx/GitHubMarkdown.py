@@ -56,8 +56,8 @@ A heading becomes a topic or a rubric, never a section, and raw HTML is translat
 
 .. rubric:: LaTeX
 
-An emoji is a node of its own (:class:`~pyTooling.Sphinx.Node.Emoji`), which LaTeX writes as its shortcode, as
-pdfLaTeX has no emoji. :class:`ReplaceSVGImages` replaces the SVG images LaTeX can't include.
+An emoji is a node of its own (:class:`~pyTooling.Sphinx.Node.Emoji`), which LaTeX writes in the emoji font of
+:file:`pytooling.sty`, if it is loaded, else as its shortcode. :class:`ReplaceSVGImages` replaces the SVG images LaTeX can't include.
 
 .. attention::
 
@@ -216,7 +216,7 @@ class GitHubMarkdown(metaclass=ExtendedType, slots=True):
 		followed by variation selector 16 (U+FE0F).
 
 		A single character below U+2190 - e.g. the copyright sign - is an emoji only if followed by U+FE0F; else it is
-		the text character pdfLaTeX writes.
+		a character of the text font.
 
 		:param shortcodes: The emoji's characters without U+FE0F.
 		:returns:          The pattern.
