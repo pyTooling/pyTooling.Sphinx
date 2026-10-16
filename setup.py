@@ -55,7 +55,6 @@ with WarningCollector() as warnings:
 			additionalRequirements={
 				"reports": [
 					"pyEDAA.Reports ~= 0.20.0rc1",
-					"docstr_coverage ~= 2.3",
 				],
 			},
 			dataFiles={
