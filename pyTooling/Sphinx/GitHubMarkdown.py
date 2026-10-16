@@ -57,7 +57,8 @@ A heading becomes a topic or a rubric, never a section, and raw HTML is translat
 .. rubric:: LaTeX
 
 An emoji is a node of its own (:class:`~pyTooling.Sphinx.Node.Emoji`), which LaTeX writes in the emoji font of
-:file:`pytooling.sty`, if it is loaded, else as its shortcode. :class:`ReplaceSVGImages` replaces the SVG images LaTeX can't include.
+:file:`pytooling.sty`, if it is loaded, else as its shortcode. :class:`ReplaceSVGImages` replaces the SVG images LaTeX
+can't include.
 
 .. attention::
 

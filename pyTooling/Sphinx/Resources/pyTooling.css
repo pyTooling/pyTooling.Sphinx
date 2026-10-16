@@ -1073,7 +1073,8 @@ a.pytooling-download-link code.download span:first-child::before {
 
 /* Styles for converted GitHub Markdown, e.g. a release's notes.
 
-   A heading of the Markdown is a topic, which a theme draws as a box; here it reads as a heading of the text instead. */
+   A heading of the Markdown is a topic, which a theme draws as a box; here it reads as a heading of the text
+   instead. */
 aside.topic.github-topic {
   border: none;
   padding: 0;
