@@ -52,9 +52,9 @@ letter.
 .. rubric:: Emoji
 
 The emoji, their characters and shortcodes, are GitHub's own list: the table :data:`EMOJI_FILE` is generated from
-github/gemoji's :file:`db/emoji.json`, which GitHub, Inc. distributes under the MIT license; the table's header names the
-version and holds the license text. A custom GitHub emoji, e.g. ``:octocat:``, is an image without characters, and isn't
-in the list.
+github/gemoji's :file:`db/emoji.json`, which GitHub, Inc. distributes under the MIT license; the table's header names
+the version and holds the license text. A custom GitHub emoji, e.g. ``:octocat:``, is an image without characters, and
+isn't in the list.
 
 .. rubric:: Headings and raw HTML
 
