@@ -34,7 +34,6 @@ Visitors writing pyTooling.Sphinx's nodes in LaTeX.
 Each node has a ``visit_*`` and a ``depart_*`` function and a ``translate*`` pair of both, which
 :data:`~pyTooling.Sphinx.NODES` registers. A node without visitors here is written by the visitors of its base-class.
 """
-from re                        import compile as re_compile
 from textwrap                  import dedent
 
 from docutils                  import nodes
@@ -43,11 +42,11 @@ from sphinx.writers.latex      import LaTeXTranslator
 
 from pyTooling.Decorators      import export
 from pyTooling.Sphinx.Node     import COVERAGE_STATES, DOCUMENTATION_STATES, CoverageListing, DocCoverageListing
-from pyTooling.Sphinx.Node     import Emoji, Landscape, LineBreak, TaskListCheckbox, visitFunc, departFunc
+from pyTooling.Sphinx.Node     import Landscape, LineBreak, TaskListCheckbox, visitFunc, departFunc
 
 
 __all__ = [
-	"translateLandscape", "translateCoverageListing", "translateDocCoverageListing", "translateEmoji",
+	"translateLandscape", "translateCoverageListing", "translateDocCoverageListing",
 	"translateTaskListCheckbox", "translateLineBreak", "COVERAGE_MARKERS", "DOCUMENTATION_MARKERS", "TAB_WIDTH"
 ]
 
@@ -70,9 +69,6 @@ DOCUMENTATION_MARKERS = {
 }
 
 TAB_WIDTH = 4  #: Number of columns a tab advances to, as LaTeX doesn't expand tabs in a listing.
-
-_ASCII_RUNS = re_compile(r"([\x00-\x7f]+)")
-"""A run of ASCII characters, which splits an emoji's characters into the parts LaTeX writes differently."""
 
 
 @export
@@ -241,44 +237,6 @@ def depart_DocCoverageListing(translator: LaTeXTranslator, node: DocCoverageList
 
 translateDocCoverageListing: tuple[visitFunc, departFunc] = (visit_DocCoverageListing, depart_DocCoverageListing)
 """Visit and depart function writing a :class:`~pyTooling.Sphinx.Node.DocCoverageListing` in LaTeX."""
-
-
-@export
-def visit_Emoji(translator: LaTeXTranslator, node: Emoji) -> None:
-	"""
-	Write an emoji in LaTeX, completely: command ``\\pyToolingEmoji`` of :data:`~pyTooling.Sphinx.LATEX_PREAMBLE` with
-	the emoji's characters and its shortcode.
-
-	The command writes the characters in the emoji font of :file:`pytooling.sty`, if it is loaded, e.g. with LuaLaTeX;
-	else - e.g. with pdfLaTeX, which has no emoji - the shortcode with colons, e.g. ``:tada:``. A run of non-ASCII
-	characters is passed through ``\\detokenize``, so a character :file:`pytooling.sty` maps to ``\\emoji`` itself isn't
-	expanded again; an ASCII character - e.g. ``#`` of a keycap - is escaped.
-
-	:param translator: The LaTeX translator writing the document.
-	:param node:       The emoji.
-	:raises SkipNode:  Always, so the node's text isn't written again.
-	"""
-	characters = "".join(
-		f"\\detokenize{{{part}}}" if not part.isascii() else translator.encode(part)
-		for part in _ASCII_RUNS.split(node.astext()) if part != ""
-	)
-	translator.body.append(f"\\pyToolingEmoji{{{characters}}}{{{translator.encode(node['shortcode'])}}}")
-
-	raise nodes.SkipNode
-
-
-@export
-def depart_Emoji(translator: LaTeXTranslator, node: Emoji) -> None:
-	"""
-	Close an emoji in LaTeX, which writes nothing: :func:`visit_Emoji` wrote it all.
-
-	:param translator: The LaTeX translator writing the document.
-	:param node:       The emoji.
-	"""
-
-
-translateEmoji: tuple[visitFunc, departFunc] = (visit_Emoji, depart_Emoji)
-"""Visit and depart function writing an :class:`~pyTooling.Sphinx.Node.Emoji` in LaTeX."""
 
 
 @export

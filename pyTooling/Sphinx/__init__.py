@@ -151,14 +151,12 @@ from pyTooling.Sphinx.HTML   import translateCoverageListing as translateCoverag
 from pyTooling.Sphinx.HTML   import translateDocCoverageListing as translateDocCoverageListingAsHTML
 from pyTooling.Sphinx.HTML   import translateAbbreviation, translateTreeItem, translateTreeLabel, translateTreeSeparator
 from pyTooling.Sphinx.HTML   import translateTreeDescription, translateTreeLegend, translateTreeLegendItem
-from pyTooling.Sphinx.HTML   import translateCopyButton
-from pyTooling.Sphinx.HTML   import translateEmoji as translateEmojiAsHTML
+from pyTooling.Sphinx.HTML   import translateCopyButton, translateEmoji
 from pyTooling.Sphinx.HTML   import translateLineBreak as translateLineBreakAsHTML
 from pyTooling.Sphinx.HTML   import translateTaskListCheckbox as translateTaskListCheckboxAsHTML
 from pyTooling.Sphinx.LaTeX  import translateLandscape as translateLandscapeAsLaTeX
 from pyTooling.Sphinx.LaTeX  import translateCoverageListing as translateCoverageListingAsLaTeX
 from pyTooling.Sphinx.LaTeX  import translateDocCoverageListing as translateDocCoverageListingAsLaTeX
-from pyTooling.Sphinx.LaTeX  import translateEmoji as translateEmojiAsLaTeX
 from pyTooling.Sphinx.LaTeX  import translateLineBreak as translateLineBreakAsLaTeX
 from pyTooling.Sphinx.LaTeX  import translateTaskListCheckbox as translateTaskListCheckboxAsLaTeX
 from pyTooling.Sphinx.Node   import Abbreviation, Landscape, RegisteredNode, TreeItem, TreeLabel, TreeSeparator
@@ -190,16 +188,11 @@ SUBSTITUTIONS = """
 .. |hr| replace:: :hr:`.`
 """
 
-#: LaTeX commands appended to the preamble.
-#:
-#: * The lines of the style roles ``:strike:`` and ``:underline:`` - and of strikethrough in converted Markdown -, drawn
-#:   by package ``ulem``, which :func:`setup` requests.
-#: * ``\pyToolingEmoji{<characters>}{<shortcode>}``, which writes an emoji with command ``\emoji`` of the MiKTeX
-#:   image's :file:`pytooling.sty` - in its emoji font -, or, if that isn't loaded, as its shortcode with colons.
+#: LaTeX commands appended to the preamble: the lines of the style roles ``:strike:`` and ``:underline:`` - and of
+#: strikethrough in converted Markdown -, drawn by package ``ulem``, which :func:`setup` requests.
 LATEX_PREAMBLE = r"""
 \providecommand*{\DUrolestrike}[1]{\sout{#1}}
 \providecommand*{\DUroleunderline}[1]{\uline{#1}}
-\providecommand*{\pyToolingEmoji}[2]{\ifdefined\emoji\emoji{#1}\else:#2:\fi}
 """
 
 #: The nodes the extension registers, each with its visitors per output format.
@@ -221,8 +214,7 @@ NODES: tuple[RegisteredNode, ...] = (
 	 "latex": translateCoverageListingAsLaTeX},
 	{"name": "DocCoverageListing", "node": DocCoverageListing, "html": translateDocCoverageListingAsHTML,
 	 "latex": translateDocCoverageListingAsLaTeX},
-	{"name": "Emoji",              "node": Emoji,              "html": translateEmojiAsHTML,
-	 "latex": translateEmojiAsLaTeX},
+	{"name": "Emoji",              "node": Emoji,              "html": translateEmoji},
 	{"name": "TaskListCheckbox",   "node": TaskListCheckbox,   "html": translateTaskListCheckboxAsHTML,
 	 "latex": translateTaskListCheckboxAsLaTeX},
 	{"name": "LineBreak",          "node": LineBreak,          "html": translateLineBreakAsHTML,

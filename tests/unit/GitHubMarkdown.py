@@ -556,22 +556,19 @@ class Rendering(Project):
 	@testcase("LaTeX")
 	def LaTeX(self) -> None:
 		"""
-		LaTeX writes emoji, checkboxes, line breaks and strikethrough with commands it has.
+		LaTeX writes emoji as Unicode characters, checkboxes as box symbols, line breaks and strikethrough with commands.
 
-		An emoji is written with the preamble's command, which uses pytooling.sty's emoji font or the shortcode; the
-		checkboxes as box symbols, a line break as ``\\newline`` and strikethrough with package ``ulem``, whose commands
-		the preamble defines.
+		An emoji's ASCII characters - the ``#`` of a keycap - are escaped. A line break is written as ``\\newline`` and
+		strikethrough with package ``ulem``, whose commands the preamble defines.
 		"""
 		self._build(self._document, "latex", conf=self._conf)
 
 		self.assertEqual([], self._warningLines())
 		latex = next((self._path / "build" / "latex").glob("*.tex")).read_text(encoding="utf-8")
-		self.assertIn("\\pyToolingEmoji{\\detokenize{\N{PARTY POPPER}}}{tada} \\DUrole{strike}{gone}", latex)
 		self.assertIn(
-			"\\pyToolingEmoji{\\#\\detokenize{\N{VARIATION SELECTOR-16}\N{COMBINING ENCLOSING KEYCAP}}}{hash}", latex
-		)
-		self.assertIn(
-			"\\pyToolingEmoji{\\detokenize{\N{MAN}\N{ZERO WIDTH JOINER}\N{PERSONAL COMPUTER}}}{man\\_technologist}", latex
+			"\N{PARTY POPPER} \\DUrole{strike}{gone} \\sphinxhref{https://github.com/pyTooling/pyTooling/issues/12}{\\#12} "
+			"\\#\N{VARIATION SELECTOR-16}\N{COMBINING ENCLOSING KEYCAP} \N{MAN}\N{ZERO WIDTH JOINER}\N{PERSONAL COMPUTER}",
+			latex
 		)
 		self.assertIn("\\newline{}", latex)
 		self.assertIn("\\(\\boxtimes\\) done", latex)

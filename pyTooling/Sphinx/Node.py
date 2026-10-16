@@ -216,8 +216,9 @@ class Emoji(nodes.inline):
 	"""
 	An emoji: its characters, which HTML draws with its shortcode as tooltip.
 
-	Attribute ``shortcode`` holds the emoji's GitHub shortcode without colons, e.g. ``tada``. LaTeX writes the characters
-	in the emoji font of :file:`pytooling.sty`, if it is loaded, else the shortcode with colons.
+	Attribute ``shortcode`` holds the emoji's GitHub shortcode without colons, e.g. ``tada``. LaTeX writes its base-class,
+	so the characters as they are - LuaLaTeX draws them with a Unicode emoji font, which e.g. :file:`pytooling.sty` of
+	the MiKTeX image maps them to.
 	"""
 
 
