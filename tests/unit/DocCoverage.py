@@ -29,25 +29,24 @@
 # ==================================================================================================================== #
 #
 """
-Unit tests for :mod:`pyTooling.Sphinx.DocCoveragePages`: pages per package and module, the condensed listing, and role
+Unit tests for :mod:`pyTooling.Sphinx.DocCoverage`: pages per package and module, the condensed listing, and role
 ``:doccov:``, each built in a small Sphinx project.
 """
-from pathlib                           import Path
-from textwrap                          import dedent
-from typing                            import Any
+from pathlib                          import Path
+from textwrap                         import dedent
+from typing                           import Any
 
-from docutils                          import nodes
-from sphinx                            import addnodes
-from sphinx.testing.util               import SphinxTestApp
+from docutils                         import nodes
+from sphinx                           import addnodes
+from sphinx.testing.util              import SphinxTestApp
 
-from pyTooling.Testing                 import testsuite, testcase
+from pyTooling.Testing                import testsuite, testcase
 
-from pyTooling.Sphinx                  import ReportDomain
-from pyTooling.Sphinx.CondensedSource  import CondensedSource
-from pyTooling.Sphinx.DocCoverage      import DocCoverageBase
-from pyTooling.Sphinx.DocCoveragePages import DocCoverageReportPages
+from pyTooling.Sphinx                 import ReportDomain
+from pyTooling.Sphinx.CondensedSource import CondensedSource, documentationState
+from pyTooling.Sphinx.DocCoverage     import DocCoverageBase, DocCoverageReportPages
 
-from tests.unit.Extension              import Project
+from tests.unit.Extension             import Project
 
 
 if __name__ == "__main__":  # pragma: no cover
@@ -79,6 +78,27 @@ class DocCoverageProject(Project):
 			"doc": {"name": "myPackage", "directory": str(PACKAGE), "pages": pages, "fail_below": 80, "levels": "default"}
 		}
 		return self._build(index, builder, pyTooling_DocCoverage_Packages=packages)
+
+	def _buildPackage(self, files: dict[str, bytes]) -> Path:
+		"""
+		Write a package's files and build the project with the package declared with pages below 'doccov'.
+
+		:param files: The files' contents, by their path relative to the package's directory.
+		:returns:     The package's directory, named 'pkg'.
+		"""
+		package = self._path / "pkg"
+		for path, content in files.items():
+			(package / path).parent.mkdir(parents=True, exist_ok=True)
+			(package / path).write_bytes(content)
+
+		self._build(
+			"Index\n#####\n\n.. report:doc-coverage::\n   :reportid: doc\n",
+			pyTooling_DocCoverage_Packages={
+				"doc": {"name": "pkg", "directory": str(package), "pages": "doccov", "fail_below": 80, "levels": "default"}
+			}
+		)
+
+		return package
 
 	def _body(self, name: str) -> str:
 		"""
@@ -126,7 +146,7 @@ class Pages(DocCoverageProject):
 		self.assertIn("<h2>Modules", body)
 		self.assertIn('class="report-doccov-table report-doccov-summary docutils', body)
 		self.assertIn('<tr class="report-cov-below100 row-even"><td><p>__init__.py</p></td>', body)
-		self.assertIn('<tr class="report-summary report-cov-below60 row-odd"><td><p>Overall (4 files)</p></td>', body)
+		self.assertIn('<tr class="report-summary report-cov-below70 row-odd"><td><p>Overall (4 files)</p></td>', body)
 		self.assertIn('href="myPackage/Units.html"><span class="xref report report-doccov">Units</span>', body)
 		self.assertIn('href="myPackage/Shapes.html"><span class="xref report report-doccov">Shapes</span>', body)
 		self.assertIn('<span class="report-coverage-path">myPackage/__init__.py</span>', body)
@@ -145,8 +165,8 @@ class Pages(DocCoverageProject):
 		self.assertIn('href="../myPackage.html"', body)
 		self.assertIn("<p>documented</p>", body)
 		self.assertIn(
-			'<tr class="report-cov-below60 row-even"><td><p>Shapes.py</p></td>\n<td><p>10</p></td>\n<td><p>5</p></td>\n'
-			'<td><p>5</p></td>\n<td><p>50.0%</p></td>', body
+			'<tr class="report-cov-below70 row-even"><td><p>Shapes.py</p></td>\n<td><p>14</p></td>\n<td><p>9</p></td>\n'
+			'<td><p>5</p></td>\n<td><p>64.3%</p></td>', body
 		)
 		self.assertIn('<div class="highlight-default notranslate report-coverage-listing', body)
 		self.assertIn(
@@ -207,6 +227,37 @@ class Pages(DocCoverageProject):
 			with self.subTest(text=text):
 				self.assertIn(f'href="{href}"><span class="xref report report-doccov">{text}</span>', body)
 		self.assertIn("<h1>tests.myPackage", self._body("doccov/tests.myPackage"))
+
+	@testcase("Namespace package")
+	def NamespacePackage(self) -> None:
+		"""
+		A namespace package - a directory without '__init__.py' - has nothing to document: its row counts no items, its
+		page shows only the overall counters, and its directory is its page's source.
+
+		Builds the table of a package with a namespace sub-package holding a module.
+		"""
+		package = self._path / "spaced"
+		(package / "Space").mkdir(parents=True)
+		(package / "__init__.py").write_text('"""A package."""\n', encoding="utf-8")
+		(package / "Space" / "Inner.py").write_text('"""A module."""\nX = 1\n', encoding="utf-8")
+
+		app = self._build(
+			"Index\n#####\n\n.. report:doc-coverage::\n   :reportid: doc\n",
+			pyTooling_DocCoverage_Packages={
+				"doc": {"name": "spaced", "directory": str(package), "pages": "doccov", "fail_below": 80, "levels": "default"}
+			}
+		)
+
+		self.assertEqual([], self._warningLines())
+		self.assertIn(
+			'<span class="xref report report-doccov">Space</span></a></span></td>\n<td>0</td>\n<td>0</td>\n<td>0</td>\n'
+			'<td>100.0%</td>', self._body("index")
+		)
+		body = self._body("doccov/spaced/Space")
+		self.assertIn('<tr class="report-summary report-cov-below60 row-even"><td><p>Overall (1 files)</p></td>', body)
+		self.assertNotIn("Doc-string", body)
+		self.assertNotIn('id="source"', body)
+		self.assertEqual(package.resolve() / "Space", app.env.doc2path("doccov/spaced/Space"))
 
 	@testcase("Navigation")
 	def Navigation(self) -> None:
@@ -299,19 +350,20 @@ class Listing(DocCoverageProject):
 	@testcase("Fields and variables")
 	def FieldsAndVariables(self) -> None:
 		"""
-		Fields and variables are kept as written - with their '#:' comments and doc-string literals -, and unmarked, as
-		docstr_coverage doesn't count them.
+		Fields and variables are kept as written - with their '#:' comments and doc-string literals -, and marked by the
+		states of their items.
 
-		Builds the project and checks the listing of 'Shapes'.
+		Builds the project and checks the listings of 'Shapes' and of the package's '__init__.py'.
 		"""
 		self._buildPages("Index\n#####\n")
 
 		body = self._body(f"{PAGES}/Shapes")
 		for number in (5, 6, 8, 9, 15, 17):
 			with self.subTest(line=number):
-				self.assertIn(f'<span class="report-line"><span class="linenos">{number}</span>', body)
+				self.assertIn(f'<span class="report-line report-line-documented"><span class="linenos">{number}</span>', body)
 		self.assertIn("#: The number of shapes created.", body)
 		self.assertIn("The unit of a shape's dimensions.", body)
+		self.assertIn('<span class="report-line report-line-ignored"><span class="linenos">2</span>', self._body(PAGES))
 
 	@testcase("One-line definitions")
 	def OneLiners(self) -> None:
@@ -341,7 +393,123 @@ class Listing(DocCoverageProject):
 		self.assertIn('<span class="report-line report-line-documented"><span class="linenos">5</span>', body)
 		self.assertIn('<span class="report-line"><span class="linenos">8</span><span class="k">else</span>', body)
 		self.assertIn('<span class="report-line report-line-undocumented"><span class="linenos">9</span>', body)
-		self.assertIn('<span class="report-line"><span class="linenos">15</span>', body)
+		for number in range(12, 16):
+			with self.subTest(line=number):
+				self.assertIn(f'<span class="report-line report-line-documented"><span class="linenos">{number}</span>', body)
+
+	@testcase("Variables and fields in 'if' and 'try'")
+	def IfAndTry(self) -> None:
+		"""
+		A variable or field assigned in an 'if' or 'try' of a module or class is shown and marked; the clauses' headers
+		are kept, other statements elided.
+
+		Builds a package with a module assigning a variable in an 'if' and in a 'try', and a field in an 'if'.
+		"""
+		self._buildPackage({
+			"__init__.py": b'"""A package."""\n',
+			"Mod.py": dedent("""\
+				\"\"\"A module.\"\"\"
+				if True:
+					T = int  #: A type.
+				else:
+					T = str
+
+				try:
+					import json
+					HAS = True  #: Json available.
+				except ImportError:
+					HAS = False
+
+
+				class C:
+					\"\"\"A class.\"\"\"
+
+					if True:
+						g: int  #: A guarded field.
+				""").encode("utf-8")
+		})
+
+		self.assertEqual([], self._warningLines())
+		body = self._body("doccov/pkg/Mod")
+		for number, state in ((2, ""), (3, "documented"), (4, ""), (5, ""), (7, ""), (9, "documented"), (10, ""),
+				(11, ""), (17, ""), (18, "documented")):
+			with self.subTest(line=number):
+				classes = "report-line" if state == "" else f"report-line report-line-{state}"
+				self.assertIn(f'<span class="{classes}"><span class="linenos">{number}</span>', body)
+		self.assertNotIn('<span class="linenos">8</span>', body)
+		self.assertIn('<span class="report-line report-line-elided"><span class="linenos"></span>\t<span class="o">', body)
+
+	@testcase("Ignored items")
+	def Ignored(self) -> None:
+		"""
+		A property's setter and an '@overload' stub are marked 'ignored'.
+
+		Builds a package with a module holding a property with setter and an overloaded function.
+		"""
+		self._buildPackage({
+			"__init__.py": b'"""A package."""\n',
+			"Mod.py": dedent("""\
+				\"\"\"A module.\"\"\"
+				from typing import overload
+
+
+				class C:
+					\"\"\"A class.\"\"\"
+
+					@property
+					def P(self) -> int:
+						\"\"\"A property.\"\"\"
+						return 1
+
+					@P.setter
+					def P(self, value: int) -> None:
+						pass
+
+
+				@overload
+				def f(x: int) -> int: ...
+				def f(x):
+					\"\"\"A function.\"\"\"
+					return x
+				""").encode("utf-8")
+		})
+
+		self.assertEqual([], self._warningLines())
+		body = self._body("doccov/pkg/Mod")
+		for number, state in ((8, "documented"), (13, "ignored"), (14, "ignored"), (18, "ignored"), (19, "ignored"),
+				(20, "documented")):
+			with self.subTest(line=number):
+				self.assertIn(f'<span class="report-line report-line-{state}"><span class="linenos">{number}</span>', body)
+
+	@testcase("Empty '__init__.py'")
+	def EmptyInit(self) -> None:
+		"""
+		An empty '__init__.py' has nothing to document: its doc-string isn't counted, its listing is empty.
+
+		Builds a package with an empty '__init__.py'.
+		"""
+		self._buildPackage({"__init__.py": b"", "Mod.py": b'"""A module."""\n'})
+
+		self.assertEqual([], self._warningLines())
+		body = self._body("doccov/pkg")
+		self.assertIn("<p>not counted</p>", body)
+		self.assertIn('<span class="report-coverage-path">pkg/__init__.py</span>', body)
+		self.assertNotIn('<span class="report-line', body)
+
+	@testcase("Declared encoding")
+	def Encoding(self) -> None:
+		"""
+		A source file is read in the encoding it declares.
+
+		Builds a package with a Latin-1 encoded module, which declares its encoding.
+		"""
+		self._buildPackage({
+			"__init__.py": b'"""A package."""\n',
+			"Mod.py": '# -*- coding: latin-1 -*-\n"""Maße und Größen."""\n'.encode("latin-1")
+		})
+
+		self.assertEqual([], self._warningLines())
+		self.assertIn("Maße und Größen.", self._body("doccov/pkg/Mod"))
 
 
 @testsuite("Condensed source")
@@ -349,15 +517,39 @@ class Condensing(DocCoverageProject):
 	"""The condensing of a module's source, without Sphinx."""
 
 	@staticmethod
-	def _module() -> Any:
+	def _module(status: str = "Undocumented") -> Any:
 		"""
-		Create a module's coverage of pyEDAA.Reports' model, holding no states.
+		Create a module's item of pyEDAA.Reports' model, declared in its file 'm.py'.
 
-		:returns: The module's coverage.
+		:param status: Optional, the name of the module's coverage state. Default: ``"Undocumented"``.
+		:returns:      The module's item.
 		"""
-		from pyEDAA.Reports.DocumentationCoverage.Python import ModuleCoverage
+		from pyEDAA.Reports.DocumentationCoverage import CoverageState, DocumentationReport, Item, ItemKind
 
-		return ModuleCoverage("m", Path("m.py"))
+		report = DocumentationReport(Path("m"))
+		file = report.GetOrAddFile(Path("m.py"))
+
+		return Item("m", ItemKind.Module, CoverageState[status], file=file, parent=report)
+
+	@staticmethod
+	def _item(module: Any, name: str, kind: str, status: str, startLine: int, parent: Any = None) -> Any:
+		"""
+		Create an item declared in a module's file.
+
+		:param module:    The module's item.
+		:param name:      Name of the item.
+		:param kind:      Name of the item's kind.
+		:param status:    Name of the item's coverage state.
+		:param startLine: The item's first line.
+		:param parent:    Optional, the item containing the item. Default: the module.
+		:returns:         The item.
+		"""
+		from pyEDAA.Reports.DocumentationCoverage import CoverageState, Item, ItemKind
+
+		return Item(
+			name, ItemKind[kind], CoverageState[status], file=module.File, startLine=startLine,
+			parent=module if parent is None else parent
+		)
 
 	@testcase("Lines")
 	def Lines(self) -> None:
@@ -366,33 +558,80 @@ class Condensing(DocCoverageProject):
 
 		Condenses a module with a documented function.
 		"""
+		module = self._module()
+		self._item(module, "f", "Function", "Covered", 3)
 		source = 'import sys\n\ndef f(a: int) -> int:\n\t"""Doc."""\n\tb = a\n\treturn b\n'
-		expected = [("module docstring", "undocumented"), ("f", "documented")]
 
 		self.assertEqual(
 			[(None, "", ""), (2, "", ""), (3, "documented", ""), (4, "documented", ""), (None, "", "\t")],
-			CondensedSource.Parse(source, "m.py", expected, self._module()).Lines
+			CondensedSource.Parse(source, "m.py", module).Lines
+		)
+
+	@testcase("Module doc-string")
+	def ModuleDocString(self) -> None:
+		"""
+		The module's doc-string is marked by the module's state.
+
+		Condenses a documented module.
+		"""
+		self.assertEqual(
+			[(1, "documented", "")], CondensedSource.Parse('"""Doc."""\n', "m.py", self._module("Covered")).Lines
 		)
 
 	@testcase("States of fields and variables from the model")
 	def ModelStates(self) -> None:
 		"""
-		A variable or field is marked by the state the model holds for it: a module's variables, a class' fields.
+		A variable or field is marked by the state of the item starting at its line; a repeated assignment and a name
+		without item are not.
 
-		Condenses a module whose model holds a state of a variable and of a field.
+		Condenses a module whose model holds a variable and a class with a field.
 		"""
-		from pyEDAA.Reports.DocumentationCoverage        import CoverageState
-		from pyEDAA.Reports.DocumentationCoverage.Python import ClassCoverage
-
 		module = self._module()
-		module.Variables["X"] = CoverageState.Covered
-		ClassCoverage("A", parent=module).Fields["y"] = CoverageState.Undocumented
-		source = "X = 1\nZ = 2\n\nclass A:\n\ty: int\n"
+		self._item(module, "X", "Variable", "Covered", 1)
+		self._item(module, "y", "Field", "Undocumented", 6, self._item(module, "A", "Class", "Undocumented", 5))
+		source = "X = 1\nZ = 2\nX = 3\n\nclass A:\n\ty: int\n"
 
-		lines = CondensedSource.Parse(source, "m.py", [("A", "undocumented")], module).Lines
+		lines = CondensedSource.Parse(source, "m.py", module).Lines
 		self.assertIn((1, "documented", ""), lines)
 		self.assertIn((2, "", ""), lines)
+		self.assertIn((3, "", ""), lines)
 		self.assertIn((5, "undocumented", ""), lines)
+		self.assertIn((6, "undocumented", ""), lines)
+
+	@testcase("Documentation states")
+	def DocumentationStates(self) -> None:
+		"""
+		A coverage state maps to the listing's state as the model counts it: empty, excluded, ignored, covered.
+
+		Maps the coverage states an item of the Python reader has.
+		"""
+		from pyEDAA.Reports.DocumentationCoverage import CoverageState
+
+		for coverageState, state in (
+			(CoverageState.Empty,                                                       ""),
+			(CoverageState.Excluded,                                                    "excluded"),
+			(CoverageState.Documented | CoverageState.Covered | CoverageState.Excluded, "excluded"),
+			(CoverageState.Undocumented | CoverageState.Ignored,                        "ignored"),
+			(CoverageState.Documented | CoverageState.Covered,                          "documented"),
+			(CoverageState.Excused | CoverageState.Covered,                             "documented"),
+			(CoverageState.Undocumented,                                                "undocumented"),
+		):
+			with self.subTest(coverageState=coverageState):
+				self.assertEqual(state, documentationState(coverageState))
+
+	@testcase("Excluded item")
+	def Excluded(self) -> None:
+		"""
+		An excluded item's lines are marked 'excluded'.
+
+		Condenses a module with an excluded function.
+		"""
+		module = self._module()
+		self._item(module, "f", "Function", "Excluded", 1)
+
+		self.assertEqual(
+			[(1, "excluded", ""), (None, "", "\t")], CondensedSource.Parse("def f():\n\tpass\n", "m.py", module).Lines
+		)
 
 	@testcase("Constructor")
 	def Constructor(self) -> None:
@@ -423,8 +662,11 @@ class Condensing(DocCoverageProject):
 
 		Condenses a module with a function the analysis doesn't name.
 		"""
+		module = self._module()
+		self._item(module, "g", "Function", "Covered", 1)
+
 		with self.assertLogs("sphinx.pyTooling.Sphinx.CondensedSource", "WARNING") as logs:
-			lines = CondensedSource.Parse("def f():\n\tpass\n", "m.py", [("g", "documented")], self._module()).Lines
+			lines = CondensedSource.Parse("def f():\n\tpass\n", "m.py", module).Lines
 
 		self.assertEqual([(1, "", ""), (None, "", "\t")], lines)
 		self.assertIn("The documentation coverage analysis of 'm.py' doesn't match the source", logs.output[0])
@@ -527,14 +769,18 @@ class Configuration(DocCoverageProject):
 	@testcase("Invalid source")
 	def InvalidSource(self) -> None:
 		"""
-		A package with a module, which isn't valid Python, can't be analyzed: its table and its pages report the error.
+		A module or '__init__.py', which isn't valid Python, is warned about once and excluded; its row and page say so.
 
-		Builds the table of a package with a syntax error in a module.
+		Its row has the coverage level 'error' and says, that it can't be read; its page says, that its source can't be
+		read or parsed.
+
+		Builds the table of a package with a syntax error in a module and in a sub-package's '__init__.py'.
 		"""
 		package = self._path / "broken"
-		package.mkdir()
+		(package / "Sub").mkdir(parents=True)
 		(package / "__init__.py").write_text('"""A broken package."""\n', encoding="utf-8")
 		(package / "Module.py").write_text("x = = 1\n", encoding="utf-8")
+		(package / "Sub" / "__init__.py").write_text("def f(:\n", encoding="utf-8")
 
 		self._build(
 			"Index\n#####\n\n.. report:doc-coverage::\n   :reportid: doc\n",
@@ -543,13 +789,39 @@ class Configuration(DocCoverageProject):
 			}
 		)
 
-		warnings = "\n".join(self._warningLines())
-		self.assertIn(
-			"ERROR: Caught ReportExtensionError when generating the pages of documentation coverage 'doc'.", warnings
+		warnings = self._warningLines()
+		self.assertEqual(
+			[
+				"WARNING: Caught SourceFileWarning when analyzing package 'broken'.",
+				"  Source file 'Module.py' can't be analyzed.",
+				"  SyntaxError: invalid syntax (Module.py, line 1)",
+				"WARNING: Caught SourceFileWarning when analyzing package 'broken'.",
+				"  Source file 'Sub/__init__.py' can't be analyzed."
+			],
+			warnings[:5]
 		)
-		self.assertIn("  SyntaxError: ", warnings)
-		self.assertIn("ERROR: Caught SyntaxError when analyzing package 'broken'.", warnings)
-		self.assertIn("<p>Caught SyntaxError when analyzing package ", self._body("index"))
+		self.assertEqual(6, len(warnings))
+		self.assertTrue(warnings[5].startswith("  SyntaxError: "))
+
+		index = self._body("index")
+		for kind, name in (("module", "Module"), ("package", "Sub")):
+			with self.subTest(row=name):
+				self.assertRegex(
+					index,
+					f'<tr class="report-{kind} report-cov-error row-(even|odd)">.*?>{name}</span>.*?\n<td>0</td>\n<td>0</td>\n'
+					f"<td>0</td>\n<td>can't be read</td>"
+				)
+
+		body = self._body("doccov/broken/Module")
+		self.assertIn("<p>can't be read</p>", body)
+		self.assertIn(
+			'<tr class="report-cov-error row-even"><td><p>Module.py</p></td>\n<td><p>0</p></td>\n<td><p>0</p></td>\n'
+			"<td><p>0</p></td>\n<td><p>can't be read</p></td>", body
+		)
+		self.assertIn("<p>The source file 'broken/Module.py' can't be read or parsed.</p>", body)
+		self.assertIn('<tr class="report-cov-error row-even"><td><p><a class="reference internal" href="broken/Sub.html"',
+			self._body("doccov/broken")
+		)
 
 	@testcase("Without pages")
 	def WithoutPages(self) -> None:

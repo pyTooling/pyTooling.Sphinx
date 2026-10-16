@@ -20,6 +20,6 @@ Documentation Coverage Report
 
 ----------
 
-Documentation coverage generated with :gh:`docstr-coverage <HunterMcGushion/docstr_coverage>` and
-visualized by :ref:`pyTooling.Sphinx <DIR/DocCoverage>`.
+Documentation coverage analyzed with :gh:`pyEDAA.Reports <edaa-org/pyEDAA.Reports>` and visualized by
+:ref:`pyTooling.Sphinx <DIR/DocCoverage>`.
 

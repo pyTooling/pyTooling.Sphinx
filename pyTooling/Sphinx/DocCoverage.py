@@ -29,13 +29,13 @@
 # ==================================================================================================================== #
 #
 """
-Directives rendering the documentation coverage of a Python package as a table: per package and module.
+Directives rendering the documentation coverage of a Python package as a table: per package and module; and a page per
+package and module.
 
-Unlike the other reports, there is no report file: the package's source directory is analyzed with
-`docstr_coverage <https://github.com/HunterMcGushion/docstr_coverage>`__ (via :mod:`pyEDAA.Reports`) once per build,
-when the builder is initialized. The packages are declared in :file:`conf.py` under ``pyTooling_DocCoverage_Packages``,
-each with an identifier a directive names in its ``:reportid:`` option. An entry with the key ``pages`` gets a page
-per package and module, generated below that document name (see :mod:`pyTooling.Sphinx.DocCoveragePages`):
+Unlike the other reports, there is no report file: the package's source directory is analyzed by the Python reader
+of :mod:`pyEDAA.Reports` (:class:`~pyEDAA.Reports.DocumentationCoverage.Python.Analyzer`) once per build, when the
+builder is initialized. The packages are declared in :file:`conf.py` under ``pyTooling_DocCoverage_Packages``,
+each with an identifier a directive names in its ``:reportid:`` option:
 
 .. code-block:: Python
 
@@ -53,19 +53,40 @@ per package and module, generated below that document name (see :mod:`pyTooling.
 The coverage levels - limits, descriptions and CSS classes - are declared under ``pyTooling_DocCoverage_Levels``;
 :attr:`DocCoverageBase.defaultCoverageDefinitions` holds the ``default`` palette.
 
+A package declared with the key ``pages`` gets a document per package and per module (:class:`DocCoverageReportPages`),
+named below that key's document name by its dotted name, e.g. ``<pages>/myPackage/Units/Length``:
+
+* A package's page shows its counters, tables of its sub-packages and modules, each linked to its page, and the
+  condensed listing of its ``__init__.py``.
+* A module's page shows its counters and its condensed listing (see
+  :class:`~pyTooling.Sphinx.CondensedSource.CondensedSource`): the source condensed to what is documented, syntax
+  highlighted with the Pygments lexer for Python, each line marked by its documentation state.
+
+The states are those of the items of pyEDAA.Reports' model - the analysis the counters are computed from:
+``documented``, ``undocumented``, ``ignored`` or ``excluded``, for a class, a function, a field and a variable.
+
+The pages are built by the machinery of :class:`~pyTooling.Sphinx.Pages.ReportPages`, so they are in the navigation
+below the directive ``report:doc-coverage``. Every package and module with a page is an object of domain ``report``,
+referred to by the role ``:doccov:`` by its dotted name - e.g. ``:doccov:`myPackage.Units.Length``` - or a suffix of
+it.
+
 .. seealso::
 
    :ref:`DIR/DocCoverage`
       |rarr| The directives' options and configuration, with examples.
-   :mod:`pyTooling.Sphinx.DocCoveragePages`
+   :ref:`DIR/DocCoverage/Pages`
       |rarr| The pages per package and module, and the role ``:doccov:``.
+   :mod:`pyTooling.Sphinx.Pages`
+      |rarr| The pages of a report: document names, registration, generation and navigation.
+   :mod:`pyTooling.Sphinx.CondensedSource`
+      |rarr| The condensed listing of a module's source.
 """
 from __future__                                    import annotations
 
 from pathlib                                       import Path
-from tokenize                                      import TokenError
-from typing                                        import TYPE_CHECKING, Any, ClassVar, Generator, Mapping
-from typing                                        import Optional as Nullable, TypedDict, Union
+from tokenize                                      import open as tokenize_open
+from typing                                        import TYPE_CHECKING, Any, ClassVar, Iterable, Optional as Nullable
+from typing                                        import TypedDict, Union
 
 from docutils                                      import nodes
 from sphinx.application                            import Sphinx
@@ -74,22 +95,92 @@ from sphinx.util.logging                           import getLogger
 
 from pyTooling.Common                              import getFullyQualifiedName
 from pyTooling.Decorators                          import export
+from pyTooling.Warning                             import WarningCollector
 
 from pyTooling.Sphinx                              import INDENTATION, BaseDirective, LegendStyle, ReportExtensionError
 from pyTooling.Sphinx                              import ReportsPackageMissingError, SphinxExtensionError, strip
 from pyTooling.Sphinx                              import stripAndNormalize
+from pyTooling.Sphinx.CodeCoveragePages            import tokenizeSource
+from pyTooling.Sphinx.CondensedSource              import CondensedSource, documentationState
+from pyTooling.Sphinx.Node                         import DOCUMENTATION_STATES, DocCoverageListing
 from pyTooling.Sphinx.Pages                        import ReportPages
 
 if TYPE_CHECKING:  # pragma: no cover
 	# pyEDAA.Reports is an optional dependency (extra 'reports'), imported where the coverage is computed.
-	from docstr_coverage                             import ResultCollection
-	from pyEDAA.Reports.DocumentationCoverage.Python import AggregatedCoverage, PackageCoverage
+	from pyEDAA.Reports.DocumentationCoverage        import CoverageCounters, Directory, DocumentationReport, Item
 
 
 __all__ = ["CONFIG_PREFIX"]
 
 #: Prefix every configuration value of the documentation coverage directives carries in :file:`conf.py`.
 CONFIG_PREFIX = "pyTooling_DocCoverage"
+
+
+@export
+def subPackagesAndModules(package: Item) -> tuple[list[Item], list[Item]]:
+	"""
+	Return the sub-packages and the modules of a package, each sorted by name.
+
+	:param package: The package's item.
+	:returns:       The sub-packages' and the modules' items.
+	"""
+	from pyEDAA.Reports.DocumentationCoverage import ItemKind
+
+	packages = sorted((item for item in package.Items if item.Kind is ItemKind.Package), key=lambda item: item.Name)
+	modules =  sorted((item for item in package.Items if item.Kind is ItemKind.Module), key=lambda item: item.Name)
+
+	return packages, modules
+
+
+@export
+def fileCounters(unit: Item) -> CoverageCounters:
+	"""
+	Return the counters of the items declared in a package's ``__init__.py`` or in a module's file.
+
+	:param unit: The package's or module's item.
+	:returns:    The file's counters; zero items for a namespace package, which has no ``__init__.py``.
+	"""
+	from pyEDAA.Reports.DocumentationCoverage import CoverageCounters
+
+	return CoverageCounters() if unit.File is None else unit.File.Counters
+
+
+@export
+def isUnreadable(unit: Item) -> bool:
+	"""
+	Check if a package's ``__init__.py`` or a module's file couldn't be read or parsed.
+
+	The Python reader excludes such a file's item, without a documentation state.
+
+	:param unit: The package's or module's item.
+	:returns:    ``True``, if the file couldn't be read or parsed.
+	"""
+	from pyEDAA.Reports.DocumentationCoverage import CoverageState
+
+	return unit.File is not None and unit.Status == CoverageState.Excluded
+
+
+@export
+def coverageCell(
+	unit: Nullable[Item],
+	coverage: float,
+	levels: dict[Union[int, str], dict[str, str]]
+) -> tuple[str, str]:
+	"""
+	Return the text of a row's coverage cell and the CSS class of the row's coverage level.
+
+	A package's or module's file, which couldn't be read or parsed, has the text ``can't be read`` and the level
+	``error``.
+
+	:param unit:     The package's or module's item, whose row it is; ``None`` for a summary row.
+	:param coverage: The row's coverage, in range 0.0..1.0.
+	:param levels:   The coverage levels.
+	:returns:        The cell's text and the level's CSS class.
+	"""
+	if unit is not None and isUnreadable(unit):
+		return "can't be read", DocCoverageBase.LevelOf(levels, -1.0, "class")
+
+	return f"{coverage:.1%}", DocCoverageBase.LevelOf(levels, coverage, "class")
 
 
 @export
@@ -142,8 +233,7 @@ class DocCoverageBase(BaseDirective):
 
 	_coverageLevelDefinitions: ClassVar[dict[str, dict[Union[int, str], dict[str, str]]]] = {}  #: Palettes, by name.
 	_packageConfigurations:    ClassVar[dict[str, PackageConfiguration]] = {}  #: Package configurations, by report ID.
-	_reports:                  ClassVar[dict[str, PackageCoverage]] = {}       #: Packages analyzed, by report ID.
-	_results:                  ClassVar[dict[str, ResultCollection]] = {}      #: docstr_coverage's results, by report ID.
+	_reports:                  ClassVar[dict[str, DocumentationReport]] = {}   #: Packages analyzed, by report ID.
 	_analysisErrors:           ClassVar[dict[str, Exception]] = {}             #: Why a package wasn't analyzed, by ID.
 
 	_cssClasses: list[str]                              #: Additional CSS classes of the table.
@@ -179,30 +269,28 @@ class DocCoverageBase(BaseDirective):
 		Analyze every configured package, once per build.
 
 		A package that can't be analyzed keeps the exception, which a directive or a package's pages show when they need
-		it: a :exc:`ReportExtensionError` - e.g. pyEDAA.Reports isn't installed, or its analysis failed -, an
-		:exc:`OSError` reading a source file, a :exc:`SyntaxError` or :exc:`tokenize.TokenError` parsing one, or a
-		:exc:`UnicodeDecodeError` decoding one. Any other exception is a bug, and ends the build.
+		it: a :exc:`ReportExtensionError`, e.g. pyEDAA.Reports isn't installed, or the package's directory doesn't exist.
+		Any other exception is a bug, and ends the build.
 
 		:param sphinxApplication: Sphinx application instance.
 		"""
 		getLogger(__name__).info("[REPORT] Analyzing documentation coverage ...")
 
 		cls._reports =        {}
-		cls._results =        {}
 		cls._analysisErrors = {}
 		for reportID, packageConfiguration in cls._packageConfigurations.items():
 			try:
-				cls._reports[reportID], cls._results[reportID] = cls._AnalyzePackage(packageConfiguration)
-			except (ReportExtensionError, OSError, SyntaxError, TokenError, UnicodeDecodeError) as ex:
+				cls._reports[reportID] = cls._AnalyzePackage(packageConfiguration)
+			except ReportExtensionError as ex:
 				cls._analysisErrors[reportID] = ex
 
 	@classmethod
-	def GetReport(cls, reportID: str) -> PackageCoverage:
+	def GetReport(cls, reportID: str) -> DocumentationReport:
 		"""
 		Return a package analyzed by :meth:`AnalyzePackages`.
 
 		:param reportID:              Identifier of the package.
-		:returns:                     The package's coverage, aggregated.
+		:returns:                     The package's report, aggregated; its top-level item is the package.
 		:raises ReportExtensionError: If the package wasn't analyzed, chained to the exception analyzing it raised.
 		"""
 		try:
@@ -212,38 +300,44 @@ class DocCoverageBase(BaseDirective):
 			raise ReportExtensionError(f"Documentation coverage of '{reportID}' wasn't analyzed.") from cause
 
 	@staticmethod
-	def _AnalyzePackage(packageConfiguration: PackageConfiguration) -> tuple[PackageCoverage, ResultCollection]:
+	def _AnalyzePackage(packageConfiguration: PackageConfiguration) -> DocumentationReport:
 		"""
-		Analyze a package's source directory with docstr_coverage, and convert the result to pyEDAA.Reports' model.
+		Analyze a package's source directory with pyEDAA.Reports' Python reader.
+
+		A source file, which can't be read or parsed, is logged as a warning, and its module is excluded from the
+		analysis.
 
 		:param packageConfiguration:        The package's configuration.
-		:returns:                           The package's coverage, aggregated, and docstr_coverage's results per
-		                                    expected doc-string, which a module's listing marks.
-		:raises ReportsPackageMissingError: If pyEDAA.Reports or docstr_coverage isn't installed.
+		:returns:                           The package's report, aggregated; its top-level item is the package.
+		:raises ReportsPackageMissingError: If pyEDAA.Reports isn't installed.
 		:raises ReportExtensionError:       If pyEDAA.Reports' analysis fails, e.g. the directory doesn't exist.
-		:raises OSError:                    If a source file can't be read.
-		:raises SyntaxError:                If a source file isn't valid Python.
-		:raises tokenize.TokenError:        If a source file ends inside a statement or string.
-		:raises UnicodeDecodeError:         If a source file isn't UTF-8.
 		"""
 		try:
 			from pyEDAA.Reports.DocumentationCoverage        import DocCoverageError
-			from pyEDAA.Reports.DocumentationCoverage.Python import DocStrCoverage as DocStrCovAnalyzer
+			from pyEDAA.Reports.DocumentationCoverage.Python import Analyzer
 		except ImportError as cause:
-			raise ReportsPackageMissingError(
-				"Analyzing the documentation coverage", "'pyEDAA.Reports' and 'docstr_coverage'"
-			) from cause
+			raise ReportsPackageMissingError("Analyzing the documentation coverage", "'pyEDAA.Reports'") from cause
 
+		packageName = packageConfiguration["name"]
 		try:
-			docStrCov = DocStrCovAnalyzer(packageConfiguration["name"], packageConfiguration["directory"])
-			results = docStrCov.Analyze()
-			coverage = docStrCov.Convert()
+			with WarningCollector() as warnings:
+				report = Analyzer(packageName, packageConfiguration["directory"]).Analyze()
 		except DocCoverageError as ex:
-			raise ReportExtensionError(f"Package '{packageConfiguration['name']}' can't be analyzed.") from ex
+			raise ReportExtensionError(f"Package '{packageName}' can't be analyzed.") from ex
 
-		coverage.Aggregate()
+		for warning in warnings:
+			message = f"Caught {warning.__class__.__name__} when analyzing package '{packageName}'.\n  {warning}"
+			if (cause := warning.__cause__) is not None:
+				message += f"\n  {cause.__class__.__name__}: {cause}"
 
-		return coverage, results
+			getLogger(__name__).warning(message)
+
+		getLogger(__name__).verbose(
+			f"[REPORT] Package '{packageName}': {report.FileCount} files analyzed in "
+			f"{report.AnalysisDuration.total_seconds():.3f} s."
+		)
+
+		return report
 
 	@classmethod
 	def _CheckLevelsConfiguration(cls, sphinxConfiguration: Config) -> None:
@@ -443,10 +537,10 @@ class DocCoverage(DocCoverageBase):
 	required_arguments = 0                                        #: Number of required directive arguments.
 	optional_arguments = DocCoverageBase.optional_arguments + 0  #: Number of optional arguments.
 
-	_packageName: str              #: Name of the Python package.
-	_directory:   Path             #: The package's source directory.
-	_failBelow:   float            #: Coverage below which the package fails.
-	_coverage:    PackageCoverage  #: The package's coverage, as analyzed.
+	_packageName: str                  #: Name of the Python package.
+	_directory:   Path                 #: The package's source directory.
+	_failBelow:   float                #: Coverage below which the package fails.
+	_report:      DocumentationReport  #: The package's report, as analyzed.
 
 	def _CheckOptions(self) -> None:
 		"""
@@ -486,85 +580,73 @@ class DocCoverage(DocCoverageBase):
 		tableBody = nodes.tbody()
 		tableGroup += tableBody
 
-		self._RenderLevel(tableBody, self._coverage)
+		self._RenderLevel(tableBody, self._report.Items[0])
 
 		# Add a summary row
 		tableBody += nodes.row(
 			"",
-			nodes.entry("", nodes.Text(f"Overall ({self._coverage.FileCount} files):")),
-			nodes.entry("", nodes.Text(f"{self._coverage.AggregatedExpected}")),
-			nodes.entry("", nodes.Text(f"{self._coverage.AggregatedCovered}")),
-			nodes.entry("", nodes.Text(f"{self._coverage.AggregatedUncovered}")),
-			nodes.entry("", nodes.Text(f"{self._coverage.AggregatedCoverage:.1%}")),
+			nodes.entry("", nodes.Text(f"Overall ({self._report.FileCount} files):")),
+			nodes.entry("", nodes.Text(f"{self._report.Counters.Expected}")),
+			nodes.entry("", nodes.Text(f"{self._report.Counters.Covered}")),
+			nodes.entry("", nodes.Text(f"{self._report.Counters.Uncovered}")),
+			nodes.entry("", nodes.Text(f"{self._report.Counters.Coverage:.1%}")),
 			classes=[
 				"report-summary",
-				self._ConvertToColor(self._coverage.AggregatedCoverage, "class")
+				self._ConvertToColor(self._report.Counters.Coverage, "class")
 			]
 		)
 
 		return tableGroup.parent
 
-	def _SortedValues(self, d: Mapping[str, AggregatedCoverage]) -> Generator[AggregatedCoverage, None, None]:
-		"""
-		Yield the values of a mapping, sorted by key.
-
-		:param d: The mapping, e.g. a package's modules by name.
-		:returns: A generator of the values, sorted by their keys.
-		"""
-		for key in sorted(d.keys()):
-			yield d[key]
-
-	def _RenderLevel(self, tableBody: nodes.tbody, packageCoverage: PackageCoverage, level: int = 0) -> None:
+	def _RenderLevel(self, tableBody: nodes.tbody, package: Item, level: int = 0) -> None:
 		"""
 		Add a row for a package, then - recursively - rows for its sub-packages and modules.
 
-		The hierarchy is shown by indentation, a package by 📦 and a module by ⚙️.
+		A package's row counts the items declared in its ``__init__.py``, a module's row those declared in the module; a
+		file, which couldn't be read or parsed, has the coverage level ``error``. The hierarchy is shown by indentation, a
+		package by 📦 and a module by ⚙️.
 
-		:param tableBody:       The table body the rows are added to.
-		:param packageCoverage: The package.
-		:param level:           Optional, the package's depth in the hierarchy. Default: ``0``.
+		:param tableBody: The table body the rows are added to.
+		:param package:   The package's item.
+		:param level:     Optional, the package's depth in the hierarchy. Default: ``0``.
 		"""
-		tableBody += nodes.row(
-			"",
-			nodes.entry("", self._NameCell(packageCoverage, f"{INDENTATION * level}📦")),
-			nodes.entry("", nodes.Text(f"{packageCoverage.Expected}")),
-			nodes.entry("", nodes.Text(f"{packageCoverage.Covered}")),
-			nodes.entry("", nodes.Text(f"{packageCoverage.Uncovered}")),
-			nodes.entry("", nodes.Text(f"{packageCoverage.Coverage:.1%}")),
-			classes=[
-				"report-package",
-				self._ConvertToColor(packageCoverage.Coverage, "class")
-			],
-		)
+		def addRow(unit: Item, prefix: str, cssClass: str) -> None:
+			"""
+			Nested function adding the row of a package or module.
 
-		for package in self._SortedValues(packageCoverage._packages):
-			self._RenderLevel(tableBody, package, level + 1)
-
-		for module in self._SortedValues(packageCoverage._modules):
-			tableBody += nodes.row(
+			:param unit:     The package's or module's item.
+			:param prefix:   The indentation and the icon written before the name.
+			:param cssClass: The CSS class of the row's kind.
+			"""
+			counters = fileCounters(unit)
+			coverage, levelClass = coverageCell(unit, counters.Coverage, self._levels)
+			tableBody.append(nodes.row(
 				"",
-				nodes.entry("", self._NameCell(module, f"{INDENTATION * (level + 1)}{INDENTATION}⚙️")),
-				nodes.entry("", nodes.Text(f"{module.Expected}")),
-				nodes.entry("", nodes.Text(f"{module.Covered}")),
-				nodes.entry("", nodes.Text(f"{module.Uncovered}")),
-				nodes.entry("", nodes.Text(f"{module.Coverage :.1%}")),
-				classes=[
-					"report-module",
-					self._ConvertToColor(module.Coverage, "class")
-				],
-			)
+				nodes.entry("", self._NameCell(unit, prefix)),
+				nodes.entry("", nodes.Text(f"{counters.Expected}")),
+				nodes.entry("", nodes.Text(f"{counters.Covered}")),
+				nodes.entry("", nodes.Text(f"{counters.Uncovered}")),
+				nodes.entry("", nodes.Text(coverage)),
+				classes=[cssClass, levelClass],
+			))
 
+		packages, modules = subPackagesAndModules(package)
 
-	def _NameCell(self, unit: AggregatedCoverage, prefix: str) -> nodes.Node:
+		addRow(package, f"{INDENTATION * level}📦", "report-package")
+		for subPackage in packages:
+			self._RenderLevel(tableBody, subPackage, level + 1)
+
+		for module in modules:
+			addRow(module, f"{INDENTATION * (level + 1)}{INDENTATION}⚙️", "report-module")
+
+	def _NameCell(self, unit: Item, prefix: str) -> nodes.Node:
 		"""
 		Create the content of the cell naming a package or module, linked to its page if the package has pages.
 
-		:param unit:   The package or module.
+		:param unit:   The package's or module's item.
 		:param prefix: The indentation and the icon written before the name.
 		:returns:      The cell's content.
 		"""
-		from pyTooling.Sphinx.DocCoveragePages import DocCoverageReportPages
-
 		if DocCoverageReportPages.HasPages(self._reportID):
 			pages = DocCoverageReportPages.GetPages(self._reportID)
 			if (entry := pages.Entry(unit)) is not None:
@@ -578,7 +660,7 @@ class DocCoverage(DocCoverageBase):
 @export
 class DocStrCoverage(DocCoverage):
 	"""
-	The ``report:doc-coverage`` directive: a table of a package's documentation coverage, analyzed by docstr_coverage.
+	The ``report:doc-coverage`` directive: a table of a package's documentation coverage.
 	"""
 
 	def run(self) -> list[nodes.Node]:
@@ -598,15 +680,13 @@ class DocStrCoverage(DocCoverage):
 			return self._internalError(container, __name__, message, ex)
 
 		try:
-			self._coverage = self.GetReport(self._reportID)
+			self._report = self.GetReport(self._reportID)
 		except ReportExtensionError as ex:
 			cause = ex if ex.__cause__ is None else ex.__cause__
 			message = f"Caught {cause.__class__.__name__} when analyzing package '{self._packageName}'."
 			return self._internalError(container, __name__, message, cause)
 
 		container += self._GenerateCoverageTable()
-
-		from pyTooling.Sphinx.DocCoveragePages import DocCoverageReportPages
 
 		if not DocCoverageReportPages.HasPages(self._reportID):
 			return [container]
@@ -733,3 +813,290 @@ class DocCoverageLegend(DocCoverageBase):
 			container += nodes.paragraph(text="Unsupported legend style.")
 
 		return [container]
+
+
+@export
+class DocCoverageReportPages(ReportPages):
+	"""
+	The pages of one package's documentation coverage: a page per package and per module.
+	"""
+
+	_reportPages: ClassVar[dict[str, ReportPages]] = {}  #: The pages of every analyzed package with pages, by report ID.
+	_separator:   ClassVar[str] = "."                    #: Separator of the names in a dotted name.
+
+	_directory: Path                                   #: The package's source directory.
+	_levels:    dict[Union[int, str], dict[str, str]]  #: The package's coverage levels, coloring the tables.
+
+	def __init__(
+		self,
+		reportID: str,
+		prefix: str,
+		directory: Path,
+		package: Item,
+		levels: dict[Union[int, str], dict[str, str]]
+	) -> None:
+		"""
+		Compute the document names and entries of a package's packages and modules.
+
+		:param reportID:  Identifier of the package.
+		:param prefix:    Document name the pages are generated below.
+		:param directory: The package's source directory.
+		:param package:   The package's item, the root of the pages.
+		:param levels:    The package's coverage levels.
+		"""
+		super().__init__(reportID, prefix, directory, [("doccov", package)])
+
+		self._directory = directory.resolve()
+		self._levels =    levels
+
+	@classmethod
+	def CreatePages(cls, sphinxApplication: Sphinx) -> None:
+		"""
+		Call-back for Sphinx' ``builder-inited`` event, after the packages are analyzed: compute and register the pages.
+
+		Only a package with the key ``pages`` gets pages. A package that couldn't be analyzed gets none; this is logged
+		as an error.
+
+		:param sphinxApplication: Sphinx application instance.
+		"""
+		cls._reportPages = {}
+		for reportID, packageConfiguration in DocCoverageBase._packageConfigurations.items():
+			if (prefix := packageConfiguration["pages"]) is None:
+				continue
+
+			try:
+				report = DocCoverageBase.GetReport(reportID)
+			except ReportExtensionError as ex:
+				cause = ex if ex.__cause__ is None else ex.__cause__
+				getLogger(__name__).error(
+					f"Caught {ex.__class__.__name__} when generating the pages of documentation coverage '{reportID}'.\n"
+					f"  {cause.__class__.__name__}: {cause}"
+				)
+				continue
+
+			pages = cls(reportID, prefix, packageConfiguration["directory"], report.Items[0], packageConfiguration["levels"])
+			cls._reportPages[reportID] = pages
+			pages.Register(sphinxApplication.env)
+
+	def _Name(self, entity: Item) -> str:
+		"""
+		Return a package's or module's name; the root package's may be dotted.
+
+		The root package has the configured name, e.g. ``pyTooling.Sphinx``, which is one element of a path: a reference
+		names it in full.
+
+		:param entity: The package's or module's item.
+		:returns:      The name.
+		"""
+		return entity.Name
+
+	def _Title(self, entity: Item) -> Nullable[str]:
+		"""
+		Return no title, as a package or module has none.
+
+		:param entity: The package's or module's item.
+		:returns:      ``None``
+		"""
+		return None
+
+	def _Children(self, roleName: str, entity: Item) -> Iterable[tuple[str, Item]]:
+		"""
+		Return a package's sub-packages, then its modules, each sorted by name; a module has none.
+
+		:param roleName: The role referring to the object: ``doccov``.
+		:param entity:   The package's or module's item.
+		:returns:        The children as ``(role name, object)`` pairs.
+		"""
+		packages, modules = subPackagesAndModules(entity)
+
+		return [("doccov", child) for child in (*packages, *modules)]
+
+	def _Directory(self, package: Item) -> Directory:
+		"""
+		Return a package's directory in the report's physical hierarchy.
+
+		:param package: The package's item.
+		:returns:       The directory; the report itself for the root package.
+		"""
+		names: list[str] = []
+		unit = package
+		while unit.Parent is not unit.Root:
+			names.insert(0, unit.Name)
+			unit = unit.Parent
+
+		directory = package.Root
+		for name in names:
+			directory = directory.Directories[Path(name)]
+
+		return directory
+
+	def _Source(self, entity: Item) -> Path:
+		"""
+		Return the source of a package's or module's page: the module's file, the package's ``__init__.py`` - or its
+		directory, if it has none.
+
+		:param entity: The package's or module's item.
+		:returns:      The page's source file.
+		"""
+		if entity.File is not None:
+			return self._directory / entity.File.Path
+
+		return self._directory / self._Directory(entity).Path
+
+	def _Page(self, docName: str, roleName: str, entity: Item) -> nodes.section:
+		"""
+		Build a package's or module's page: its summary, a package's tables of sub-packages and modules, and the
+		condensed listing.
+
+		:param docName:  Name of the page's document.
+		:param roleName: The role referring to the object: ``doccov``.
+		:param entity:   The package's or module's item.
+		:returns:        The page's top section.
+		"""
+		page = nodes.section("", nodes.title(entity.Name, entity.Name), ids=["report-doccov-page"])
+		page += (summarySection := self._SummarySection(docName, entity))
+
+		children = self._ChildrenSections(page, docName, entity)
+		if len(children) > 0:
+			# body elements precede a section's subsections, so the hidden table of contents goes before 'Summary'
+			page.insert(page.index(summarySection), self._TableOfContents(docName, children))
+
+		if entity.File is not None:
+			page += self._SourceSection(entity, self._Source(entity))
+
+		return page
+
+	def _SummarySection(self, docName: str, entity: Item) -> nodes.section:
+		"""
+		Create a page's section *Summary*: the parent package, the doc-string's state, and the counters - of the module's
+		file or the package's ``__init__.py``, and a package's overall -, colored by coverage level. A file, which
+		couldn't be read or parsed, has the coverage level ``error``.
+
+		:param docName: Name of the page's document.
+		:param entity:  The package's or module's item.
+		:returns:       The section.
+		"""
+		from pyEDAA.Reports.DocumentationCoverage import ItemKind
+
+		section = nodes.section("", nodes.title("Summary", "Summary"), ids=["summary"])
+		section += (fieldList := nodes.field_list(classes=["report-doccov-fields"]))
+		if entity.Parent is not entity.Root:
+			self._Field(fieldList, "Package", self._Reference("doccov", entity.Parent, docName))
+
+		if isUnreadable(entity):
+			self._Field(fieldList, "Doc-string", nodes.Text("can't be read"))
+		elif entity.File is not None:
+			self._Field(fieldList, "Doc-string", nodes.Text(DOCUMENTATION_STATES[documentationState(entity.Status)]))
+
+		table, tableBody = self._Table(
+			[("File", 6), ("Expected", 2), ("Covered", 2), ("Uncovered", 2), ("Coverage", 2)],
+			["report-doccov-table", "report-doccov-summary"]
+		)
+		section += table
+
+		rows = []
+		if entity.File is not None:
+			rows.append((f"{entity.File.Name}", "", entity, fileCounters(entity)))
+
+		if entity.Kind is ItemKind.Package:
+			rows.append((f"Overall ({self._Directory(entity).FileCount} files)", "report-summary", None, entity.Counters))
+
+		for name, cssClass, unit, counters in rows:
+			coverage, level = coverageCell(unit, counters.Coverage, self._levels)
+			tableBody += (row := nodes.row("", classes=[cssClass, level] if cssClass != "" else [level]))
+			row += nodes.entry("", nodes.paragraph("", name))
+			row += nodes.entry("", nodes.paragraph("", f"{counters.Expected}"))
+			row += nodes.entry("", nodes.paragraph("", f"{counters.Covered}"))
+			row += nodes.entry("", nodes.paragraph("", f"{counters.Uncovered}"))
+			row += nodes.entry("", nodes.paragraph("", coverage))
+
+		return section
+
+	def _ChildrenSections(self, page: nodes.section, docName: str, package: Item) -> list[str]:
+		"""
+		Add a package's sections of its sub-packages and modules: a table each, every row linked to its page and colored
+		by coverage level. A sub-package's row counts it with all its modules; a module has none. A package or module,
+		whose file couldn't be read or parsed, has the coverage level ``error``.
+
+		:param page:    The package's page.
+		:param docName: Name of the page's document.
+		:param package: The package's or module's item.
+		:returns:       The document names of the listed pages.
+		"""
+		packages, modules = subPackagesAndModules(package)
+
+		children: list[str] = []
+		for title, column, identifier, units in (
+			("Packages", "Package", "packages", packages),
+			("Modules",  "Module",  "modules",  modules),
+		):
+			if len(units) == 0:
+				continue
+
+			page += (section := nodes.section("", nodes.title(title, title), ids=[identifier]))
+			table, tableBody = self._Table(
+				[(column, 6), ("Expected", 2), ("Covered", 2), ("Uncovered", 2), ("Coverage", 2)],
+				["report-doccov-table", "report-doccov-children"]
+			)
+			section += table
+			for unit in units:
+				coverage, level = coverageCell(unit, unit.Counters.Coverage, self._levels)
+				tableBody += (row := nodes.row("", classes=[level]))
+				row += nodes.entry("", nodes.paragraph("", "", self._Reference("doccov", unit, docName)))
+				row += nodes.entry("", nodes.paragraph("", f"{unit.Counters.Expected}"))
+				row += nodes.entry("", nodes.paragraph("", f"{unit.Counters.Covered}"))
+				row += nodes.entry("", nodes.paragraph("", f"{unit.Counters.Uncovered}"))
+				row += nodes.entry("", nodes.paragraph("", coverage))
+				if (entry := self.Entry(unit)) is not None:
+					children.append(entry.docName)
+
+		return children
+
+	def _SourceSection(self, entity: Item, sourceFile: Path) -> nodes.section:
+		"""
+		Create a page's section *Source*: the condensed listing of the module, or of the package's ``__init__.py``.
+
+		The source file is read in its declared encoding. A source file, which the analysis couldn't read or parse, isn't
+		read again; the section says so. A source file, which can't be read or parsed now, is logged as a warning, and
+		the section says so.
+
+		:param entity:     The package's or module's item, which has a file.
+		:param sourceFile: The source file.
+		:returns:          The section.
+		"""
+		section = nodes.section("", nodes.title("Source", "Source"), ids=["source"])
+		path = (entity.Root.Name / entity.File.Path).as_posix()
+		if isUnreadable(entity):
+			section += nodes.paragraph(text=f"The source file '{path}' can't be read or parsed.")
+			return section
+
+		try:
+			with tokenize_open(sourceFile) as file:
+				source = file.read()
+
+			condensedSource = CondensedSource.Parse(source, path, entity)
+		except (OSError, SyntaxError, ValueError) as ex:
+			getLogger(__name__).warning(
+				f"Source file '{sourceFile}' of the documentation coverage can't be read or parsed: {ex}"
+			)
+			section += nodes.paragraph(text=f"The source file '{path}' can't be read or parsed.")
+			return section
+
+		sourceLines = source.split("\n")
+		tokens = tokenizeSource(source, sourceFile.name)
+		ellipsis = tokenizeSource("...\n", sourceFile.name)[0]
+
+		lines: list[tuple[Nullable[int], str, list[tuple[str, str]]]] = []
+		text: list[str] = []
+		for number, state, indentation in condensedSource.Lines:
+			if number is None:
+				lines.append((None, "", [("", indentation), *ellipsis]))
+				text.append(f"{indentation}...")
+			else:
+				lines.append((number, state, tokens[number - 1]))
+				text.append(sourceLines[number - 1])
+
+		plainText = "\n".join(text)
+		section += DocCoverageListing(plainText, plainText, lines=lines, path=path)
+
+		return section

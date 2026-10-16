@@ -88,7 +88,7 @@ document of every project. This extension declares them once:
     coverage levels;
   * :rst:dir:`report:doc-coverage` and :rst:dir:`report:doc-coverage-legend` - a package's documentation coverage
     and its coverage levels; a package declared with ``pages`` gets a page per package and module
-    (:mod:`~pyTooling.Sphinx.DocCoveragePages`), which the role ``:doccov:`` refers to.
+    (:class:`~pyTooling.Sphinx.DocCoverage.DocCoverageReportPages`), which the role ``:doccov:`` refers to.
 
 * the **nodes** the directives emit, listed in :data:`NODES` with their visitors per output format.
 
@@ -934,8 +934,7 @@ def readReports(sphinx: Sphinx) -> None:
 	"""
 	from pyTooling.Sphinx.CodeCoverage      import CodeCoverageBase
 	from pyTooling.Sphinx.CodeCoveragePages import CodeCoverageReportPages
-	from pyTooling.Sphinx.DocCoverage       import DocCoverageBase
-	from pyTooling.Sphinx.DocCoveragePages  import DocCoverageReportPages
+	from pyTooling.Sphinx.DocCoverage       import DocCoverageBase, DocCoverageReportPages
 	from pyTooling.Sphinx.Unittest          import UnittestSummary
 	from pyTooling.Sphinx.UnittestPages     import UnittestReportPages
 
@@ -967,8 +966,8 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	from pyTooling.Sphinx.CondensedClass    import CondensedClass
 	from pyTooling.Sphinx.DependencyTable   import CONFIG_PREFIX, DependencyTable, prepareEntrypoints, reportBuildTime
 	from pyTooling.Sphinx.DocCoverage       import CONFIG_PREFIX as DOC_COVERAGE_PREFIX
-	from pyTooling.Sphinx.DocCoverage       import DocCoverageBase, DocCoverageLegend, DocStrCoverage
-	from pyTooling.Sphinx.DocCoveragePages  import DocCoverageReportPages
+	from pyTooling.Sphinx.DocCoverage       import DocCoverageBase, DocCoverageLegend, DocCoverageReportPages
+	from pyTooling.Sphinx.DocCoverage       import DocStrCoverage
 	from pyTooling.Sphinx.ExternalLink      import CONFIG_PREFIX as EXTERNAL_LINK_PREFIX, BaseExternalLinkTransform
 	from pyTooling.Sphinx.ExternalLink      import MarkDownloadLinks, MarkExternalLinks, MarkIntersphinxLinks
 	from pyTooling.Sphinx.ExternalLink      import AddDownloadSizes, checkExternalLinkConfiguration

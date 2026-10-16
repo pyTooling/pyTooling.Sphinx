@@ -46,16 +46,16 @@ per testsuite and testcase.
 Installing the extra ``reports``
 ********************************
 
-The directives of domain ``report`` are registered by the extension :mod:`pyTooling.Sphinx`, but read the reports with
-:gh:`pyEDAA.Reports <edaa-org/pyEDAA.Reports>` - and the documentation coverage with ``docstr_coverage`` -, which are
-optional dependencies. A project using a report installs them with the extra ``reports``:
+The directives of domain ``report`` are registered by the extension :mod:`pyTooling.Sphinx`, but read the reports -
+and analyze the documentation coverage - with :gh:`pyEDAA.Reports <edaa-org/pyEDAA.Reports>`, an optional dependency.
+A project using a report installs it with the extra ``reports``:
 
 .. code-block:: bash
 
    pip install pyTooling.Sphinx[reports]
 
-Without them, the extension and every other directive work; a report directive reports on the page and in the build's
-log that it needs them:
+Without it, the extension and every other directive work; a report directive reports on the page and in the build's
+log that it needs it:
 
 .. code-block:: text
 

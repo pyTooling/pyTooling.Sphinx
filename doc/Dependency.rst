@@ -70,10 +70,7 @@ packages. They are optional - only a project using a report needs them - and ins
      - Used for
    * - :pypi:`pyEDAA.Reports`
      - ``dev`` branch
-     - reading unit test reports in Any JUnit XML format
-   * - :pypi:`docstr_coverage`
-     - ``~= 2.3``
-     - analyzing the documentation coverage
+     - reading unit test reports in Any JUnit XML format, analyzing the documentation coverage
 
 
 .. _DEP/testing:

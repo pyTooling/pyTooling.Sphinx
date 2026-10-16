@@ -16,4 +16,3 @@ sphinx_autodoc_typehints ~= 3.13
 
 # Domain 'report': extra 'reports'
 pyEDAA.Reports @ git+https://github.com/edaa-org/pyEDAA.Reports.git@dev
-docstr_coverage ~= 2.3

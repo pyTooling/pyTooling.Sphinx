@@ -45,7 +45,9 @@ Version 0.x (2026)
      highlighted with Pygments, each line marked by its coverage state. The role
      :ref:`:cov: <DIR/CodeCoverage/Role>` refers to a page, optionally to a line, and the directive
      :ref:`report:file-coverage <DIR/CodeCoverage/FileCoverage>` shows a file's listing anywhere.
-   * A package's documentation coverage declared with ``pages`` gets a
+   * A package's documentation coverage is :ref:`analyzed <DIR/DocCoverage/Analysis>` by pyEDAA.Reports'
+     language-neutral model and its Python reader, which counts fields and variables too; ``docstr_coverage`` isn't
+     needed anymore. A package declared with ``pages`` gets a
      :ref:`page per package and module <DIR/DocCoverage/Pages>`; a module's page shows its source condensed to the
      decorators, signatures and doc-strings of its classes and functions - bodies elided to ``...`` - and its fields
      and variables, each marked by its documentation state. The role :ref:`:doccov: <DIR/DocCoverage/Role>` refers to
