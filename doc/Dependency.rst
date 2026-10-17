@@ -124,9 +124,21 @@ HTML includes SVG and needs no conversion for it. With only ImageMagick 7's ``ma
 
 .. rubric:: Bundled Data
 
-The converter's emoji table - :file:`pyTooling/Sphinx/Resources/GitHubEmoji.txt`, GitHub's emoji with their characters
-and shortcodes - is generated from `gemoji <https://github.com/github/gemoji>`__ v4.1.0, which GitHub, Inc. distributes
-under the MIT license. The file's header holds the license text.
+The package contains data of another project for the converter. :ghsrc:`NOTICE.md <NOTICE.md>` lists all content of
+other projects in the repository.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 25 25 25
+
+   * - Content
+     - File
+     - Source
+     - License
+   * - GitHub's emoji: their characters and shortcodes
+     - :file:`pyTooling/Sphinx/Resources/GitHubEmoji.txt`
+     - :gh:`gemoji <github/gemoji>` ``db/emoji.json``, v4.1.0 (commit ``5476a66``)
+     - MIT, Copyright (c) 2019 GitHub, Inc. - the file's header holds the license text
 
 .. _DEP/testing:
 
@@ -161,6 +173,32 @@ install the mandatory dependencies too.
 
 .. dependency-table:: unittest
    :caption: Dependencies for unit testing and code coverage.
+
+.. rubric:: Test Data
+
+The Markdown converter's tests use release notes from GitHub release pages as fixtures. They are in the repository only,
+not in the package; :ghsrc:`NOTICE.md <NOTICE.md>` lists them too.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 30 25 20
+
+   * - Content
+     - Files
+     - Source
+     - License of the source project
+   * - GHDL release notes v5.0.1
+     - :file:`tests/data/GitHubMarkdown/GHDL-v5.0.1.md`
+     - :gh:`ghdl/ghdl releases <ghdl/ghdl/releases/tag/v5.0.1>`
+     - GPL-2.0
+   * - OSVVM release notes 2024.07, 2026.05, 2026.09
+     - :file:`tests/data/GitHubMarkdown/OSVVM-*.md`
+     - :gh:`OSVVM/OsvvmLibraries releases <OSVVM/OsvvmLibraries/releases>`
+     - Apache-2.0
+   * - pyTooling release notes v8.0.0, v9.0.0
+     - :file:`tests/data/GitHubMarkdown/pyTooling-*.md`
+     - :gh:`pyTooling/pyTooling releases <pyTooling/pyTooling/releases>`
+     - Apache-2.0
 
 
 .. _DEP/documentation:
