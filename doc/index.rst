@@ -45,6 +45,14 @@ The extension is enabled in :file:`conf.py`:
 It links its stylesheet into every HTML page, appends its substitutions to ``rst_prolog``, and sets up
 :mod:`sphinx.ext.graphviz` for the schema graphs.
 
+For LaTeX, it sets two configuration values, unless :file:`conf.py` sets them:
+
+``latex_table_style``
+  |rarr| ``["booktabs"]``. Sphinx' default adds ``colorrows``, which stops a PDF build with MiKTeX in the first table
+  (*TeX capacity exceeded*).
+``latex_elements["maxlistdepth"]``
+  |rarr| ``"10"``. LaTeX nests lists at most 4 levels deep, and a :rst:dir:`tree` is a nested list.
+
 The domain ``report`` - unit test, code coverage and documentation coverage reports as tables - reads the reports with
 :gh:`pyEDAA.Reports <edaa-org/pyEDAA.Reports>`, an optional dependency. A project using a report installs it with the
 extra ``reports``:

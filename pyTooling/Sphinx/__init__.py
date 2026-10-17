@@ -639,6 +639,23 @@ def extendProlog(sphinx: Sphinx, config: Any) -> None:
 
 
 @export
+def setLaTeXDefaults(sphinx: Sphinx, config: Config) -> None:
+	"""
+	Call-back for Sphinx' ``config-inited`` event, setting LaTeX defaults, unless :file:`conf.py` sets them.
+
+	* ``latex_table_style``: ``["booktabs"]``, without Sphinx' default ``colorrows``.
+	* ``latex_elements["maxlistdepth"]``: ``"10"`` nested lists, e.g. a :rst:dir:`tree` with more than 4 levels.
+
+	:param sphinx: The Sphinx application.
+	:param config: The configuration, after :file:`conf.py` was read.
+	"""
+	if "latex_table_style" not in config._raw_config and "latex_table_style" not in config.overrides:
+		config.latex_table_style = ["booktabs"]
+
+	config.latex_elements = {"maxlistdepth": "10"} | config.latex_elements
+
+
+@export
 class ReportEntry(NamedTuple):
 	"""
 	An object of a report, which has a page of its own - a testcase, a source file, ...: where it is, and its names.
@@ -1091,6 +1108,7 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	sphinx.add_post_transform(AddDownloadSizes)
 
 	sphinx.connect("config-inited", extendProlog)
+	sphinx.connect("config-inited", setLaTeXDefaults)
 	# after the configuration values above are registered, and before any document is read - a requirements file
 	# that doesn't exist should end the build here rather than in the middle of a page
 	sphinx.connect("config-inited", prepareEntrypoints)
