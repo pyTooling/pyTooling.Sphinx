@@ -841,3 +841,33 @@ class Configuration(DocCoverageProject):
 		self.assertFalse(DocCoverageReportPages.HasPages("doc"))
 		self.assertNotIn("report-doccov\">", self._body("index"))
 		self.assertFalse((self._path / "build" / "html" / "doccov").exists())
+
+
+@testsuite("Configuration key 'levels'")
+class Levels(DocCoverageProject):
+	"""The key 'levels' of a package's configuration."""
+
+	@testcase("Levels as a dictionary")
+	def Dictionary(self) -> None:
+		"""
+		A package declaring its own levels as a dictionary renders its table with these levels.
+
+		Builds a project with the table of a package declaring its levels.
+		"""
+		levels = {
+			50:      {"class": "mine-low",   "desc": "low"},
+			100:     {"class": "mine-high",  "desc": "high"},
+			"error": {"class": "mine-error", "desc": "error"}
+		}
+		self._build(
+			"Index\n#####\n\n.. report:doc-coverage::\n   :reportid: doc\n",
+			pyTooling_DocCoverage_Packages={
+				"doc": {"name": "myPackage", "directory": str(PACKAGE), "fail_below": 80, "levels": levels}
+			}
+		)
+
+		self.assertEqual([], self._warningLines())
+		self.assertEqual(levels, DocCoverageBase._packageConfigurations["doc"]["levels"])
+		body = self._body("index")
+		self.assertIn('<tr class="report-package mine-high row-even"><td>\U0001f4e6myPackage</td>', body)
+		self.assertIn('<tr class="report-package mine-low row-odd"><td>\u2001\U0001f4e6Units</td>', body)

@@ -242,6 +242,48 @@ class Configuration(ConfigurationTestcase):
 		)
 		self.assertEqual(["Got type 'int'."], context.exception.__notes__)
 
+	@testcase("Levels as a dictionary")
+	def LevelsDictionary(self) -> None:
+		"""
+		A package declaring its own levels as a dictionary is loaded with these levels.
+
+		Checks the loaded levels and the level a coverage falls into.
+		"""
+		levels = {
+			50:      {"class": "mine-low",   "desc": "low"},
+			100:     {"class": "mine-high",  "desc": "high"},
+			"error": {"class": "mine-error", "desc": "error"}
+		}
+		CodeCoverageBase.CheckConfiguration(None, self._Configuration(
+			src={"name": "myPackage", "json_report": str(REPORT), "fail_below": 80, "levels": levels}
+		))
+
+		package = CodeCoverageBase._packageConfigurations["src"]
+		self.assertEqual(levels, package["levels"])
+		self.assertEqual("mine-low", CodeCoverageBase.LevelOf(package["levels"], 0.3, "class"))
+		self.assertEqual("mine-high", CodeCoverageBase.LevelOf(package["levels"], 0.8, "class"))
+
+	@testcase("Levels dictionary without CSS class")
+	def LevelsDictionaryWithoutClass(self) -> None:
+		"""
+		A package's levels dictionary is checked like a palette: a level without CSS class is rejected.
+
+		Checks the ReportExtensionError's message.
+		"""
+		levels = {
+			100:     {"desc": "high"},
+			"error": {"class": "mine-error", "desc": "error"}
+		}
+		with self.assertRaises(ReportExtensionError) as context:
+			CodeCoverageBase.CheckConfiguration(None, self._Configuration(
+				src={"name": "myPackage", "json_report": str(REPORT), "fail_below": 80, "levels": levels}
+			))
+
+		self.assertEqual(
+			"conf.py: pyTooling_CodeCoverage_Packages:[src].levels[100].class: CSS class is missing.",
+			str(context.exception)
+		)
+
 	@testcase("Palette without level 100")
 	def PaletteWithoutMaximum(self) -> None:
 		"""

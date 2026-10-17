@@ -96,7 +96,8 @@ The report files are declared in :file:`conf.py` as a dictionary, keyed by the i
   ``fail_below``
     |rarr| An integer in range 0..100: the coverage in percent below which the package fails.
   ``levels``
-    |rarr| The name of a palette in ``pyTooling_CodeCoverage_Levels``, e.g. ``"default"``.
+    |rarr| The name of a palette in ``pyTooling_CodeCoverage_Levels``, e.g. ``"default"``, or a palette of its own,
+    written as there.
 
 ``pyTooling_CodeCoverage_Levels``
   |rarr| The palettes of coverage levels, by name. A palette maps an upper limit in percent to a CSS class and a
