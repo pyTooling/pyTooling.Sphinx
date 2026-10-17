@@ -643,7 +643,16 @@ class Rendering(Project):
 	@skipIf(which(IMAGEMAGICK) is None, "ImageMagick isn't installed.")
 	def SVGImageConverted(self) -> None:
 		"""In LaTeX, 'sphinx.ext.imgconverter' - loaded by pyTooling.Sphinx - converts an SVG image to PNG."""
-		self._build(self._writeSVGImage(), "latex", conf=self._conf)
+		document = self._writeSVGImage()
+		arguments = ["convert"] if platform == "win32" else []
+		probe = subprocess_run(
+			[IMAGEMAGICK, *arguments, str(self._path / "src" / "badge.svg"), str(self._path / "probe.png")],
+			capture_output=True
+		)
+		if probe.returncode != 0:
+			self.skipTest("ImageMagick can't convert SVG, e.g. without its delegate 'rsvg-convert'.")
+
+		self._build(document, "latex", conf=self._conf)
 
 		self.assertEqual([], self._warningLines())
 		latex = next((self._path / "build" / "latex").glob("*.tex")).read_text(encoding="utf-8")
