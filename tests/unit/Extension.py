@@ -38,6 +38,7 @@ from tempfile                      import TemporaryDirectory
 from typing                        import Any, Optional as Nullable
 from unicodedata                   import unidata_version
 from unittest.mock                 import MagicMock
+from warnings                      import catch_warnings, filterwarnings
 
 from sphinx.ext.graphviz           import graphviz
 from sphinx.testing.util           import SphinxTestApp
@@ -109,7 +110,11 @@ class Project(Testcase):
 			warning=self._warnings, parallel=parallel
 		)
 		try:
-			app.build()
+			with catch_warnings():
+				# Sphinx forks its reading processes; in a multi-threaded process, like a pytest-xdist worker, Python warns
+				# about fork(), and pytest turns a DeprecationWarning into an error.
+				filterwarnings("ignore", r"This process .* is multi-threaded, use of fork\(\)", DeprecationWarning)
+				app.build()
 		finally:
 			app.cleanup()
 
