@@ -1,0 +1,33 @@
+name: Pipeline
+
+on:
+  push:
+  workflow_dispatch:
+  schedule:
+# Every Friday at 22:00 - rerun pipeline to check for dependency-based issues
+    - cron: '0 22 * * 5'
+
+permissions:
+  actions:  write
+  contents: write
+  pages:    write
+  id-token: write
+
+jobs:
+  Pipeline:
+    uses: pyTooling/Actions/.github/workflows/CompletePipeline.yml@r9
+    with:
+      package_namespace: 'pyTooling'
+      package_name:      'Sphinx'
+      unittest_python_version_list: '3.12 3.13 3.14 3.15'
+      unittest_disable_list:        'ucrt64:*'
+      bandit:            'true'
+      pylint:            'false'
+      codecov:           'true'
+      codacy:            'true'
+      coverage_html:     'false'   # the documentation renders its code coverage below 'coverage/' itself
+      dorny:             'true'
+    secrets:
+      PYPI_TOKEN:    ${{ secrets.PYPI_TOKEN }}
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      CODACY_TOKEN:  ${{ secrets.CODACY_TOKEN }}
