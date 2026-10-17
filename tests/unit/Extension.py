@@ -313,6 +313,57 @@ class Rendering(Project):
 		self.assertFalse((self._path / "build" / "html" / f"{LATEX_PACKAGE}.sty").exists())
 
 
+@testsuite("LaTeX defaults")
+class LaTeXDefaults(Project):
+	"""The table style and the nesting depth of lists, which the extension sets unless 'conf.py' sets them."""
+
+	@testcase("Defaults")
+	def Defaults(self) -> None:
+		"""
+		A project setting neither gets tables in style 'booktabs' only, and lists nesting up to 10 levels.
+
+		Builds an empty project as LaTeX and checks the options passed to package 'sphinx'.
+		"""
+		self._build("Index\n#####\n", "latex")
+
+		self.assertEqual([], self._warningLines())
+		latex = next((self._path / "build" / "latex").glob("*.tex")).read_text(encoding="utf-8")
+		self.assertIn("\\PassOptionsToPackage{booktabs}{sphinx}", latex)
+		self.assertNotIn("colorrows", latex)
+		self.assertRegex(latex, r"\\usepackage\[,[^]]*maxlistdepth=10[^]]*\]\{sphinx\}")
+
+	@testcase("Set in conf.py")
+	def ConfPy(self) -> None:
+		"""
+		A project setting both in 'conf.py' keeps its values.
+
+		Builds an empty project as LaTeX with 'colorrows' and a nesting depth of 6.
+		"""
+		self._build(
+			"Index\n#####\n", "latex",
+			conf='latex_table_style = ["booktabs", "colorrows"]\nlatex_elements = {"maxlistdepth": "6"}\n'
+		)
+
+		self.assertEqual([], self._warningLines())
+		latex = next((self._path / "build" / "latex").glob("*.tex")).read_text(encoding="utf-8")
+		self.assertIn("\\PassOptionsToPackage{colorrows}{sphinx}", latex)
+		self.assertRegex(latex, r"\\usepackage\[,[^]]*maxlistdepth=6[^]]*\]\{sphinx\}")
+
+	@testcase("Set on the command line")
+	def Overrides(self) -> None:
+		"""
+		A table style set on the command line ('-D') is kept.
+
+		Builds an empty project as LaTeX with the table style 'borderless'.
+		"""
+		self._build("Index\n#####\n", "latex", latex_table_style=["borderless"])
+
+		self.assertEqual([], self._warningLines())
+		latex = next((self._path / "build" / "latex").glob("*.tex")).read_text(encoding="utf-8")
+		self.assertIn("\\PassOptionsToPackage{borderless}{sphinx}", latex)
+		self.assertNotIn("\\PassOptionsToPackage{booktabs}{sphinx}", latex)
+
+
 @testsuite("Trees in a document")
 class TreeRendering(Project):
 	"""What the 'tree' directive puts into a built page, in HTML and in LaTeX."""
