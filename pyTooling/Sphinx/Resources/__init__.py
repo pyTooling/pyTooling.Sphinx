@@ -31,21 +31,21 @@
 """
 Resources shipped for :mod:`pyTooling.Sphinx`.
 
-Stylesheets:
+.. rubric:: Stylesheets
 
 * :file:`pyTooling.css` - the styles the roles in :mod:`~pyTooling.Sphinx.Roles`, the dependency tables, the
   trees, the Unicode tables, the report tables of domain ``report`` and the icons behind external links need.
 
-Scripts:
+.. rubric:: Scripts
 
 * :file:`pyTooling.js` - copies a text into the clipboard, when a reader clicks a copy button of a Unicode table.
 
-LaTeX packages:
+.. rubric:: LaTeX Packages
 
 * :file:`pyTooling.Sphinx.sty` - the commands LaTeX writes for the style roles ``:strike:`` and ``:underline:``, which
   draw their lines with package ``ulem``.
 
-Data:
+.. rubric:: Data Files
 
 * :file:`GitHubEmoji.txt` - GitHub's emoji, their code points and shortcodes, which
   :class:`~pyTooling.Sphinx.GitHubMarkdown.GitHubMarkdown` converts. Generated from github/gemoji (MIT license,
