@@ -274,6 +274,8 @@ rules in a stylesheet of its own, listed in ``html_css_files``:
      background: #eee;
    }
 
+A name is indented by its depth, two steps per level, as in the :ref:`code coverage tables <DIR/CodeCoverage/Styling>`.
+
 
 .. _DIR/UnittestSummary/Errors:
 

@@ -869,5 +869,9 @@ class Levels(DocCoverageProject):
 		self.assertEqual([], self._warningLines())
 		self.assertEqual(levels, DocCoverageBase._packageConfigurations["doc"]["levels"])
 		body = self._body("index")
-		self.assertIn('<tr class="report-package mine-high row-even"><td>\U0001f4e6myPackage</td>', body)
-		self.assertIn('<tr class="report-package mine-low row-odd"><td>\u2001\U0001f4e6Units</td>', body)
+		self.assertIn(
+			'<td><span class="report-indentation" style="--pyTooling-report-level: 0">\U0001f4e6myPackage</span></td>', body
+		)
+		self.assertIn(
+			'<td><span class="report-indentation" style="--pyTooling-report-level: 1">\U0001f4e6Units</span></td>', body
+		)

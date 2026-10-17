@@ -300,9 +300,9 @@ Styling
 
 The table carries the classes ``report-doccov-table`` and ``report-doccov-<identifier>``, a legend
 ``report-doccov-legend``. A row carries its kind - ``report-package``, ``report-module`` or ``report-summary`` - and the
-CSS class of its coverage level, e.g. ``report-cov-below80``. The rules of the stylesheet are those of the
-:ref:`code coverage tables <DIR/CodeCoverage/Styling>`. A page's tables carry ``report-doccov-table`` too, and
-``report-doccov-summary`` or ``report-doccov-children``.
+CSS class of its coverage level, e.g. ``report-cov-below80``. The rules of the stylesheet and the indentation of the
+names are those of the :ref:`code coverage tables <DIR/CodeCoverage/Styling>`. A page's tables carry
+``report-doccov-table`` too, and ``report-doccov-summary`` or ``report-doccov-children``.
 
 A condensed listing is styled like a :ref:`code coverage listing <DIR/CodeCoverage/Styling>`: a line carries
 ``report-line-documented``, ``report-line-undocumented``, ``report-line-ignored`` or ``report-line-excluded``, which

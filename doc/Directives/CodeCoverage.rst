@@ -369,6 +369,23 @@ adds rules for a palette of its own, in a stylesheet listed in ``html_css_files`
      background: hsl(45 75% 80%);
    }
 
+A name is indented by its depth, one step per level: it is a ``<span>`` with class ``report-indentation``, which sets
+the custom property ``--pyTooling-report-level`` to its number of steps. A wrapped name stays at its indentation. The
+width of a step is a custom property, in LaTeX the length ``\pyToolingReportIndentationStep``:
+
+.. code-block:: CSS
+
+   :root {
+     --pyTooling-report-indentation: 1em;
+   }
+
+.. code-block:: Python
+
+   # doc/conf.py
+   latex_elements = {
+     "preamble": r"\setlength{\pyToolingReportIndentationStep}{1em}",
+   }
+
 A listing is a ``<div>`` with class ``report-coverage-listing``, its header a ``<div>`` with class
 ``report-coverage-header`` holding the path and the legend, a line a ``<span>`` with class ``report-line`` and
 ``report-line-<state>``. Its colors and widths are custom properties:

@@ -154,19 +154,21 @@ from pyTooling.Sphinx.HTML   import translateAbbreviation, translateTreeItem, tr
 from pyTooling.Sphinx.HTML   import translateTreeDescription, translateTreeLegend, translateTreeLegendItem
 from pyTooling.Sphinx.HTML   import translateCopyButton, translateEmoji
 from pyTooling.Sphinx.HTML   import translateLineBreak as translateLineBreakAsHTML
+from pyTooling.Sphinx.HTML   import translateReportIndentation as translateReportIndentationAsHTML
 from pyTooling.Sphinx.HTML   import translateTaskListCheckbox as translateTaskListCheckboxAsHTML
 from pyTooling.Sphinx.LaTeX  import translateLandscape as translateLandscapeAsLaTeX
 from pyTooling.Sphinx.LaTeX  import translateCoverageListing as translateCoverageListingAsLaTeX
 from pyTooling.Sphinx.LaTeX  import translateDocCoverageListing as translateDocCoverageListingAsLaTeX
 from pyTooling.Sphinx.LaTeX  import translateLineBreak as translateLineBreakAsLaTeX
+from pyTooling.Sphinx.LaTeX  import translateReportIndentation as translateReportIndentationAsLaTeX
 from pyTooling.Sphinx.LaTeX  import translateTaskListCheckbox as translateTaskListCheckboxAsLaTeX
 from pyTooling.Sphinx.Node   import Abbreviation, Landscape, RegisteredNode, TreeItem, TreeLabel, TreeSeparator
 from pyTooling.Sphinx.Node   import CopyButton, CoverageListing, DocCoverageListing, TreeDescription, TreeLegend
-from pyTooling.Sphinx.Node   import Emoji, LineBreak, TaskListCheckbox, TreeLegendItem
+from pyTooling.Sphinx.Node   import Emoji, LineBreak, ReportIndentation, TaskListCheckbox, TreeLegendItem
 
 
 __all__ = [
-	"STYLESHEET", "SCRIPT", "LATEX_PACKAGE", "SUBSTITUTIONS", "NODES", "INDENTATION", "LINE_ANCHOR", "REPORT_ROLES"
+	"STYLESHEET", "SCRIPT", "LATEX_PACKAGE", "SUBSTITUTIONS", "NODES", "LINE_ANCHOR", "REPORT_ROLES"
 ]
 
 #: Name of the stylesheet, in :mod:`pyTooling.Sphinx.Resources`.
@@ -217,12 +219,9 @@ NODES: tuple[RegisteredNode, ...] = (
 	 "latex": translateTaskListCheckboxAsLaTeX},
 	{"name": "LineBreak",          "node": LineBreak,          "html": translateLineBreakAsHTML,
 	 "latex": translateLineBreakAsLaTeX},
+	{"name": "ReportIndentation",  "node": ReportIndentation,  "html": translateReportIndentationAsHTML,
+	 "latex": translateReportIndentationAsLaTeX},
 )
-
-
-#: The character a report table indents an entry by, per level of the hierarchy: an em quad, which HTML keeps.
-INDENTATION = "\u2001"
-
 
 
 _EnumType = TypeVar("_EnumType", bound=Enum)

@@ -233,6 +233,16 @@ class TaskListCheckbox(nodes.inline):
 
 
 @export
+class ReportIndentation(nodes.inline):
+	"""
+	The name of an entry in a report table, indented by the entry's depth: HTML as a padding, LaTeX by a macro.
+
+	Attribute ``level`` holds the number of indentation steps, e.g. ``2`` for a testcase in a testsuite. A wrapped name
+	stays at its indentation. A format writing its base-class - an inline element - writes the name without indentation.
+	"""
+
+
+@export
 class LineBreak(nodes.inline):
 	"""
 	A line break inside a paragraph, which HTML writes as ``<br />`` and LaTeX as ``\\newline``.

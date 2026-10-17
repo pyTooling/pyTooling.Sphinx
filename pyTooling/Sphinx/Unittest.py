@@ -71,10 +71,10 @@ from sphinx.util.logging                import getLogger
 
 from pyTooling.Decorators               import export
 
-from pyTooling.Sphinx                   import INDENTATION, BaseDirective, ReportExtensionError
+from pyTooling.Sphinx                   import BaseDirective, ReportExtensionError
 from pyTooling.Sphinx                   import ReportsPackageMissingError, SphinxExtensionError
 from pyTooling.Sphinx                   import strip, stripAndNormalize
-from pyTooling.Sphinx.Node              import Landscape
+from pyTooling.Sphinx.Node              import Landscape, ReportIndentation
 from pyTooling.Sphinx.Pages             import ReportPages
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -515,7 +515,7 @@ class UnittestSummary(BaseDirective):
 		tableRow = nodes.row("", classes=["report-testsuite", f"testsuite-{testsuite._status.name.lower()}"])
 		tableBody += tableRow
 
-		tableRow += self._NameEntry(f"{INDENTATION * 2 * level}{state}", testsuite, "ts")
+		tableRow += self._NameEntry(2 * level, state, testsuite, "ts")
 		tableRow += nodes.entry("", nodes.Text(f"{testsuite.TestcaseCount}"))
 		tableRow += nodes.entry("", nodes.Text(f"{testsuite.Skipped}"))
 		tableRow += nodes.entry("", nodes.Text(f"{testsuite.Errored}"))
@@ -545,7 +545,7 @@ class UnittestSummary(BaseDirective):
 		tableRow = nodes.row("", classes=["report-testcase", f"testcase-{testcase._status.name.lower()}"])
 		tableBody += tableRow
 
-		tableRow += self._NameEntry(f"{INDENTATION * 2 * level}{state}", testcase, "tc")
+		tableRow += self._NameEntry(2 * level, state, testcase, "tc")
 		tableRow += nodes.entry("", nodes.Text(""))
 		tableRow += nodes.entry("", nodes.Text(""))
 		tableRow += nodes.entry("", nodes.Text(""))
@@ -555,11 +555,12 @@ class UnittestSummary(BaseDirective):
 			tableRow += nodes.entry("", nodes.Text(f"{testcase.AssertionCount}"))
 		tableRow += nodes.entry("", nodes.Text(f"{self._FormatTimedelta(testcase.TotalDuration)}"))
 
-	def _NameEntry(self, prefix: str, entity: Testsuite | Testcase, roleName: str) -> nodes.entry:
+	def _NameEntry(self, level: int, state: str, entity: Testsuite | Testcase, roleName: str) -> nodes.entry:
 		"""
-		Create the cell naming a testsuite or testcase, linked to its page if the report has pages.
+		Create the cell naming a testsuite or testcase, indented, and linked to its page if the report has pages.
 
-		:param prefix:   The indentation and the status symbol written before the name.
+		:param level:    The number of indentation steps.
+		:param state:    The status symbol written before the name.
 		:param entity:   The testsuite or testcase.
 		:param roleName: The role referring to it: ``ts`` for a testsuite, ``tc`` for a testcase.
 		:returns:        The table cell.
@@ -572,9 +573,9 @@ class UnittestSummary(BaseDirective):
 				# a reference has to be inside a text element; an inline keeps the cell free of a paragraph, as the
 				# others are
 				reference = pages.CreateReference(roleName, entry, self.env.docname)
-				return nodes.entry("", nodes.inline("", "", nodes.Text(prefix), reference))
+				return nodes.entry("", ReportIndentation("", "", nodes.Text(state), reference, level=level))
 
-		return nodes.entry("", nodes.Text(f"{prefix}{entity.Name}"))
+		return nodes.entry("", ReportIndentation("", f"{state}{entity.Name}", level=level))
 
 	def _RenderSummary(self, tableBody: nodes.tbody, testsuiteSummary: TestsuiteSummary) -> None:
 		"""

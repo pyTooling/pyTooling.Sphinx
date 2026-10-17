@@ -23,6 +23,8 @@
   --pyTooling-table-list-margin:         0;
   --pyTooling-table-min-width:           50%;
 
+  --pyTooling-report-indentation: 1em;
+
   --pyTooling-tree-row-height:            1.6em;
   --pyTooling-tree-indentation:           1.4em;
   --pyTooling-tree-expander-width:        1em;
@@ -421,6 +423,13 @@ dl.pytooling-abbreviations p.abbreviation-long {
 .rst-content table.docutils.report-doccov-table:not(.field-list) tr:nth-child(2n-1) td,
 .rst-content table.docutils.report-doccov-legend:not(.field-list) tr:nth-child(2n-1) td {
   background-color: unset;
+}
+
+/* A name in a report table is indented by its depth: the number of steps is set per name. A wrapped name stays at its
+   indentation. */
+span.report-indentation {
+  display:      inline-block;
+  padding-left: calc(var(--pyTooling-report-level, 0) * var(--pyTooling-report-indentation));
 }
 
 /* A row's background is the colour of its coverage level, per CSS class of the default palette. */

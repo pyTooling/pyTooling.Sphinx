@@ -84,9 +84,9 @@ from sphinx.util.logging              import getLogger
 from pyTooling.Common                 import getFullyQualifiedName
 from pyTooling.Decorators             import export
 
-from pyTooling.Sphinx                 import INDENTATION, BaseDirective, LegendStyle, ReportExtensionError
+from pyTooling.Sphinx                 import BaseDirective, LegendStyle, ReportExtensionError
 from pyTooling.Sphinx                 import ReportsPackageMissingError, SphinxExtensionError, strip, stripAndNormalize
-from pyTooling.Sphinx.Node            import Landscape
+from pyTooling.Sphinx.Node            import Landscape, ReportIndentation
 from pyTooling.Sphinx.Pages           import ReportPages
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -565,7 +565,7 @@ class CodeCoverage(CodeCoverageBase):
 		cssClasses.extend(self._cssClasses)
 
 		columns = [
-			("Directory", [(f"{INDENTATION}File", 5)], None),
+			("Directory", [("\u2001File", 5)], None),
 			("Lines",     [("Total", 1), ("Excluded", 1), ("Covered", 1), ("Missing", 1), ("Coverage", 1)], None),
 			("Branches",  [("Total", 1), ("Covered", 1), ("Partial", 1), ("Missing", 1), ("Coverage", 1)], None),
 		]
@@ -599,21 +599,21 @@ class CodeCoverage(CodeCoverageBase):
 		"""
 		for name in sorted(directory._directories):
 			subdirectory = compactDirectory(directory._directories[name])
-			self._RenderRow(
-				tableBody, subdirectory, self._NameCell(subdirectory, f"{INDENTATION * level}📁"), "report-directory"
-			)
+			self._RenderRow(tableBody, subdirectory, self._NameCell(subdirectory, level, "📁"), "report-directory")
 			self._RenderDirectory(tableBody, subdirectory, level + 1)
 
 		for name in sorted(directory._files):
 			file = directory._files[name]
-			self._RenderRow(tableBody, file, self._NameCell(file, f"{INDENTATION * level}📄"), "report-file")
+			self._RenderRow(tableBody, file, self._NameCell(file, level, "📄"), "report-file")
 
-	def _NameCell(self, entity: BaseWithPath, prefix: str) -> nodes.Node:
+	def _NameCell(self, entity: BaseWithPath, level: int, icon: str) -> ReportIndentation:
 		"""
-		Create the content of the cell naming a directory or file, linked to its page if the report has pages.
+		Create the content of the cell naming a directory or file, indented, and linked to its page if the report has
+		pages.
 
 		:param entity: The directory or file.
-		:param prefix: The indentation and the icon written before the name.
+		:param level:  The number of indentation steps.
+		:param icon:   The icon written before the name.
 		:returns:      The cell's content.
 		"""
 		from pyTooling.Sphinx.CodeCoveragePages import CodeCoverageReportPages
@@ -624,9 +624,10 @@ class CodeCoverage(CodeCoverageBase):
 			if (entry := pages.Entry(entity)) is not None:
 				# a reference has to be inside a text element; an inline keeps the cell free of a paragraph, as the
 				# others are
-				return nodes.inline("", "", nodes.Text(prefix), pages.CreateReference("cov", entry, self.env.docname, name))
+				reference = pages.CreateReference("cov", entry, self.env.docname, name)
+				return ReportIndentation("", "", nodes.Text(icon), reference, level=level)
 
-		return nodes.Text(f"{prefix}{name}")
+		return ReportIndentation("", f"{icon}{name}", level=level)
 
 	def _RenderRow(self, tableBody: nodes.tbody, entity: BaseWithPath, name: nodes.Node, cssClass: str) -> None:
 		"""

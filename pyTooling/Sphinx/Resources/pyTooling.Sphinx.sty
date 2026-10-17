@@ -13,4 +13,12 @@
 \providecommand*{\DUrolestrike}[1]{\sout{#1}}
 \providecommand*{\DUroleunderline}[1]{\uline{#1}}
 
+% The indentation of a name in a report table: #1 steps of \pyToolingReportIndentationStep. It indents every line of
+% the cell, so a wrapped name stays at its indentation; '\hangindent' doesn't indent in Sphinx' 'varwidth' cells.
+\newlength{\pyToolingReportIndentationStep}
+\setlength{\pyToolingReportIndentationStep}{1em}
+\providecommand*{\pyToolingReportIndentation}[1]{%
+  \leavevmode\leftskip=#1\pyToolingReportIndentationStep\relax%
+}
+
 \endinput
