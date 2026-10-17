@@ -423,6 +423,14 @@ dl.pytooling-abbreviations p.abbreviation-long {
   background-color: unset;
 }
 
+/* A name is indented by its depth with em quads, after which a line may break. In a narrow column, the name wrapped
+   below its indentation. The first column doesn't wrap - as in sphinx_rtd_theme, which doesn't wrap any cell. */
+table.report-unittest-table > tbody > tr > td:first-child,
+table.report-codecov-table > tbody > tr > td:first-child,
+table.report-doccov-table > tbody > tr > td:first-child {
+  white-space: nowrap;
+}
+
 /* A row's background is the colour of its coverage level, per CSS class of the default palette. */
 /* very good */
 table.report-codecov-table > tbody > tr.report-cov-below100,
