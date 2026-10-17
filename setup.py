@@ -56,10 +56,14 @@ with WarningCollector() as warnings:
 				"reports": [
 					"pyEDAA.Reports ~= 0.20.0rc1",
 				],
+				"markdown": [
+					"markdown-it-py ~= 4.2",
+					"mdit-py-plugins ~= 0.6",
+				],
 			},
 			dataFiles={
 				packageName:                ["py.typed"],
-				f"{packageName}.Resources": ["*.css", "*.js"]
+				f"{packageName}.Resources": ["*.css", "*.js", "*.sty", "*.txt"]
 			},
 			debug=True
 		)

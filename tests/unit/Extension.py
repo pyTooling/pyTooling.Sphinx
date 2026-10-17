@@ -43,10 +43,11 @@ from sphinx.ext.graphviz           import graphviz
 from sphinx.testing.util           import SphinxTestApp
 from sphinx.util.console           import strip_colors
 
+from pyTooling.Common              import readResourceFile
 from pyTooling.Testing             import Testcase, testsuite, testcase
 
-from pyTooling.Sphinx              import __version__, NODES, REPORT_ROLES, SUBSTITUTIONS, setup
-from pyTooling.Sphinx              import HTML, LaTeX
+from pyTooling.Sphinx              import __version__, LATEX_PACKAGE, NODES, REPORT_ROLES, SUBSTITUTIONS, setup
+from pyTooling.Sphinx              import HTML, LaTeX, Resources
 from pyTooling.Sphinx.Abbreviation import ROLES as ABBREVIATION_ROLES, AbbreviationDomain
 from pyTooling.Sphinx.Node         import Landscape
 from pyTooling.Sphinx.Roles        import BREAK_ROLES, PYTHON_CODE_ROLE, STYLE_ROLES
@@ -79,6 +80,7 @@ class Project(Testcase):
 		builder: str = "html",
 		documents: Nullable[dict[str, str]] = None,
 		parallel: int = 0,
+		conf: str = "",
 		**config: Any
 	) -> "SphinxTestApp":
 		"""
@@ -88,11 +90,12 @@ class Project(Testcase):
 		:param builder:   Optional, name of the builder. Default: ``"html"``.
 		:param documents: Optional, more documents, keyed by name; ``index`` lists them in a hidden toctree.
 		:param parallel:  Optional, number of processes reading in parallel; ``0`` reads serially.
+		:param conf:      Optional, Python code appended to :file:`conf.py`, e.g. a directive of the test. Default: ``""``.
 		:param config:    Configuration values overriding the defaults.
 		:returns:         The Sphinx application after the build.
 		"""
 		source = self._path / "src"
-		(source / "conf.py").write_text('extensions = ["pyTooling.Sphinx"]\n', encoding="utf-8")
+		(source / "conf.py").write_text(f'extensions = ["pyTooling.Sphinx"]\n{conf}', encoding="utf-8")
 		if documents is not None:
 			index += "\n.. toctree::\n   :hidden:\n\n" + "".join(f"   {name}\n" for name in documents)
 			for name, content in documents.items():
@@ -285,6 +288,29 @@ class Rendering(Project):
 
 		html = self._html("index")
 		self.assertRegex(html, r'<script src="_static/pyTooling\.[0-9a-f]{32}\.js')
+
+	@testcase("LaTeX package")
+	def LaTeXPackage(self) -> None:
+		"""
+		A LaTeX build gets the extension's LaTeX package: the file in the build directory, loaded by the document.
+
+		Builds a document using ':strike:' and ':underline:' as LaTeX, and checks the package file equals the resource,
+		the document loads it and writes both roles with their commands. An HTML build gets no package file.
+		"""
+		self._build("Index\n#####\n\n:strike:`gone` :underline:`stressed`\n", "latex")
+
+		self.assertEqual([], self._warningLines())
+		latexDirectory = self._path / "build" / "latex"
+		package = (latexDirectory / f"{LATEX_PACKAGE}.sty").read_text(encoding="utf-8")
+		self.assertEqual(readResourceFile(Resources, f"{LATEX_PACKAGE}.sty"), package)
+		self.assertIn("\\RequirePackage[normalem]{ulem}", package)
+		latex = next(latexDirectory.glob("*.tex")).read_text(encoding="utf-8")
+		self.assertIn(f"\\usepackage{{{LATEX_PACKAGE}}}", latex)
+		self.assertIn("\\DUrole{strike}{gone} \\DUrole{underline}{stressed}", latex)
+
+		self._build("Index\n#####\n")
+
+		self.assertFalse((self._path / "build" / "html" / f"{LATEX_PACKAGE}.sty").exists())
 
 
 @testsuite("Trees in a document")

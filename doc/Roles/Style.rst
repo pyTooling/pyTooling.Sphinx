@@ -59,3 +59,12 @@ HTML page.
 
       The properties are ``--pyTooling-color-red``, ``-green``, ``-blue``, ``-purple`` and
       ``--pyTooling-xlarge-size``.
+
+.. rubric:: LaTeX
+
+LaTeX writes a style role's text as ``\DUrole{<class>}{<text>}``, which calls command ``\DUrole<class>``, if it is
+defined. The extension brings the LaTeX package :file:`pyTooling.Sphinx.sty`, which defines two of them: ``:strike:``
+and ``:underline:`` - and strikethrough in converted Markdown - draw their line with package ``ulem`` (option
+``normalem``, so ``\emph`` stays italic). The extension writes the file into the LaTeX build directory and loads it
+with ``\usepackage{pyTooling.Sphinx}``; a project needs no ``latex_elements`` for it. The other style roles write their
+text unstyled in LaTeX.

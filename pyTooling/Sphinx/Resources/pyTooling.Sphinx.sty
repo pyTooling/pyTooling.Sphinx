@@ -1,0 +1,16 @@
+%% pyTooling.Sphinx.sty - the LaTeX package of the Sphinx extension pyTooling.Sphinx.
+%%
+%% The extension copies this file into the LaTeX build and loads it after Sphinx' own package.
+%%
+%% SPDX-License-Identifier: Apache-2.0
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{pyTooling.Sphinx}[2026/10/16 LaTeX package of pyTooling.Sphinx]
+
+% The lines of the style roles :strike: and :underline: - and of strikethrough in converted Markdown. Sphinx writes an
+% inline text with a CSS class as \DUrole{<class>}{<text>}, which calls \DUrole<class>, if it is defined. Option
+% 'normalem' keeps \emph italic.
+\RequirePackage[normalem]{ulem}
+\providecommand*{\DUrolestrike}[1]{\sout{#1}}
+\providecommand*{\DUroleunderline}[1]{\uline{#1}}
+
+\endinput

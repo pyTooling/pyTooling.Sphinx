@@ -46,7 +46,8 @@ document of every project. This extension declares them once:
 .. rubric:: What it registers
 
 * the **style roles**, together with the stylesheet they need - so the styling is a CSS file instead of a
-  ``raw:: html`` block smuggled into every page:
+  ``raw:: html`` block smuggled into every page - and the LaTeX package :file:`pyTooling.Sphinx.sty`, which strikes
+  through and underlines in LaTeX:
 
   * ``:bolditalic:``, ``:underline:``, ``:strike:`` and ``:xlarge:`` - weight, decoration and size;
   * ``:red:``, ``:green:``, ``:blue:`` and ``:purple:`` - colour, each from a CSS custom property a project can
@@ -151,16 +152,22 @@ from pyTooling.Sphinx.HTML   import translateCoverageListing as translateCoverag
 from pyTooling.Sphinx.HTML   import translateDocCoverageListing as translateDocCoverageListingAsHTML
 from pyTooling.Sphinx.HTML   import translateAbbreviation, translateTreeItem, translateTreeLabel, translateTreeSeparator
 from pyTooling.Sphinx.HTML   import translateTreeDescription, translateTreeLegend, translateTreeLegendItem
-from pyTooling.Sphinx.HTML   import translateCopyButton
+from pyTooling.Sphinx.HTML   import translateCopyButton, translateEmoji
+from pyTooling.Sphinx.HTML   import translateLineBreak as translateLineBreakAsHTML
+from pyTooling.Sphinx.HTML   import translateTaskListCheckbox as translateTaskListCheckboxAsHTML
 from pyTooling.Sphinx.LaTeX  import translateLandscape as translateLandscapeAsLaTeX
 from pyTooling.Sphinx.LaTeX  import translateCoverageListing as translateCoverageListingAsLaTeX
 from pyTooling.Sphinx.LaTeX  import translateDocCoverageListing as translateDocCoverageListingAsLaTeX
+from pyTooling.Sphinx.LaTeX  import translateLineBreak as translateLineBreakAsLaTeX
+from pyTooling.Sphinx.LaTeX  import translateTaskListCheckbox as translateTaskListCheckboxAsLaTeX
 from pyTooling.Sphinx.Node   import Abbreviation, Landscape, RegisteredNode, TreeItem, TreeLabel, TreeSeparator
 from pyTooling.Sphinx.Node   import CopyButton, CoverageListing, DocCoverageListing, TreeDescription, TreeLegend
-from pyTooling.Sphinx.Node   import TreeLegendItem
+from pyTooling.Sphinx.Node   import Emoji, LineBreak, TaskListCheckbox, TreeLegendItem
 
 
-__all__ = ["STYLESHEET", "SCRIPT", "SUBSTITUTIONS", "NODES", "INDENTATION", "LINE_ANCHOR", "REPORT_ROLES"]
+__all__ = [
+	"STYLESHEET", "SCRIPT", "LATEX_PACKAGE", "SUBSTITUTIONS", "NODES", "INDENTATION", "LINE_ANCHOR", "REPORT_ROLES"
+]
 
 #: Name of the stylesheet, in :mod:`pyTooling.Sphinx.Resources`.
 STYLESHEET = "pyTooling.css"
@@ -168,6 +175,10 @@ STYLESHEET = "pyTooling.css"
 #: Name of the script, in :mod:`pyTooling.Sphinx.Resources`: it gives the copy buttons of the ``unicode-table``
 #: directive their function.
 SCRIPT = "pyTooling.js"
+
+#: Name of the LaTeX package, whose file :file:`pyTooling.Sphinx.sty` is in :mod:`pyTooling.Sphinx.Resources`: it
+#: defines the commands LaTeX writes for the style roles ``:strike:`` and ``:underline:``.
+LATEX_PACKAGE = "pyTooling.Sphinx"
 
 #: Substitutions that have to stay substitutions, because ``|br|`` is written as one in every project.
 #:
@@ -201,6 +212,11 @@ NODES: tuple[RegisteredNode, ...] = (
 	 "latex": translateCoverageListingAsLaTeX},
 	{"name": "DocCoverageListing", "node": DocCoverageListing, "html": translateDocCoverageListingAsHTML,
 	 "latex": translateDocCoverageListingAsLaTeX},
+	{"name": "Emoji",              "node": Emoji,              "html": translateEmoji},
+	{"name": "TaskListCheckbox",   "node": TaskListCheckbox,   "html": translateTaskListCheckboxAsHTML,
+	 "latex": translateTaskListCheckboxAsLaTeX},
+	{"name": "LineBreak",          "node": LineBreak,          "html": translateLineBreakAsHTML,
+	 "latex": translateLineBreakAsLaTeX},
 )
 
 
@@ -592,6 +608,22 @@ def installStaticFiles(sphinx: Sphinx) -> None:
 
 
 @export
+def installLaTeXPackage(sphinx: Sphinx) -> None:
+	"""
+	Call-back for Sphinx' ``builder-inited`` event, writing the LaTeX package :data:`LATEX_PACKAGE` into the build of a
+	LaTeX builder, where the document's ``\\usepackage`` finds it.
+
+	:param sphinx: The Sphinx application.
+	"""
+	if sphinx.builder.format != "latex":
+		return
+
+	content = readResourceFile(SphinxResources, f"{LATEX_PACKAGE}.sty")
+	with (Path(sphinx.outdir) / f"{LATEX_PACKAGE}.sty").open("w", encoding="utf-8") as file:
+		file.write(content)
+
+
+@export
 def extendProlog(sphinx: Sphinx, config: Any) -> None:
 	"""
 	Call-back for Sphinx' ``config-inited`` event, appending the shared substitutions to ``rst_prolog``.
@@ -971,6 +1003,7 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	from pyTooling.Sphinx.ExternalLink      import CONFIG_PREFIX as EXTERNAL_LINK_PREFIX, BaseExternalLinkTransform
 	from pyTooling.Sphinx.ExternalLink      import MarkDownloadLinks, MarkExternalLinks, MarkIntersphinxLinks
 	from pyTooling.Sphinx.ExternalLink      import AddDownloadSizes, checkExternalLinkConfiguration
+	from pyTooling.Sphinx.GitHubMarkdown    import RasterizeShieldsBadges
 	from pyTooling.Sphinx.Roles             import BREAK_ROLES, PYTHON_CODE_ROLE, STYLE_ROLES
 	from pyTooling.Sphinx.Roles             import breakRole, pythonCodeRole, styleRole
 	from pyTooling.Sphinx.Shields           import Shields
@@ -1028,11 +1061,15 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 
 	# the report tables are put into 'Landscape' nodes, whose LaTeX environment is package 'pdflscape''s
 	sphinx.add_latex_package("pdflscape")
+	# the extension's own package, which 'installLaTeXPackage' copies into the build
+	sphinx.add_latex_package(LATEX_PACKAGE)
 	sphinx.add_post_transform(FixLatexTableWidths)
 	sphinx.add_post_transform(RemoveTreeLegends)
 	sphinx.add_post_transform(RemoveUnicodeGlyphs)
+	sphinx.add_post_transform(RasterizeShieldsBadges)
 
 	sphinx.setup_extension("sphinx.ext.graphviz")
+	sphinx.setup_extension("sphinx.ext.imgconverter")
 
 	for prefix, configValues in (
 		(CONFIG_PREFIX,        DependencyTable.configValues),
@@ -1065,6 +1102,7 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 		sphinx.connect("html-page-context", reportPages.HideSource)
 	sphinx.connect("build-finished", reportBuildTime)
 	sphinx.connect("builder-inited", installStaticFiles)
+	sphinx.connect("builder-inited", installLaTeXPackage)
 
 	# The extension's version is the package's, so a second number to keep in step would only ever disagree.
 	return {"version": __version__, "parallel_read_safe": True, "parallel_write_safe": True}

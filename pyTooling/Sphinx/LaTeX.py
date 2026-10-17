@@ -42,12 +42,12 @@ from sphinx.writers.latex      import LaTeXTranslator
 
 from pyTooling.Decorators      import export
 from pyTooling.Sphinx.Node     import COVERAGE_STATES, DOCUMENTATION_STATES, CoverageListing, DocCoverageListing
-from pyTooling.Sphinx.Node     import Landscape, visitFunc, departFunc
+from pyTooling.Sphinx.Node     import Landscape, LineBreak, TaskListCheckbox, visitFunc, departFunc
 
 
 __all__ = [
-	"translateLandscape", "translateCoverageListing", "translateDocCoverageListing", "COVERAGE_MARKERS",
-	"DOCUMENTATION_MARKERS", "TAB_WIDTH"
+	"translateLandscape", "translateCoverageListing", "translateDocCoverageListing",
+	"translateTaskListCheckbox", "translateLineBreak", "COVERAGE_MARKERS", "DOCUMENTATION_MARKERS", "TAB_WIDTH"
 ]
 
 #: Per coverage state of a line, the color of its number - an ``xcolor`` expression - and the marker behind it.
@@ -237,3 +237,60 @@ def depart_DocCoverageListing(translator: LaTeXTranslator, node: DocCoverageList
 
 translateDocCoverageListing: tuple[visitFunc, departFunc] = (visit_DocCoverageListing, depart_DocCoverageListing)
 """Visit and depart function writing a :class:`~pyTooling.Sphinx.Node.DocCoverageListing` in LaTeX."""
+
+
+@export
+def visit_TaskListCheckbox(translator: LaTeXTranslator, node: TaskListCheckbox) -> None:
+	"""
+	Write a task list item's checkbox in LaTeX, completely: ``\\boxtimes`` if the task is done, else ``\\square`` - both
+	of package ``amssymb``, which Sphinx loads.
+
+	:param translator: The LaTeX translator writing the document.
+	:param node:       The checkbox.
+	:raises SkipNode:  Always, so the node's text isn't written.
+	"""
+	translator.body.append("\\(\\boxtimes\\)" if node["checked"] else "\\(\\square\\)")
+
+	raise nodes.SkipNode
+
+
+@export
+def depart_TaskListCheckbox(translator: LaTeXTranslator, node: TaskListCheckbox) -> None:
+	"""
+	Close a task list item's checkbox in LaTeX, which writes nothing: :func:`visit_TaskListCheckbox` wrote it all.
+
+	:param translator: The LaTeX translator writing the document.
+	:param node:       The checkbox.
+	"""
+
+
+translateTaskListCheckbox: tuple[visitFunc, departFunc] = (visit_TaskListCheckbox, depart_TaskListCheckbox)
+"""Visit and depart function writing a :class:`~pyTooling.Sphinx.Node.TaskListCheckbox` in LaTeX."""
+
+
+@export
+def visit_LineBreak(translator: LaTeXTranslator, node: LineBreak) -> None:
+	"""
+	Write a line break in LaTeX, completely: ``\\newline``, which breaks the line in any environment.
+
+	:param translator: The LaTeX translator writing the document.
+	:param node:       The line break.
+	:raises SkipNode:  Always, so the node's text isn't written.
+	"""
+	translator.body.append("\\newline{}")
+
+	raise nodes.SkipNode
+
+
+@export
+def depart_LineBreak(translator: LaTeXTranslator, node: LineBreak) -> None:
+	"""
+	Close a line break in LaTeX, which writes nothing: :func:`visit_LineBreak` wrote it all.
+
+	:param translator: The LaTeX translator writing the document.
+	:param node:       The line break.
+	"""
+
+
+translateLineBreak: tuple[visitFunc, departFunc] = (visit_LineBreak, depart_LineBreak)
+"""Visit and depart function writing a :class:`~pyTooling.Sphinx.Node.LineBreak` in LaTeX."""

@@ -9,3 +9,7 @@ pytest-cov ~= 7.1
 
 # Report domain: extra 'reports'
 pyEDAA.Reports @ git+https://github.com/edaa-org/pyEDAA.Reports.git@dev
+
+# GitHub Markdown: extra 'markdown'
+markdown-it-py ~= 4.2
+mdit-py-plugins ~= 0.6
