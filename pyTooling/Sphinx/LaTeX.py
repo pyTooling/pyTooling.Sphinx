@@ -42,7 +42,7 @@ from sphinx.writers.latex      import LaTeXTranslator
 
 from pyTooling.Decorators      import export
 from pyTooling.Sphinx.Node     import COVERAGE_STATES, DOCUMENTATION_STATES, CoverageListing, DocCoverageListing
-from pyTooling.Sphinx.Node     import Landscape, LineBreak, TaskListCheckbox, visitFunc, departFunc
+from pyTooling.Sphinx.Node     import Landscape, LineBreak, ReportIndentation, TaskListCheckbox, visitFunc, departFunc
 
 
 __all__ = [
@@ -294,3 +294,29 @@ def depart_LineBreak(translator: LaTeXTranslator, node: LineBreak) -> None:
 
 translateLineBreak: tuple[visitFunc, departFunc] = (visit_LineBreak, depart_LineBreak)
 """Visit and depart function writing a :class:`~pyTooling.Sphinx.Node.LineBreak` in LaTeX."""
+
+
+@export
+def visit_ReportIndentation(translator: LaTeXTranslator, node: ReportIndentation) -> None:
+	"""
+	Open an indented name of a report table in LaTeX: macro ``\\pyToolingReportIndentation`` of package
+	:file:`pyTooling.Sphinx.sty` with the number of indentation steps.
+
+	:param translator: The LaTeX translator writing the document.
+	:param node:       The indented name.
+	"""
+	translator.body.append(f"\\pyToolingReportIndentation{{{node['level']}}}")
+
+
+@export
+def depart_ReportIndentation(translator: LaTeXTranslator, node: ReportIndentation) -> None:
+	"""
+	Close an indented name of a report table in LaTeX, which writes nothing: the macro indents the rest of the cell.
+
+	:param translator: The LaTeX translator writing the document.
+	:param node:       The indented name.
+	"""
+
+
+translateReportIndentation: tuple[visitFunc, departFunc] = (visit_ReportIndentation, depart_ReportIndentation)
+"""Visit and depart function writing a :class:`~pyTooling.Sphinx.Node.ReportIndentation` in LaTeX."""

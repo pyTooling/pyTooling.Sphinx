@@ -41,7 +41,7 @@ from pyTooling.Decorators  import export
 from pyTooling.Sphinx.Node import Abbreviation, CopyButton, Landscape, TreeDescription, TreeItem, TreeLabel
 from pyTooling.Sphinx.Node import TreeLegend, TreeLegendItem, TreeSeparator
 from pyTooling.Sphinx.Node import COVERAGE_STATES, DOCUMENTATION_STATES, CoverageListing, DocCoverageListing
-from pyTooling.Sphinx.Node import Emoji, LineBreak, TaskListCheckbox
+from pyTooling.Sphinx.Node import Emoji, LineBreak, ReportIndentation, TaskListCheckbox
 from pyTooling.Sphinx.Node import visitFunc, departFunc
 
 
@@ -583,3 +583,32 @@ def depart_LineBreak(translator: HTML5Translator, node: LineBreak) -> None:
 
 translateLineBreak: tuple[visitFunc, departFunc] = (visit_LineBreak, depart_LineBreak)
 """Visit and depart function writing a :class:`~pyTooling.Sphinx.Node.LineBreak` in HTML."""
+
+
+@export
+def visit_ReportIndentation(translator: HTML5Translator, node: ReportIndentation) -> None:
+	"""
+	Open an indented name of a report table in HTML: a ``<span>`` setting the CSS custom property
+	``--pyTooling-report-level`` to the number of indentation steps.
+
+	:param translator: The HTML translator writing the page.
+	:param node:       The indented name.
+	"""
+	translator.body.append(translator.starttag(
+		node, "span", "", CLASS="report-indentation", style=f"--pyTooling-report-level: {node['level']}"
+	))
+
+
+@export
+def depart_ReportIndentation(translator: HTML5Translator, node: ReportIndentation) -> None:
+	"""
+	Close an indented name of a report table in HTML.
+
+	:param translator: The HTML translator writing the page.
+	:param node:       The indented name.
+	"""
+	translator.body.append("</span>")
+
+
+translateReportIndentation: tuple[visitFunc, departFunc] = (visit_ReportIndentation, depart_ReportIndentation)
+"""Visit and depart function writing a :class:`~pyTooling.Sphinx.Node.ReportIndentation` in HTML."""

@@ -317,6 +317,42 @@ class Rendering(ReportProject):
 		self.assertEqual(2, latex.count("\\end{landscape}"))
 		self.assertIn("\\usepackage{pdflscape}", latex)
 
+	@testcase("Indented names in HTML")
+	def IndentationHTML(self) -> None:
+		"""
+		A name in a report table is indented by its depth: a span with the number of indentation steps.
+
+		Builds the document and checks a testcase (two steps per level), a file and a module.
+		"""
+		self._buildReport(self._document)
+
+		self.assertEqual([], self._warningLines())
+		html = self._html("index")
+		self.assertIn(
+			'<td><span class="report-indentation" style="--pyTooling-report-level: 12">\u274ctest_ByZero</span></td>', html
+		)
+		self.assertIn(
+			'<td><span class="report-indentation" style="--pyTooling-report-level: 3">\U0001f4c4Length.py</span></td>', html
+		)
+		self.assertIn(
+			'<td><span class="report-indentation" style="--pyTooling-report-level: 2">\u2699\ufe0fModule</span></td>', html
+		)
+
+	@testcase("Indented names in LaTeX")
+	def IndentationLaTeX(self) -> None:
+		"""
+		A name in a report table is indented by its depth: macro '\\pyToolingReportIndentation' with the number of steps.
+
+		Builds the document as LaTeX and checks a testcase (two steps per level), a file and a module.
+		"""
+		self._buildReport(self._document, "latex")
+
+		self.assertEqual([], self._warningLines())
+		latex = next((self._path / "build" / "latex").glob("*.tex")).read_text(encoding="utf-8")
+		self.assertIn("\\pyToolingReportIndentation{12}\u274ctest\\_ByZero", latex)
+		self.assertIn("\\pyToolingReportIndentation{3}\U0001f4c4Length.py", latex)
+		self.assertIn("\\pyToolingReportIndentation{2}\u2699\ufe0fModule", latex)
+
 	@testcase("Unknown report")
 	def UnknownReport(self) -> None:
 		"""

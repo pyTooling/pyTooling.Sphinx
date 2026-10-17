@@ -97,12 +97,12 @@ from pyTooling.Common                              import getFullyQualifiedName
 from pyTooling.Decorators                          import export
 from pyTooling.Warning                             import WarningCollector
 
-from pyTooling.Sphinx                              import INDENTATION, BaseDirective, LegendStyle, ReportExtensionError
+from pyTooling.Sphinx                              import BaseDirective, LegendStyle, ReportExtensionError
 from pyTooling.Sphinx                              import ReportsPackageMissingError, SphinxExtensionError, strip
 from pyTooling.Sphinx                              import stripAndNormalize
 from pyTooling.Sphinx.CodeCoveragePages            import tokenizeSource
 from pyTooling.Sphinx.CondensedSource              import CondensedSource, documentationState
-from pyTooling.Sphinx.Node                         import DOCUMENTATION_STATES, DocCoverageListing
+from pyTooling.Sphinx.Node                         import DOCUMENTATION_STATES, DocCoverageListing, ReportIndentation
 from pyTooling.Sphinx.Pages                        import ReportPages
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -624,19 +624,20 @@ class DocCoverage(DocCoverageBase):
 		:param package:   The package's item.
 		:param level:     Optional, the package's depth in the hierarchy. Default: ``0``.
 		"""
-		def addRow(unit: Item, prefix: str, cssClass: str) -> None:
+		def addRow(unit: Item, indentation: int, icon: str, cssClass: str) -> None:
 			"""
 			Nested function adding the row of a package or module.
 
-			:param unit:     The package's or module's item.
-			:param prefix:   The indentation and the icon written before the name.
-			:param cssClass: The CSS class of the row's kind.
+			:param unit:        The package's or module's item.
+			:param indentation: The number of indentation steps.
+			:param icon:        The icon written before the name.
+			:param cssClass:    The CSS class of the row's kind.
 			"""
 			counters = fileCounters(unit)
 			coverage, levelClass = coverageCell(unit, counters.Coverage, self._levels)
 			tableBody.append(nodes.row(
 				"",
-				nodes.entry("", self._NameCell(unit, prefix)),
+				nodes.entry("", self._NameCell(unit, indentation, icon)),
 				nodes.entry("", nodes.Text(f"{counters.Expected}")),
 				nodes.entry("", nodes.Text(f"{counters.Covered}")),
 				nodes.entry("", nodes.Text(f"{counters.Uncovered}")),
@@ -646,29 +647,32 @@ class DocCoverage(DocCoverageBase):
 
 		packages, modules = subPackagesAndModules(package)
 
-		addRow(package, f"{INDENTATION * level}📦", "report-package")
+		addRow(package, level, "📦", "report-package")
 		for subPackage in packages:
 			self._RenderLevel(tableBody, subPackage, level + 1)
 
 		for module in modules:
-			addRow(module, f"{INDENTATION * (level + 1)}{INDENTATION}⚙️", "report-module")
+			addRow(module, level + 2, "⚙️", "report-module")
 
-	def _NameCell(self, unit: Item, prefix: str) -> nodes.Node:
+	def _NameCell(self, unit: Item, level: int, icon: str) -> ReportIndentation:
 		"""
-		Create the content of the cell naming a package or module, linked to its page if the package has pages.
+		Create the content of the cell naming a package or module, indented, and linked to its page if the package has
+		pages.
 
-		:param unit:   The package's or module's item.
-		:param prefix: The indentation and the icon written before the name.
-		:returns:      The cell's content.
+		:param unit:  The package's or module's item.
+		:param level: The number of indentation steps.
+		:param icon:  The icon written before the name.
+		:returns:     The cell's content.
 		"""
 		if DocCoverageReportPages.HasPages(self._reportID):
 			pages = DocCoverageReportPages.GetPages(self._reportID)
 			if (entry := pages.Entry(unit)) is not None:
 				# a reference has to be inside a text element; an inline keeps the cell free of a paragraph, as the
 				# others are
-				return nodes.inline("", "", nodes.Text(prefix), pages.CreateReference("doccov", entry, self.env.docname))
+				reference = pages.CreateReference("doccov", entry, self.env.docname)
+				return ReportIndentation("", "", nodes.Text(icon), reference, level=level)
 
-		return nodes.Text(f"{prefix}{unit.Name}")
+		return ReportIndentation("", f"{icon}{unit.Name}", level=level)
 
 
 @export
