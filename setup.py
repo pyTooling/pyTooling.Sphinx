@@ -51,7 +51,7 @@ with WarningCollector() as warnings:
 			unittestRequirementsFile=Path("tests/requirements.txt"),
 			sourceFileWithVersion=packageInformationFile,
 			developmentStatus="alpha",
-			pythonVersions=("3.12", "3.13", "3.14"),
+			pythonVersions=("3.12", "3.13", "3.14", "3.15"),
 			additionalRequirements={
 				"reports": [
 					"pyEDAA.Reports ~= 0.20.0rc1",

@@ -39,7 +39,7 @@ Param(
 $ProjectName =    "pyTooling.Sphinx"
 $PackageName =    $ProjectName
 $PackageVersion = "0.1.0"
-$PythonVersion =  "3.14"
+$PythonVersion =  "3.15"
 $LaTeXDocument =  "${ProjectName}.tex"
 
 # set default values
