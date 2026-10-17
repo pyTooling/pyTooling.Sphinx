@@ -364,40 +364,59 @@ class DocCoverageBase(BaseDirective):
 
 		for key, coverageLevelDefinition in coverageLevelDefinitions.items():
 			configurationName = f"conf.py: {variableName}:[{key}]"
+			cls._coverageLevelDefinitions[key] = cls._CheckLevels(configurationName, coverageLevelDefinition)
 
-			if 100 not in coverageLevelDefinition:
-				raise ReportExtensionError(f"{configurationName}[100]: Configuration is missing.")
-			elif "error" not in coverageLevelDefinition:
-				raise ReportExtensionError(f"{configurationName}[error]: Configuration is missing.")
+	@staticmethod
+	def _CheckLevels(
+		configurationName: str,
+		levels: dict[Union[int, str], dict[str, str]]
+	) -> dict[Union[int, str], dict[str, str]]:
+		"""
+		Check coverage levels and return the CSS class and description of each level.
 
-			cls._coverageLevelDefinitions[key] = {}
+		:param configurationName:     The levels' name in error messages.
+		:param levels:                The coverage levels: a limit in percent or ``error``, to a CSS class and text.
+		:returns:                     The checked coverage levels.
+		:raises ReportExtensionError: If there is no level ``100`` or no level ``error``.
+		:raises ReportExtensionError: If a level is a keyword other than ``error``.
+		:raises ReportExtensionError: If a level is out of range 0..100.
+		:raises ReportExtensionError: If a level is neither a keyword nor an integer.
+		:raises ReportExtensionError: If a level has no CSS class or no description.
+		"""
+		if 100 not in levels:
+			raise ReportExtensionError(f"{configurationName}[100]: Configuration is missing.")
+		elif "error" not in levels:
+			raise ReportExtensionError(f"{configurationName}[error]: Configuration is missing.")
 
-			for level, levelConfig in coverageLevelDefinition.items():
-				try:
-					if isinstance(level, str):
-						if level != "error":
-							raise ReportExtensionError(f"{configurationName}[{level}]: Level is a keyword, but not 'error'.")
-					elif not (0.0 <= int(level) <= 100.0):
-						raise ReportExtensionError(f"{configurationName}[{level}]: Level is out of range 0..100.")
-				except ValueError as ex:
-					raise ReportExtensionError(
-						f"{configurationName}[{level}]: Level is not a keyword or an integer in range 0..100."
-					) from ex
+		levelDefinition: dict[Union[int, str], dict[str, str]] = {}
+		for level, levelConfig in levels.items():
+			try:
+				if isinstance(level, str):
+					if level != "error":
+						raise ReportExtensionError(f"{configurationName}[{level}]: Level is a keyword, but not 'error'.")
+				elif not (0.0 <= int(level) <= 100.0):
+					raise ReportExtensionError(f"{configurationName}[{level}]: Level is out of range 0..100.")
+			except ValueError as ex:
+				raise ReportExtensionError(
+					f"{configurationName}[{level}]: Level is not a keyword or an integer in range 0..100."
+				) from ex
 
-				try:
-					cssClass = levelConfig["class"]
-				except KeyError as ex:
-					raise ReportExtensionError(f"{configurationName}[{level}].class: CSS class is missing.") from ex
+			try:
+				cssClass = levelConfig["class"]
+			except KeyError as ex:
+				raise ReportExtensionError(f"{configurationName}[{level}].class: CSS class is missing.") from ex
 
-				try:
-					description = levelConfig["desc"]
-				except KeyError as ex:
-					raise ReportExtensionError(f"{configurationName}[{level}].desc: Description is missing.") from ex
+			try:
+				description = levelConfig["desc"]
+			except KeyError as ex:
+				raise ReportExtensionError(f"{configurationName}[{level}].desc: Description is missing.") from ex
 
-				cls._coverageLevelDefinitions[key][level] = {
-					"class": cssClass,
-					"desc": description
-				}
+			levelDefinition[level] = {
+				"class": cssClass,
+				"desc": description
+			}
+
+		return levelDefinition
 
 	@classmethod
 	def _CheckPackagesConfiguration(cls, sphinxConfiguration: Config) -> None:
@@ -416,7 +435,7 @@ class DocCoverageBase(BaseDirective):
 		:raises ReportExtensionError: If ``fail_below`` isn't an integer, or is out of range.
 		:raises ReportExtensionError: If a package configuration has no ``levels``.
 		:raises ReportExtensionError: If ``levels`` names a palette that isn't defined.
-		:raises ReportExtensionError: If ``levels`` is a dictionary without level ``100`` or level ``error``.
+		:raises ReportExtensionError: If ``levels`` is a dictionary with a missing or wrong level, CSS class or description.
 		:raises ReportExtensionError: If ``levels`` is neither a palette's name nor a dictionary.
 		"""
 		variableName = f"{CONFIG_PREFIX}_Packages"
@@ -474,12 +493,7 @@ class DocCoverageBase(BaseDirective):
 						f"variable '{variableName}'."
 					) from ex
 			elif isinstance(levels, dict):
-				if 100 not in levels:
-					raise ReportExtensionError(f"{configurationName}.levels[100]: Configuration is missing.")
-				elif "error" not in levels:
-					raise ReportExtensionError(f"{configurationName}.levels[error]: Configuration is missing.")
-
-				levelDefinition = {}
+				levelDefinition = cls._CheckLevels(f"{configurationName}.levels", levels)
 			else:
 				ex = ReportExtensionError(f"{configurationName}.levels: Is neither a palette's name nor a dictionary.")
 				ex.add_note(f"Got type '{getFullyQualifiedName(levels)}'.")
