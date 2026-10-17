@@ -35,9 +35,11 @@ The release notes are real ones of pyTooling, GHDL and OSVVM; the output is a bu
 """
 from os                                         import environ
 from pathlib                                    import Path
+from shutil                                     import which
 from subprocess                                 import run as subprocess_run
-from sys                                        import executable
+from sys                                        import executable, platform
 from textwrap                                   import dedent
+from unittest                                   import skipIf
 from unittest.mock                              import patch
 
 from docutils                                   import nodes
@@ -53,6 +55,9 @@ from pyTooling.Sphinx.Node                      import Emoji
 from pyTooling.Testing                          import Testcase, testsuite, testcase
 
 from tests.unit.Extension                       import Project
+
+
+IMAGEMAGICK = "magick" if platform == "win32" else "convert"  #: The command 'sphinx.ext.imgconverter' runs by default.
 
 
 if __name__ == "__main__":  # pragma: no cover
@@ -626,24 +631,40 @@ class Rendering(Project):
 			with self.subTest(kind=kind):
 				self.assertRegex(latex, rf"\\begin{{sphinxadmonition}}{{{kind}}}{{{title}:}}\s+\\sphinxAtStartPar\s+{text}")
 
-	@testcase("SVG image in LaTeX")
-	def SVGImage(self) -> None:
-		"""
-		An SVG image, which isn't a shields.io badge, is left as it is in LaTeX - for sphinx.ext.imgconverter -, and in
-		HTML.
-		"""
+	def _writeSVGImage(self) -> str:
+		"""Write an SVG image, which isn't a shields.io badge, and return a document showing it in Markdown."""
 		(self._path / "src" / "badge.svg").write_text(
 			'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>\n',
 			encoding="utf-8"
 		)
-		document = "Index\n#####\n\n.. markdown::\n\n   ![build status](badge.svg)\n"
-		self._build(document, "latex", conf=self._conf)
+		return "Index\n#####\n\n.. markdown::\n\n   ![build status](badge.svg)\n"
+
+	@testcase("SVG image in LaTeX, converted")
+	@skipIf(which(IMAGEMAGICK) is None, "ImageMagick isn't installed.")
+	def SVGImageConverted(self) -> None:
+		"""In LaTeX, 'sphinx.ext.imgconverter' - loaded by pyTooling.Sphinx - converts an SVG image to PNG."""
+		self._build(self._writeSVGImage(), "latex", conf=self._conf)
 
 		self.assertEqual([], self._warningLines())
 		latex = next((self._path / "build" / "latex").glob("*.tex")).read_text(encoding="utf-8")
+		self.assertRegex(latex, r"\\sphinxincludegraphics\{\{[^}]*badge\}\.png\}")
+
+	@testcase("SVG image in LaTeX, without ImageMagick")
+	@skipIf(which(IMAGEMAGICK) is not None, "ImageMagick is installed.")
+	def SVGImageWithoutImageMagick(self) -> None:
+		"""Without ImageMagick, Sphinx warns once, and LaTeX gets the SVG image as it is."""
+		self._build(self._writeSVGImage(), "latex", conf=self._conf)
+
+		warnings = [line for line in self._warningLines() if line.startswith("WARNING: ")]
+		self.assertEqual(1, len(warnings))
+		self.assertIn(f"Unable to run the image conversion command '{IMAGEMAGICK}'", warnings[0])
+		latex = next((self._path / "build" / "latex").glob("*.tex")).read_text(encoding="utf-8")
 		self.assertIn("\\sphinxincludegraphics{{badge}.svg}", latex)
 
-		self._build(document, conf=self._conf)
+	@testcase("SVG image in HTML")
+	def SVGImageHTML(self) -> None:
+		"""HTML includes an SVG image as it is: no conversion, so no ImageMagick."""
+		self._build(self._writeSVGImage(), conf=self._conf)
 
 		self.assertEqual([], self._warningLines())
 		self.assertIn('src="_images/badge.svg"', self._html("index"))

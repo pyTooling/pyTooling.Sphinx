@@ -114,9 +114,12 @@ optional - only a project converting Markdown needs them - and installed with th
      - ``~= 0.6``
      - parsing GitHub's autolinks and footnotes
 
-An SVG image in the Markdown - other than a shields.io badge, which is fetched as PNG - needs Sphinx' extension
-:mod:`sphinx.ext.imgconverter` in :file:`conf.py`'s ``extensions`` and `ImageMagick <https://imagemagick.org/>`__ for
-LaTeX/PDF output, as LaTeX can't include SVG.
+An SVG image in the Markdown - other than a shields.io badge, which is fetched as PNG - is converted to PNG for
+LaTeX/PDF output, as LaTeX can't include SVG: by Sphinx' extension :mod:`sphinx.ext.imgconverter`, which
+pyTooling.Sphinx loads, with `ImageMagick <https://imagemagick.org/>`__. Sphinx looks for ImageMagick only when a
+document has an image the builder can't include, and warns once, if it's missing; HTML includes SVG and needs no
+conversion for it. With only ImageMagick 7's ``magick`` command, set ``image_converter = "magick"`` and
+``image_converter_args = ["convert"]`` in :file:`conf.py`.
 
 .. rubric:: Bundled Data
 

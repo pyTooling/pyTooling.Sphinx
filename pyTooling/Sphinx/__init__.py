@@ -1069,6 +1069,7 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	sphinx.add_post_transform(RasterizeShieldsBadges)
 
 	sphinx.setup_extension("sphinx.ext.graphviz")
+	sphinx.setup_extension("sphinx.ext.imgconverter")
 
 	for prefix, configValues in (
 		(CONFIG_PREFIX,        DependencyTable.configValues),

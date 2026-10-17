@@ -67,8 +67,9 @@ An emoji is a node of its own (:class:`~pyTooling.Sphinx.Node.Emoji`), whose cha
 LuaLaTeX and an emoji font.
 
 LaTeX can't include an SVG image, e.g. a badge. :class:`RasterizeShieldsBadges` fetches a shields.io badge as PNG;
-every other SVG image needs Sphinx' ImageMagick converter, :mod:`sphinx.ext.imgconverter`, in :file:`conf.py`'s
-``extensions`` - without it, LaTeX stops at the image with "Unknown graphics extension: .svg".
+every other SVG image is converted by Sphinx' ImageMagick converter, :mod:`sphinx.ext.imgconverter`, which
+pyTooling.Sphinx loads. Without ImageMagick, Sphinx warns, and LaTeX stops at the image with "Unknown graphics
+extension: .svg".
 
 .. attention::
 
@@ -450,8 +451,8 @@ class RasterizeShieldsBadges(SphinxPostTransform):
 	A post-transform fetching the shields.io badges of converted Markdown as PNG in LaTeX, which can't include SVG.
 
 	A badge's URI is moved to :data:`~pyTooling.Sphinx.Shields.SHIELDS_SERVICE_PNG`, without a suffix ``.svg``. Every
-	other SVG image is left to :mod:`sphinx.ext.imgconverter`, which converts it with ImageMagick, if :file:`conf.py`
-	lists it in ``extensions``.
+	other SVG image is left to :mod:`sphinx.ext.imgconverter`, which pyTooling.Sphinx loads and which converts it with
+	ImageMagick.
 	"""
 
 	default_priority = 50           #: Priority among the post-transforms: before Sphinx downloads remote images.
