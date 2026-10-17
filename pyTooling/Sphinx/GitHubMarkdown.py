@@ -38,14 +38,14 @@ returns:
 
 .. code-block:: Python
 
-   converter = GitHubMarkdown("pyTooling/pyTooling")
+   converter = GitHubMarkdown("pyTooling", "pyTooling")
    return converter.Convert(markdown, self.state.document, location=self.get_location())
 
 .. rubric:: GitHub's references
 
 GitHub links what Markdown leaves as text: ``#123``, ``GH-123`` and ``owner/name#123`` to an issue or a pull request,
 ``@user`` to a user, a commit's hash (7 to 40 hexadecimal digits) to the commit, and ``:tada:`` is an emoji. The
-converter does the same in text outside of code and links (see :meth:`GitHubMarkdown.ConvertText`). GitHub links a
+converter does the same in text outside of code and links (see :meth:`GitHubMarkdown.Parse`). GitHub links a
 hash only if the commit exists; the converter can't ask, so it links a word of hexadecimal digits holding a digit and a
 letter.
 
@@ -98,14 +98,20 @@ if TYPE_CHECKING:  # pragma: no cover
 	from markdown_it                     import MarkdownIt
 
 
-__all__ = ["EMOJI_FILE", "REPOSITORY_PATTERN", "REFERENCE_PATTERN"]
+__all__ = ["EMOJI_FILE", "OWNER_PATTERN", "REPOSITORY_NAME_PATTERN", "REPOSITORY_PATTERN", "REFERENCE_PATTERN"]
 
 #: Name of the emoji table in :mod:`pyTooling.Sphinx.Resources`: a line per emoji, its code points and its shortcodes,
 #: generated from github/gemoji (MIT license, Copyright (c) 2019 GitHub, Inc.).
 EMOJI_FILE = "GitHubEmoji.txt"
 
-#: A GitHub repository: ``<owner>/<name>``.
-REPOSITORY_PATTERN = re_compile(r"[A-Za-z0-9](?:-?[A-Za-z0-9])*/[A-Za-z0-9._-]+")
+#: A GitHub owner - a user or an organization: ASCII letters, digits and single hyphens, not starting with a hyphen.
+OWNER_PATTERN = re_compile(r"[A-Za-z0-9](?:-?[A-Za-z0-9])*")
+
+#: A GitHub repository's name: ASCII letters, digits, ``.``, ``_`` and ``-``.
+REPOSITORY_NAME_PATTERN = re_compile(r"[A-Za-z0-9._-]+")
+
+#: A GitHub repository with its owner, as a reference writes it: ``<owner>/<name>``.
+REPOSITORY_PATTERN = re_compile(rf"{OWNER_PATTERN.pattern}/{REPOSITORY_NAME_PATTERN.pattern}")
 
 _BEFORE = r"(?<![\w/@#.-])"
 """What can't precede a reference: a word character, or a character continuing a path, a reference or a URL."""
@@ -115,7 +121,7 @@ REFERENCE_PATTERN = re_compile(
 	r":(?P<shortcode>[a-z0-9_+-]+):"
 	rf"|{_BEFORE}(?:(?P<issueRepository>{REPOSITORY_PATTERN.pattern})#|GH-|#)(?P<issue>[0-9]+)(?![\w-])"
 	rf"|{_BEFORE}(?:(?P<commitRepository>{REPOSITORY_PATTERN.pattern})@)?(?P<sha>[0-9a-f]{{7,40}})(?![\w-])"
-	rf"|{_BEFORE}@(?P<user>[A-Za-z0-9](?:-?[A-Za-z0-9])*)(?![\w/-])"
+	rf"|{_BEFORE}@(?P<user>{OWNER_PATTERN.pattern})(?![\w/-])"
 )
 
 
@@ -125,8 +131,9 @@ class GitHubMarkdown(metaclass=ExtendedType, slots=True):
 	A converter of GitHub-flavoured Markdown into docutils nodes, which links GitHub's references in a repository's
 	context.
 
-	The repository is the one ``#123`` refers to, and the server URL the one every link starts with. :meth:`Convert`
-	converts a Markdown document, :meth:`ConvertText` a text without Markdown.
+	The owner and the repository are the ones ``#123`` refers to, and the server URL the one every link starts with.
+	:meth:`Convert` converts a Markdown document into docutils nodes, :meth:`Parse` parses a text without Markdown for
+	GitHub's references and emoji.
 
 	GitHub writes a line break of an issue, a comment or a release's notes as a line break, not as a space:
 	:attr:`LineBreaks` selects which.
@@ -136,22 +143,33 @@ class GitHubMarkdown(metaclass=ExtendedType, slots=True):
 	_shortcodes:   ClassVar[Nullable[dict[str, str]]] = None  #: A shortcode per emoji, by its characters without U+FE0F.
 	_emojiPattern: ClassVar[Nullable[Pattern[str]]]   = None  #: The pattern finding emoji written as characters.
 
-	_repository: str         #: The repository, ``<owner>/<name>``.
+	_owner:      str         #: The owner of the repository references refer to, a user or an organization.
+	_repository: str         #: The name of the repository references refer to.
 	_serverURL:  str         #: The URL of the GitHub server, without a trailing ``/``.
 	_lineBreaks: bool        #: Whether a line break in a paragraph is written as a line break.
 	_parser:     MarkdownIt  #: The Markdown parser.
 
-	def __init__(self, repository: str, serverURL: str = "https://github.com", lineBreaks: bool = True) -> None:
+	def __init__(
+		self,
+		owner: str,
+		repository: str,
+		serverURL: str = "https://github.com",
+		lineBreaks: bool = True
+	) -> None:
 		"""
 		Initializes a converter for the Markdown of a repository.
 
-		:param repository:              The repository references refer to, ``<owner>/<name>``.
+		:param owner:                   The owner of the repository references refer to, a user or an organization.
+		:param repository:              The name of the repository references refer to.
 		:param serverURL:               Optional, URL of the GitHub server. Default: ``"https://github.com"``.
 		:param lineBreaks:              Optional, whether a line break in a paragraph is written as a line break, as
 		                                GitHub does in a release's notes. Default: ``True``.
+		:raises ValueError:             If parameter ``owner`` is ``None``.
+		:raises TypeError:              If parameter ``owner`` isn't of type :class:`str`.
+		:raises ValueError:             If parameter ``owner`` isn't a GitHub user's or organization's name.
 		:raises ValueError:             If parameter ``repository`` is ``None``.
 		:raises TypeError:              If parameter ``repository`` isn't of type :class:`str`.
-		:raises ValueError:             If parameter ``repository`` isn't of form ``<owner>/<name>``.
+		:raises ValueError:             If parameter ``repository`` isn't a GitHub repository's name.
 		:raises ValueError:             If parameter ``serverURL`` is ``None``.
 		:raises TypeError:              If parameter ``serverURL`` isn't of type :class:`str`.
 		:raises ValueError:             If parameter ``serverURL`` isn't an HTTP or HTTPS URL.
@@ -159,14 +177,25 @@ class GitHubMarkdown(metaclass=ExtendedType, slots=True):
 		:raises TypeError:              If parameter ``lineBreaks`` isn't of type :class:`bool`.
 		:raises MissingDependencyError: If the extra ``markdown`` isn't installed.
 		"""
+		if owner is None:
+			raise ValueError("Parameter 'owner' is None.")
+		elif not isinstance(owner, str):
+			ex = TypeError("Parameter 'owner' is not of type 'str'.")
+			ex.add_note(f"Got type '{getFullyQualifiedName(owner)}'.")
+			raise ex
+		elif OWNER_PATTERN.fullmatch(owner) is None:
+			ex = ValueError("Parameter 'owner' is not a GitHub user's or organization's name.")
+			ex.add_note(f"Got value '{owner}'.")
+			raise ex
+
 		if repository is None:
 			raise ValueError("Parameter 'repository' is None.")
 		elif not isinstance(repository, str):
 			ex = TypeError("Parameter 'repository' is not of type 'str'.")
 			ex.add_note(f"Got type '{getFullyQualifiedName(repository)}'.")
 			raise ex
-		elif REPOSITORY_PATTERN.fullmatch(repository) is None:
-			ex = ValueError("Parameter 'repository' is not of form '<owner>/<name>'.")
+		elif REPOSITORY_NAME_PATTERN.fullmatch(repository) is None:
+			ex = ValueError("Parameter 'repository' is not a GitHub repository's name.")
 			ex.add_note(f"Got value '{repository}'.")
 			raise ex
 
@@ -198,6 +227,7 @@ class GitHubMarkdown(metaclass=ExtendedType, slots=True):
 		except ImportError as ex:
 			raise MissingDependencyError(dependency="mdit-py-plugins", extra="markdown") from ex
 
+		self._owner =      owner
 		self._repository = repository
 		self._serverURL =  serverURL.rstrip("/")
 		self._lineBreaks = lineBreaks
@@ -265,11 +295,20 @@ class GitHubMarkdown(metaclass=ExtendedType, slots=True):
 		return re_compile(alternatives(trie, 0))
 
 	@readonly
+	def Owner(self) -> str:
+		"""
+		Read-only property to access the owner of the repository references refer to (:attr:`_owner`).
+
+		:returns: The owner, a user or an organization.
+		"""
+		return self._owner
+
+	@readonly
 	def Repository(self) -> str:
 		"""
-		Read-only property to access the repository references refer to (:attr:`_repository`).
+		Read-only property to access the name of the repository references refer to (:attr:`_repository`).
 
-		:returns: The repository, ``<owner>/<name>``.
+		:returns: The repository's name.
 		"""
 		return self._repository
 
@@ -358,9 +397,9 @@ class GitHubMarkdown(metaclass=ExtendedType, slots=True):
 
 		return MarkdownTranslator(self, document, location).Translate(tokens)
 
-	def ConvertText(self, text: str, references: bool = True) -> list[nodes.Node]:
+	def Parse(self, text: str, references: bool = True) -> list[nodes.Node]:
 		"""
-		Convert a text into docutils nodes, linking GitHub's references and writing emoji as
+		Parse a text for GitHub's references and emoji into docutils nodes, linking the references and writing emoji as
 		:class:`~pyTooling.Sphinx.Node.Emoji` nodes.
 
 		An emoji is written as its shortcode, e.g. ``:tada:``, or as its characters. A shortcode GitHub doesn't know
@@ -381,6 +420,7 @@ class GitHubMarkdown(metaclass=ExtendedType, slots=True):
 			raise ex
 
 		result: list[nodes.Node] = []
+		ownRepository = f"{self._owner}/{self._repository}"
 		position = 0
 		for match in REFERENCE_PATTERN.finditer(text):
 			written = match[0]
@@ -392,7 +432,7 @@ class GitHubMarkdown(metaclass=ExtendedType, slots=True):
 			elif not references:
 				continue
 			elif (issue := match["issue"]) is not None:
-				repository = self._repository if match["issueRepository"] is None else match["issueRepository"]
+				repository = ownRepository if match["issueRepository"] is None else match["issueRepository"]
 				node = nodes.reference(
 					written, written, refuri=f"{self._serverURL}/{repository}/issues/{issue}", classes=["github-issue"]
 				)
@@ -400,7 +440,7 @@ class GitHubMarkdown(metaclass=ExtendedType, slots=True):
 				if sha.isdigit() or not any(character.isdigit() for character in sha):
 					continue
 
-				repository = self._repository if match["commitRepository"] is None else match["commitRepository"]
+				repository = ownRepository if match["commitRepository"] is None else match["commitRepository"]
 				node = nodes.reference(
 					written, "", refuri=f"{self._serverURL}/{repository}/commit/{sha}", classes=["github-commit"]
 				)

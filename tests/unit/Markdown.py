@@ -65,7 +65,7 @@ def convert(markdown: str, lineBreaks: bool = True, repeatedTitle: str = "") -> 
 	:returns:             The nodes.
 	"""
 	document = new_document("test", get_default_settings(Parser))
-	return GitHubMarkdown("pyTooling/pyTooling", lineBreaks=lineBreaks).Convert(markdown, document, repeatedTitle)
+	return GitHubMarkdown("pyTooling", "pyTooling", lineBreaks=lineBreaks).Convert(markdown, document, repeatedTitle)
 
 
 def tree(converted: list[nodes.Node]) -> str:

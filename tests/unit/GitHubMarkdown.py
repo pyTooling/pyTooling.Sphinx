@@ -84,16 +84,17 @@ def document() -> nodes.document:
 
 @testsuite("Converter")
 class Converter(Testcase):
-	"""The converter's parameters: repository, server URL and line breaks."""
+	"""The converter's parameters: owner, repository, server URL and line breaks."""
 
 	@testcase("Defaults")
 	def Defaults(self) -> None:
 		"""
 		The server is github.com, and a line break is written as a line break.
 		"""
-		converter = GitHubMarkdown("pyTooling/pyTooling.Sphinx")
+		converter = GitHubMarkdown("pyTooling", "pyTooling.Sphinx")
 
-		self.assertEqual("pyTooling/pyTooling.Sphinx", converter.Repository)
+		self.assertEqual("pyTooling", converter.Owner)
+		self.assertEqual("pyTooling.Sphinx", converter.Repository)
 		self.assertEqual("https://github.com", converter.ServerURL)
 		self.assertTrue(converter.LineBreaks)
 
@@ -102,11 +103,44 @@ class Converter(Testcase):
 		"""
 		A server URL loses a trailing slash, and every link starts with it.
 		"""
-		converter = GitHubMarkdown("owner/name", serverURL="https://git.example.org/", lineBreaks=False)
+		converter = GitHubMarkdown("owner", "name", serverURL="https://git.example.org/", lineBreaks=False)
 
 		self.assertEqual("https://git.example.org", converter.ServerURL)
 		self.assertFalse(converter.LineBreaks)
-		self.assertEqual("https://git.example.org/owner/name/issues/1", converter.ConvertText("#1")[0]["refuri"])
+		self.assertEqual("https://git.example.org/owner/name/issues/1", converter.Parse("#1")[0]["refuri"])
+
+	@testcase("Owner is None")
+	def OwnerNone(self) -> None:
+		"""
+		An owner of ``None`` is a ValueError.
+		"""
+		with self.assertRaises(ValueError) as context:
+			GitHubMarkdown(None, "b")
+
+		self.assertEqual("Parameter 'owner' is None.", str(context.exception))
+
+	@testcase("Owner of wrong type")
+	def OwnerType(self) -> None:
+		"""
+		An owner, which isn't a string, is a TypeError, whose note names the type.
+		"""
+		with self.assertRaises(TypeError) as context:
+			GitHubMarkdown(42, "b")
+
+		self.assertEqual("Parameter 'owner' is not of type 'str'.", str(context.exception))
+		self.assertEqual(["Got type 'int'."], context.exception.__notes__)
+
+	@testcase("Owner of wrong form")
+	def OwnerForm(self) -> None:
+		"""
+		An owner, which isn't a GitHub user's or organization's name, is a ValueError, whose note names the value.
+		"""
+		for owner in ("", "-a", "a-", "a--b", "a_b", "a/b", "jürgen"):
+			with self.subTest(owner=owner), self.assertRaises(ValueError) as context:
+				GitHubMarkdown(owner, "b")
+
+			self.assertEqual("Parameter 'owner' is not a GitHub user's or organization's name.", str(context.exception))
+			self.assertEqual([f"Got value '{owner}'."], context.exception.__notes__)
 
 	@testcase("Repository is None")
 	def RepositoryNone(self) -> None:
@@ -114,7 +148,7 @@ class Converter(Testcase):
 		A repository of ``None`` is a ValueError.
 		"""
 		with self.assertRaises(ValueError) as context:
-			GitHubMarkdown(None)
+			GitHubMarkdown("a", None)
 
 		self.assertEqual("Parameter 'repository' is None.", str(context.exception))
 
@@ -124,7 +158,7 @@ class Converter(Testcase):
 		A repository, which isn't a string, is a TypeError, whose note names the type.
 		"""
 		with self.assertRaises(TypeError) as context:
-			GitHubMarkdown(42)
+			GitHubMarkdown("a", 42)
 
 		self.assertEqual("Parameter 'repository' is not of type 'str'.", str(context.exception))
 		self.assertEqual(["Got type 'int'."], context.exception.__notes__)
@@ -132,13 +166,13 @@ class Converter(Testcase):
 	@testcase("Repository of wrong form")
 	def RepositoryForm(self) -> None:
 		"""
-		A repository, which isn't ``<owner>/<name>``, is a ValueError, whose note names the value.
+		A repository, which isn't a GitHub repository's name, is a ValueError, whose note names the value.
 		"""
-		for repository in ("pyTooling", "pyTooling/", "/pyTooling", "a/b/c", "-a/b"):
+		for repository in ("", "a/b", "a b", "jürgen"):
 			with self.subTest(repository=repository), self.assertRaises(ValueError) as context:
-				GitHubMarkdown(repository)
+				GitHubMarkdown("a", repository)
 
-			self.assertEqual("Parameter 'repository' is not of form '<owner>/<name>'.", str(context.exception))
+			self.assertEqual("Parameter 'repository' is not a GitHub repository's name.", str(context.exception))
 			self.assertEqual([f"Got value '{repository}'."], context.exception.__notes__)
 
 	@testcase("Server URL of wrong form")
@@ -147,12 +181,12 @@ class Converter(Testcase):
 		A server URL, which isn't an HTTP or HTTPS URL, is a ValueError; ``None`` too.
 		"""
 		with self.assertRaises(ValueError) as context:
-			GitHubMarkdown("a/b", serverURL="github.com")
+			GitHubMarkdown("a", "b", serverURL="github.com")
 
 		self.assertEqual("Parameter 'serverURL' is not an HTTP or HTTPS URL.", str(context.exception))
 
 		with self.assertRaises(ValueError) as context:
-			GitHubMarkdown("a/b", serverURL=None)
+			GitHubMarkdown("a", "b", serverURL=None)
 
 		self.assertEqual("Parameter 'serverURL' is None.", str(context.exception))
 
@@ -162,7 +196,7 @@ class Converter(Testcase):
 		A line break setting, which isn't a boolean, is a TypeError.
 		"""
 		with self.assertRaises(TypeError) as context:
-			GitHubMarkdown("a/b", lineBreaks="yes")
+			GitHubMarkdown("a", "b", lineBreaks="yes")
 
 		self.assertEqual("Parameter 'lineBreaks' is not of type 'bool'.", str(context.exception))
 
@@ -171,7 +205,7 @@ class Converter(Testcase):
 		"""
 		Convert checks the Markdown, the document, the title and the location.
 		"""
-		converter = GitHubMarkdown("a/b")
+		converter = GitHubMarkdown("a", "b")
 		for arguments, exception, message in (
 			((None, document()),          ValueError, "Parameter 'markdown' is None."),
 			((b"x", document()),          TypeError,  "Parameter 'markdown' is not of type 'str'."),
@@ -196,7 +230,7 @@ class Dependencies(Testcase):
 		Without markdown-it-py, creating a converter raises a MissingDependencyError naming the package and the extra.
 		"""
 		with patch.dict("sys.modules", {"markdown_it": None}), self.assertRaises(MissingDependencyError) as context:
-			GitHubMarkdown("a/b")
+			GitHubMarkdown("a", "b")
 
 		self.assertEqual("Optional dependency 'markdown-it-py' not installed.", str(context.exception))
 
@@ -206,7 +240,7 @@ class Dependencies(Testcase):
 		Without mdit-py-plugins, creating a converter raises a MissingDependencyError naming the package.
 		"""
 		with patch.dict("sys.modules", {"mdit_py_plugins.gfm": None}), self.assertRaises(MissingDependencyError) as context:
-			GitHubMarkdown("a/b")
+			GitHubMarkdown("a", "b")
 
 		self.assertEqual("Optional dependency 'mdit-py-plugins' not installed.", str(context.exception))
 
@@ -240,7 +274,7 @@ class Dependencies(Testcase):
 class References(Testcase):
 	"""Issues, pull requests, users and commits referred to in a text."""
 
-	_converter = GitHubMarkdown("pyTooling/pyTooling")
+	_converter = GitHubMarkdown("pyTooling", "pyTooling")
 
 	def _references(self, text: str) -> list[tuple[str, str]]:
 		"""
@@ -250,7 +284,7 @@ class References(Testcase):
 		:returns:    Per link the URL and the text.
 		"""
 		return [
-			(node["refuri"], node.astext()) for node in self._converter.ConvertText(text) if isinstance(node, nodes.reference)
+			(node["refuri"], node.astext()) for node in self._converter.Parse(text) if isinstance(node, nodes.reference)
 		]
 
 	@testcase("Issues")
@@ -258,7 +292,7 @@ class References(Testcase):
 		"""
 		``#12``, ``GH-12`` and ``owner/name#12`` refer to an issue, which GitHub redirects to a pull request.
 		"""
-		converted = self._converter.ConvertText("Fixes #12, GH-13 and pyTooling/Actions#307.")
+		converted = self._converter.Parse("Fixes #12, GH-13 and pyTooling/Actions#307.")
 
 		self.assertEqual(
 			[
@@ -297,7 +331,7 @@ class References(Testcase):
 		A commit's hash refers to the commit, shown as its first seven characters; one of another repository is
 		prefixed by it.
 		"""
-		converted = self._converter.ConvertText(
+		converted = self._converter.Parse(
 			"d1d186cdb73f55bfa7846095ff4fe02f74570587, d1d186c and pyTooling/Actions@d1d186c."
 		)
 		references = [node for node in converted if isinstance(node, nodes.reference)]
@@ -329,7 +363,7 @@ class References(Testcase):
 		"""
 		Without references - e.g. in a link's text - only emoji are converted.
 		"""
-		converted = self._converter.ConvertText("#12 @user :tada:", references=False)
+		converted = self._converter.Parse("#12 @user :tada:", references=False)
 
 		self.assertEqual(["#12 @user ", "\N{PARTY POPPER}"], [node.astext() for node in converted])
 		self.assertIsInstance(converted[1], Emoji)
@@ -339,7 +373,7 @@ class References(Testcase):
 class Emojis(Testcase):
 	"""Emoji written as shortcodes and as characters."""
 
-	_converter = GitHubMarkdown("pyTooling/pyTooling")
+	_converter = GitHubMarkdown("pyTooling", "pyTooling")
 
 	def _emoji(self, text: str) -> list[tuple[str, str]]:
 		"""
@@ -348,7 +382,7 @@ class Emojis(Testcase):
 		:param text: The text.
 		:returns:    Per emoji the characters and the shortcode.
 		"""
-		return [(node.astext(), node["shortcode"]) for node in self._converter.ConvertText(text) if isinstance(node, Emoji)]
+		return [(node.astext(), node["shortcode"]) for node in self._converter.Parse(text) if isinstance(node, Emoji)]
 
 	@testcase("Shortcodes")
 	def Shortcodes(self) -> None:
@@ -371,7 +405,7 @@ class Emojis(Testcase):
 		"""
 		A shortcode GitHub doesn't know, a custom GitHub emoji without characters, and a time stay text.
 		"""
-		converted = self._converter.ConvertText(":returns: :octocat: 12:30:45")
+		converted = self._converter.Parse(":returns: :octocat: 12:30:45")
 
 		self.assertEqual([], [node for node in converted if isinstance(node, Emoji)])
 		self.assertEqual(":returns: :octocat: 12:30:45", "".join(node.astext() for node in converted))
@@ -409,18 +443,19 @@ class Emojis(Testcase):
 class ReleaseNotes(Testcase):
 	"""Real release notes of pyTooling, GHDL and OSVVM, with Markdown, raw HTML and emoji."""
 
-	def _convert(self, fileName: str, repository: str, repeatedTitle: str = "") -> nodes.container:
+	def _convert(self, fileName: str, owner: str, repository: str, repeatedTitle: str = "") -> nodes.container:
 		"""
 		Convert release notes, which mustn't cause a warning.
 
 		:param fileName:      Name of the file in the test data.
-		:param repository:    The repository.
+		:param owner:         The repository's owner.
+		:param repository:    The repository's name.
 		:param repeatedTitle: Optional, the title the first heading is skipped for. Default: ``""``.
 		:returns:             A container holding the nodes.
 		"""
 		markdown = (DATA / fileName).read_text(encoding="utf-8")
 		with self.assertNoLogs(LOGGER):
-			converted = GitHubMarkdown(repository).Convert(markdown, document(), repeatedTitle)
+			converted = GitHubMarkdown(owner, repository).Convert(markdown, document(), repeatedTitle)
 
 		container = nodes.container()
 		container.extend(converted)
@@ -431,7 +466,7 @@ class ReleaseNotes(Testcase):
 		"""
 		pyTooling's headings are topics.
 		"""
-		container = self._convert("pyTooling-v8.0.0.md", "pyTooling/pyTooling")
+		container = self._convert("pyTooling-v8.0.0.md", "pyTooling", "pyTooling")
 
 		self.assertEqual(
 			["New Features", "Changes", "Bug Fixes", "Documentation", "Unit Tests", "Related Issues"],
@@ -444,7 +479,7 @@ class ReleaseNotes(Testcase):
 		"""
 		pyTooling v9.0.0 has emoji written as characters, a table and many references.
 		"""
-		container = self._convert("pyTooling-v9.0.0.md", "pyTooling/pyTooling")
+		container = self._convert("pyTooling-v9.0.0.md", "pyTooling", "pyTooling")
 
 		self.assertEqual(8, len(list(container.findall(nodes.topic))))
 		self.assertEqual(19, len(list(container.findall(Emoji))))
@@ -456,7 +491,7 @@ class ReleaseNotes(Testcase):
 		"""
 		GHDL's notes open with a heading repeating the title; without it, the two subheadings are the topics.
 		"""
-		container = self._convert("GHDL-v5.0.1.md", "ghdl/ghdl", "GHDL 5.0.1")
+		container = self._convert("GHDL-v5.0.1.md", "ghdl", "ghdl", "GHDL 5.0.1")
 
 		self.assertEqual(
 			["Docker Images", "pyGHDL 5.0.1"], [topic[0].astext() for topic in container.findall(nodes.topic)]
@@ -468,7 +503,7 @@ class ReleaseNotes(Testcase):
 		"""
 		OSVVM's notes are a nested list in raw HTML.
 		"""
-		container = self._convert("OSVVM-2024.07.md", "OSVVM/OsvvmLibraries")
+		container = self._convert("OSVVM-2024.07.md", "OSVVM", "OsvvmLibraries")
 
 		self.assertEqual(["paragraph", "bullet_list", "paragraph"], [node.tagname for node in container])
 		self.assertEqual(52, len(list(container.findall(nodes.list_item))))
@@ -478,7 +513,7 @@ class ReleaseNotes(Testcase):
 		"""
 		OSVVM 2026.05 opens with a badge before the heading repeating the title, and has a table of its files.
 		"""
-		container = self._convert("OSVVM-2026.05.md", "OSVVM/OsvvmLibraries", "OSVVM 2026.05")
+		container = self._convert("OSVVM-2026.05.md", "OSVVM", "OsvvmLibraries", "OSVVM 2026.05")
 
 		self.assertEqual(["Release Files", "Changes"], [topic[0].astext() for topic in container.findall(nodes.topic)])
 		self.assertEqual(1, len(list(container.findall(nodes.table))))
@@ -489,7 +524,7 @@ class ReleaseNotes(Testcase):
 		"""
 		OSVVM 2026.09 mixes a Markdown table, raw HTML lists and a horizontal rule.
 		"""
-		container = self._convert("OSVVM-2026.09.md", "OSVVM/OsvvmLibraries", "OSVVM 2026.09")
+		container = self._convert("OSVVM-2026.09.md", "OSVVM", "OsvvmLibraries", "OSVVM 2026.09")
 
 		self.assertEqual(["Release Files", "Changes"], [topic[0].astext() for topic in container.findall(nodes.topic)])
 		self.assertEqual(11, len(list(container.findall(nodes.list_item))))
@@ -500,7 +535,7 @@ class ReleaseNotes(Testcase):
 		"""
 		Every construct of GitHub-flavoured Markdown converts without a warning.
 		"""
-		container = self._convert("GFM-constructs.md", "pyTooling/pyTooling")
+		container = self._convert("GFM-constructs.md", "pyTooling", "pyTooling")
 
 		self.assertEqual(["topic", "footnote"], [node.tagname for node in container])
 		self.assertEqual(8, len(list(container.findall(nodes.reference))))
@@ -519,7 +554,7 @@ class Rendering(Project):
 			has_content = True
 
 			def run(self):
-				converter = GitHubMarkdown("pyTooling/pyTooling")
+				converter = GitHubMarkdown("pyTooling", "pyTooling")
 				return converter.Convert("\\n".join(self.content), self.state.document, location=self.get_location())
 
 		def setup(app):

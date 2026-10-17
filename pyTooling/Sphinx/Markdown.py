@@ -62,7 +62,6 @@ the ``|hr|`` substitution writes it, as docutils allows a transition only betwee
 from __future__                        import annotations
 
 from html.parser                       import HTMLParser
-from re                                import compile as re_compile
 from typing                            import TYPE_CHECKING, Optional as Nullable
 
 from docutils                          import nodes
@@ -129,9 +128,6 @@ HTML_ELEMENTS: dict[str, tuple[Nullable[type[nodes.Element]], tuple[str, ...]]] 
 	"div":        (None,                  ()),
 	"span":       (None,                  ()),
 }
-
-_WHITESPACE = re_compile(r"\s+")
-"""A run of whitespace, which HTML writes as one space."""
 
 
 @export
@@ -487,12 +483,16 @@ class MarkdownTranslator(metaclass=ExtendedType, slots=True):
 			self._stack[-1].append(nodes.Text(text))
 			return
 		elif html:
-			text = _WHITESPACE.sub(" ", text)
-			if text.strip() == "" and not isinstance(self._stack[-1], (nodes.TextElement, nodes.Inline)):
-				return
+			if text.strip() == "":
+				if not isinstance(self._stack[-1], (nodes.TextElement, nodes.Inline)):
+					return
+
+				text = " " if text != "" else ""
+			else:
+				text = (" " if text[0].isspace() else "") + " ".join(text.split()) + (" " if text[-1].isspace() else "")
 
 		references = not any(isinstance(node, nodes.reference) for node in self._stack)
-		self._InlineTarget().extend(self._converter.ConvertText(text, references))
+		self._InlineTarget().extend(self._converter.Parse(text, references))
 
 	def _Footnote(self, number: int) -> nodes.footnote:
 		"""
