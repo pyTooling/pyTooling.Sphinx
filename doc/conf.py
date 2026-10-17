@@ -345,9 +345,11 @@ pyTooling_Abbreviation_ShowSummary = True
 # pyTooling.Sphinx - dependency tables
 # ==============================================================================
 pyTooling_Dependency_Requirements = {
-	"package":       {"file": "../requirements.txt"},
-	"unittest":      {"file": "../tests/unit/requirements.txt"},
-	"documentation": {"file": "requirements.txt"},
+	"package":       {"file":    "../requirements.txt"},
+	"reports":       {"package": "pyTooling.Sphinx[reports]"},
+	"markdown":      {"package": "pyTooling.Sphinx[markdown]"},
+	"unittest":      {"file":    "../tests/unit/requirements.txt"},
+	"documentation": {"file":    "requirements.txt"},
 }
 pyTooling_Dependency_PackageOverrides = "Dependency.PackageOverrides.yaml"
 
