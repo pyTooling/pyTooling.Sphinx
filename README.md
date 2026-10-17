@@ -110,7 +110,9 @@ This layer is used by:
 ## License
 
 This Python package (source code) is licensed under [Apache License 2.0](LICENSE.md).  
-The accompanying documentation is licensed under [Creative Commons - Attribution 4.0 (CC-BY 4.0)](doc/Doc-License.rst).
+The accompanying documentation is licensed under [Creative Commons - Attribution 4.0 (CC-BY 4.0)](doc/Doc-License.rst).  
+Content of other projects - e.g. GitHub's emoji table from github/gemoji (MIT) - is listed with its license in
+[NOTICE.md](NOTICE.md).
 
 
 -------------------------
