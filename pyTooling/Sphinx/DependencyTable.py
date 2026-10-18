@@ -475,11 +475,10 @@ class DependencyCollector(metaclass=ExtendedType, slots=True):
 		if packageName in self._projects:
 			return self._projects[packageName]
 
-		project:  Nullable[Project]
 		warnings: list[BaseException] = []
 		with self._stopwatch, WarningCollector(warnings):
 			try:
-				project = self.Index.DownloadProject(packageName, LazyLoaderState.PartiallyLoaded)
+				project: Nullable[Project] = self.Index.DownloadProject(packageName, LazyLoaderState.PartiallyLoaded)
 			except (DependencyError, RequestException, ValueError, KeyError):
 				project = None
 
