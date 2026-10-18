@@ -155,7 +155,7 @@ SEPARATOR_PATTERN = re_compile(r"\\.|``.*?``|`(?:\\.|[^`\\])*`|(?<=\s)(?P<separa
 #: What a format without columns writes between an entry's text and its description: an en dash between spaces.
 SEPARATOR = " \u2013 "
 
-_Entry = Node[None, str, str, Any]
+_Entry = Node
 """
 An entry of the content: its text as the value, the index of its line, its marker and its description as key-value
 pairs.

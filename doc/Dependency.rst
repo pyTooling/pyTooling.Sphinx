@@ -61,16 +61,10 @@ packages. They are optional - only a project using a report needs them - and ins
 
 .. rubric:: Dependency List
 
-.. list-table::
-   :header-rows: 1
-   :widths: 30 20 50
+:pypi:`pyEDAA.Reports` reads the unit test and code coverage reports and analyzes the documentation coverage.
 
-   * - Package
-     - Version
-     - Used for
-   * - :pypi:`pyEDAA.Reports`
-     - ``dev`` branch
-     - reading unit test reports in Any JUnit XML format, analyzing the documentation coverage
+.. dependency-table:: reports
+   :caption: Dependencies added by the ``reports`` extra.
 
 
 
@@ -100,19 +94,11 @@ optional - only a project converting Markdown needs them - and installed with th
 
 .. rubric:: Dependency List
 
-.. list-table::
-   :header-rows: 1
-   :widths: 30 20 50
+:pypi:`markdown-it-py` parses CommonMark, tables, strikethrough, task lists and alerts; :pypi:`mdit-py-plugins`
+parses GitHub's autolinks and footnotes.
 
-   * - Package
-     - Version
-     - Used for
-   * - :pypi:`markdown-it-py`
-     - ``~= 4.2``
-     - parsing CommonMark, tables, strikethrough, task lists and alerts
-   * - :pypi:`mdit-py-plugins`
-     - ``~= 0.6``
-     - parsing GitHub's autolinks and footnotes
+.. dependency-table:: markdown
+   :caption: Dependencies added by the ``markdown`` extra.
 
 An SVG image in the Markdown - other than a shields.io badge, which is fetched as PNG - is converted to PNG for
 LaTeX/PDF output, as LaTeX can't include SVG: by Sphinx' extension :mod:`sphinx.ext.imgconverter`, which
