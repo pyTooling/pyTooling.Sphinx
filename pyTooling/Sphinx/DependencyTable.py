@@ -583,7 +583,6 @@ def readEntrypoints(configuration: Any, confDirectory: Path) -> dict[str, Entryp
 		field = stated[0]
 		fieldLocation = f"{location}.{field}"
 		value = declaration[field]
-		values: tuple[str, ...]
 
 		if field in ("file", "package"):
 			if not isinstance(value, str):
@@ -591,7 +590,7 @@ def readEntrypoints(configuration: Any, confDirectory: Path) -> dict[str, Entryp
 					f"{fieldLocation}: Expected a string, got '{getFullyQualifiedName(value)}'."
 				)
 
-			values = (value,)
+			values: tuple[str, ...] = (value,)
 		else:
 			# a string is an iterable of strings itself, so the plural form has to reject one explicitly - otherwise
 			# {"files": "requirements.txt"} would silently become sixteen one-character paths
