@@ -36,7 +36,7 @@ from pathlib                          import Path
 from sys                              import platform as sys_platform
 from tempfile                         import TemporaryDirectory
 from textwrap                         import dedent
-from typing                           import Optional as Nullable
+from typing                           import Any, Optional as Nullable
 
 from docutils                         import nodes
 from packaging.requirements           import Requirement
@@ -48,7 +48,7 @@ from pyTooling.Sphinx                 import SphinxExtensionError
 from pyTooling.Sphinx.DependencyTable import DependencyFormat, DependencyTable, VersionFormat, formatUnresolvedLicenses
 from pyTooling.Sphinx.DependencyTable import DependencyCollector, readEntrypoints
 from pyTooling.Testing                import Testcase, testsuite, testcase
-from pyTooling.Warning                import WarningCollector
+from pyTooling.Warning                import CriticalWarning, WarningCollector
 
 
 #: Name of the logger :mod:`pyTooling.Sphinx.DependencyTable` reports through, as Sphinx prefixes it.
@@ -695,6 +695,42 @@ class BrokenRequirementReport(Testcase):
 		self.assertIn("[dependency-table] Package 'pyTooling' has 1 requirement(s)", message)
 		self.assertIn("\n  Broken requirement: colorama; extra == 'terminal'", message)
 		self.assertEqual({}, collector.UnresolvedLicenses)
+
+
+
+class _SkippedReleaseWarning(CriticalWarning):
+	"""A critical warning, like the one pyTooling reports for a release whose version can't be parsed."""
+
+
+class _WarningIndex:
+	"""A package index whose project download reports a critical warning, as a project with an unparsable release does."""
+
+	def DownloadProject(self, projectName: str, lazy: Any) -> str:
+		WarningCollector.Raise(_SkippedReleaseWarning(f"Skipping release '2004d' of package '{projectName}'."))
+		return projectName
+
+
+@testsuite("Reporting project warnings")
+class ProjectWarningReport(Testcase):
+	"""A warning reported while downloading a project is reported as a Sphinx warning, not raised."""
+
+	@testcase("Skipped release")
+	def SkippedRelease(self) -> None:
+		"""
+		A project whose download reports a critical warning is still returned, and the warning is logged.
+
+		Asks for a project from an index whose download reports a critical warning, and checks the project is
+		returned and the warning logged once.
+		"""
+		collector = DependencyCollector({}, "https://pypi.org", "https://pypi.org/pypi", None)
+		collector._index = _WarningIndex()
+
+		with self.assertLogs(LOGGER_NAME, level="WARNING") as logCapture:
+			project = collector.Project("pytz")
+
+		self.assertEqual("pytz", project)
+		self.assertEqual(1, len(logCapture.records))
+		self.assertIn("[dependency-table] Skipping release '2004d' of package 'pytz'.", logCapture.records[0].getMessage())
 
 
 class UnresolvedLicenseReport(Testcase):
