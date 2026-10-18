@@ -665,7 +665,7 @@ def _FileEntrypoint(
 		warnings: list[BaseException] = []
 		try:
 			with WarningCollector(warnings):
-				requirementsFile = RequirementsFile(path)
+				requirementsFile = RequirementsFile.Parse(path)
 		except (DependencyError, OSError, UnicodeDecodeError) as cause:
 			raise SphinxExtensionError(f"{location}: Requirements file '{path}' can't be read: {cause}") from cause
 
