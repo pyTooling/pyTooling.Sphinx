@@ -64,6 +64,7 @@ with a :class:`~pyTooling.Stopwatch.Stopwatch`, and the build ends with the tota
 """
 from __future__                    import annotations
 
+from datetime                      import timedelta
 from enum                          import Enum, auto
 from pathlib                       import Path
 from typing                        import TYPE_CHECKING, Any, ClassVar, Iterable, Literal, Mapping, Optional as Nullable
@@ -437,7 +438,13 @@ class DependencyCollector(metaclass=ExtendedType, slots=True):
 
 		:returns: Seconds spent on the index.
 		"""
-		return self._stopwatch.Activity
+		# WORKAROUND: pyTooling <10.0.0rc4
+		# return self._stopwatch.ActivityInSeconds
+		activity = self._stopwatch.Activity
+		if isinstance(activity, timedelta):
+			return activity.total_seconds()
+
+		return activity
 
 	@readonly
 	def UnresolvedLicenses(self) -> dict[str, tuple[str, ...]]:
@@ -805,11 +812,15 @@ class DependencyTable(BaseDirective):
 					f"{self.directiveName}: {cause}", line=self.lineno
 				)]
 
+		# WORKAROUND: pyTooling <10.0.0rc4
+		# seconds = stopwatch.DurationInSeconds
+		seconds = stopwatch.DurationInNanoseconds / 1e9
+
 		# what this table cost, not what the build has spent so far - a package another table already downloaded is
 		# free here, and that is the point of sharing the collector
 		_logger.info(
 			f"[{self.directiveName}] {identifier}: {len(requirements)} package(s), "
-			f"{collector.RequestCount - requestsBefore} request(s), {stopwatch.Duration:.2f} s"
+			f"{collector.RequestCount - requestsBefore} request(s), {seconds:.2f} s"
 		)
 
 		return [table]
