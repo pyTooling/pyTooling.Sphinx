@@ -49,6 +49,12 @@ Each entrypoint states exactly one of:
    * - ``pyTooling_Dependency_APIURL``
      - Optional, the index's JSON API. Default: ``https://pypi.org/pypi/``.
 
+The requirements are resolved by pyTooling's :class:`~pyTooling.Dependency.Resolver.Resolver`: per requirement the
+newest release matching it - a pre-release only if the requirement names one or nothing else matches -, its
+unconditional requirements and those of the extras the requirement names (``pyTooling[yaml]``), as deep as
+``:depth:`` allows. A package already on the path isn't listed again, so a dependency cycle ends. The packages of one
+level are downloaded in parallel.
+
 The tables of a build share one view of the index, so a package several tables require is downloaded once. Each
 table logs what it cost, and the build ends with the total and the packages whose license couldn't be resolved -
 the list the override file answers.
