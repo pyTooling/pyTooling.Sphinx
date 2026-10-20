@@ -66,6 +66,7 @@ from pygments.util                 import ClassNotFound
 from sphinx.application            import Sphinx
 from sphinx.util.logging           import getLogger
 
+from pyTooling.Common              import getTypeName
 from pyTooling.Decorators          import export
 
 from pyTooling.Sphinx              import ReportExtensionError
@@ -235,8 +236,8 @@ class CodeCoverageReportPages(ReportPages):
 			except ReportExtensionError as ex:
 				cause = ex if ex.__cause__ is None else ex.__cause__
 				getLogger(__name__).error(
-					f"Caught {ex.__class__.__name__} when generating the pages of code coverage report '{reportID}'.\n"
-					f"  {cause.__class__.__name__}: {cause}"
+					f"Caught {getTypeName(ex)} when generating the pages of code coverage report '{reportID}'.\n"
+					f"  {getTypeName(cause)}: {cause}"
 				)
 				continue
 

@@ -81,7 +81,7 @@ from sphinx.application               import Sphinx
 from sphinx.config                    import Config
 from sphinx.util.logging              import getLogger
 
-from pyTooling.Common                 import getFullyQualifiedName
+from pyTooling.Common                 import getFullyQualifiedName, getTypeName
 from pyTooling.Decorators             import export
 
 from pyTooling.Sphinx                 import BaseDirective, LegendStyle, ReportExtensionError
@@ -676,14 +676,14 @@ class CodeCoverage(CodeCoverageBase):
 		try:
 			self._CheckOptions()
 		except SphinxExtensionError as ex:
-			message = f"Caught {ex.__class__.__name__} when checking options for directive '{self.directiveName}'."
+			message = f"Caught {getTypeName(ex)} when checking options for directive '{self.directiveName}'."
 			return self._internalError(container, __name__, message, ex)
 
 		try:
 			self._coverage = self.GetReport(self._reportID)
 		except ReportExtensionError as ex:
 			cause = ex if ex.__cause__ is None else ex.__cause__
-			message = f"Caught {cause.__class__.__name__} when reading code coverage report '{self._reportID}'."
+			message = f"Caught {getTypeName(cause)} when reading code coverage report '{self._reportID}'."
 			return self._internalError(container, __name__, message, cause)
 
 		container += self._GenerateCoverageTable()
@@ -801,7 +801,7 @@ class CodeCoverageLegend(CodeCoverageBase):
 		try:
 			self._CheckOptions()
 		except SphinxExtensionError as ex:
-			message = f"Caught {ex.__class__.__name__} when checking options for directive '{self.directiveName}'."
+			message = f"Caught {getTypeName(ex)} when checking options for directive '{self.directiveName}'."
 			return self._internalError(container, __name__, message, ex)
 
 		if LegendStyle.Table in self._style:
@@ -851,7 +851,7 @@ class FileCoverage(CodeCoverageBase):
 			sources = self._PackageConfiguration()["sources"]
 			file = self._FindFile(self.GetReport(self._reportID), self.arguments[0])
 		except SphinxExtensionError as ex:
-			message = f"Caught {ex.__class__.__name__} when checking options for directive '{self.directiveName}'."
+			message = f"Caught {getTypeName(ex)} when checking options for directive '{self.directiveName}'."
 			return self._internalError(container, __name__, message, ex)
 
 		if sources is None:
