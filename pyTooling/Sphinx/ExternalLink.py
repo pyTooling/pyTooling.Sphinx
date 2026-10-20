@@ -86,7 +86,7 @@ from sphinx.transforms.post_transforms import SphinxPostTransform
 from sphinx.util.logging               import getLogger
 from sphinx.util.requests              import head
 
-from pyTooling.Common                  import StringEnum, getFullyQualifiedName
+from pyTooling.Common                  import StringEnum, getFullyQualifiedName, getTypeName
 from pyTooling.Decorators              import export
 from pyTooling.Sphinx                  import SphinxExtensionError
 
@@ -393,7 +393,7 @@ class BaseExternalLinkTransform(SphinxPostTransform):
 		:param reference: The link.
 		:returns:         ``True`` if the link is marked.
 		"""
-		raise NotImplementedError(f"Method '{self.__class__.__name__}._Selects' is abstract.")
+		raise NotImplementedError(f"Method '{getTypeName(self)}._Selects' is abstract.")
 
 
 @export

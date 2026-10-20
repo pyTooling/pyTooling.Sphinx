@@ -69,6 +69,7 @@ from sphinx.application                 import Sphinx
 from sphinx.config                      import Config
 from sphinx.util.logging                import getLogger
 
+from pyTooling.Common                   import getTypeName
 from pyTooling.Decorators               import export
 
 from pyTooling.Sphinx                   import BaseDirective, ReportExtensionError
@@ -616,14 +617,14 @@ class UnittestSummary(BaseDirective):
 		try:
 			self._CheckOptions()
 		except SphinxExtensionError as ex:
-			message = f"Caught {ex.__class__.__name__} when checking options for directive '{self.directiveName}'."
+			message = f"Caught {getTypeName(ex)} when checking options for directive '{self.directiveName}'."
 			return self._internalError(container, __name__, message, ex)
 
 		if (readError := self._readErrors.get(self._reportID, None)) is not None:
 			if isinstance(readError, ReportsPackageMissingError):
-				message = f"Caught {readError.__class__.__name__} when reading '{self._xmlReport}'."
+				message = f"Caught {getTypeName(readError)} when reading '{self._xmlReport}'."
 			else:
-				message = f"Caught {readError.__class__.__name__} when reading and parsing '{self._xmlReport}'."
+				message = f"Caught {getTypeName(readError)} when reading and parsing '{self._xmlReport}'."
 			return self._internalError(container, __name__, message, readError)
 
 		try:
@@ -631,7 +632,7 @@ class UnittestSummary(BaseDirective):
 			container += self._GenerateTestSummaryTable()
 		except Exception as ex:
 			message = (
-				f"Caught {ex.__class__.__name__} when generating the document structure for unittest report "
+				f"Caught {getTypeName(ex)} when generating the document structure for unittest report "
 				f"'{self._xmlReport}'."
 			)
 			return self._internalError(container, __name__, message, ex)
