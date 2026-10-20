@@ -648,22 +648,8 @@ class DependencyTrees(Testcase):
 		self.assertEqual("not evaluated", entry.astext())
 
 
-# WORKAROUND: pyTooling <10.0.0rc5
-# _NamedLicenseWarning(message, projectName=...) is UnknownLicenseWarning(message, projectName=...)
-class _NamedLicenseWarning(UnknownLicenseWarning):
-	"""An unknown license warning naming its project, as pyTooling 10.0.0rc5 reports it."""
-
-	def __init__(self, message: str, projectName: str) -> None:
-		super().__init__(message)
-		self._name = projectName
-
-	@property
-	def ProjectName(self) -> str:
-		return self._name
-
-
 def _licenseWarning(name: str) -> UnknownLicenseWarning:
-	warning = _NamedLicenseWarning(f"License of '{name}' 1.0 couldn't be resolved.", name)
+	warning = UnknownLicenseWarning(f"License of '{name}' 1.0 couldn't be resolved.", projectName=name)
 	warning.add_note("license: BSD")
 
 	return warning
