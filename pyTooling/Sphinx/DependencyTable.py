@@ -59,41 +59,44 @@ path that doesn't exist ends the build with one clear message instead of an erro
 
 **The data is fetched live** from the package index, once per build and shared between every table of that build:
 :file:`requirements.txt`, :file:`tests/requirements.txt` and :file:`doc/requirements.txt` overlap heavily, and a
-package they share is downloaded once. That still costs real time, so every table reports what it spent, measured
-with a :class:`~pyTooling.Stopwatch.Stopwatch`, and the build ends with the total.
+package they share is downloaded once. The requirements are resolved by pyTooling's
+:class:`~pyTooling.Dependency.Resolver.Resolver`, which downloads the packages of one level of the tree in parallel.
+That still costs real time, so every table reports what it spent, measured with a
+:class:`~pyTooling.Stopwatch.Stopwatch`, and the build ends with the total.
 """
-from __future__                    import annotations
+from __future__                      import annotations
 
-from enum                          import Enum, auto
-from pathlib                       import Path
-from typing                        import TYPE_CHECKING, Any, ClassVar, Iterable, Literal, Mapping, Optional as Nullable
-from typing                        import TypeVar, cast
+from enum                            import Enum, auto
+from pathlib                         import Path
+from typing                          import TYPE_CHECKING, Any, ClassVar, Iterable, Literal, Mapping
+from typing                          import Optional as Nullable, TypeVar, cast
 
-from pyTooling.Common              import getFullyQualifiedName
-from pyTooling.Decorators          import export, readonly
-from pyTooling.Dependency          import UnknownLicenseWarning
-from pyTooling.Exceptions          import ConfigurationError, MissingDependencyError
-from pyTooling.MetaClasses         import ExtendedType
-from pyTooling.Stopwatch           import Stopwatch
-from pyTooling.Warning             import WarningCollector
+from pyTooling.Common                import getFullyQualifiedName
+from pyTooling.Decorators            import export, readonly
+from pyTooling.Dependency            import UnknownLicenseWarning
+from pyTooling.Exceptions            import ConfigurationError, MissingDependencyError
+from pyTooling.MetaClasses           import ExtendedType
+from pyTooling.Stopwatch             import Stopwatch
+from pyTooling.Warning               import WarningCollector
 
-from docutils                      import nodes
-from docutils.parsers.rst          import directives
-from sphinx.application            import Sphinx
-from sphinx.util                   import logging
+from docutils                        import nodes
+from docutils.parsers.rst            import directives
+from sphinx.application              import Sphinx
+from sphinx.util                     import logging
 
 if TYPE_CHECKING:  # pragma: no cover
 	# Only this directive needs a package index, so the model is imported when the configuration declares an
 	# entrypoint rather than when the extension is loaded - otherwise every documentation build using any of these
 	# roles would need the 'pypi' extra.
-	from sphinx.config               import Config
-	from packaging.requirements      import Requirement
-	from packaging.specifiers        import SpecifierSet
-	from pyTooling.Dependency.Python import LicenseOverrides, Project, PythonPackageDependencyGraph
-	from pyTooling.Dependency.Python import PythonPackageIndex, Release, RequirementsFile
+	from sphinx.config                 import Config
+	from packaging.requirements        import Requirement
+	from packaging.specifiers          import SpecifierSet
+	from pyTooling.Dependency.Python   import LicenseOverrides, Project, PythonPackageDependencyGraph
+	from pyTooling.Dependency.Python   import PythonPackageIndex, Release, RequirementsFile
+	from pyTooling.Dependency.Resolver import Resolution, ResolvedRequirement
 
-from pyTooling.Sphinx              import BaseDirective, SphinxExtensionError, strip
-from pyTooling.Sphinx              import stripAndNormalize
+from pyTooling.Sphinx                import BaseDirective, SphinxExtensionError, strip
+from pyTooling.Sphinx                import stripAndNormalize
 
 
 #: URL of the package index the tables are built from, unless :file:`conf.py` names another.
@@ -202,14 +205,19 @@ _logger = logging.getLogger(__name__)
 _FormatType = TypeVar("_FormatType", VersionFormat, DependencyFormat)
 
 
-def _OneLevelDown(depth: Nullable[int]) -> Nullable[int]:
+def _SelectedRelease(resolved: ResolvedRequirement) -> Nullable[Release]:
 	"""
-	Return the depth one level deeper, leaving an unlimited depth unlimited.
+	Return the release the resolver selected for a requirement, if its details are known.
 
-	:param depth: Levels still to expand, or ``None`` for unlimited.
-	:returns:     One level fewer, or ``None``.
+	A requirement the index couldn't describe still names the release it selected; its lazily loaded properties would
+	each retry the download, so only a resolved requirement's release is handed out.
+
+	:param resolved: The resolved requirement.
+	:returns:        The selected release, or ``None`` if the requirement wasn't resolved.
 	"""
-	return None if depth is None else depth - 1
+	from pyTooling.Dependency.Resolver import ResolutionStatus
+
+	return resolved.Release if resolved.Status is ResolutionStatus.Resolved else None
 
 
 def _ReportWarning(prefix: str, warning: BaseException) -> None:
@@ -343,7 +351,8 @@ class DependencyCollector(metaclass=ExtendedType, slots=True):
 
 	The index is opened the first time a table asks for a package, not when the collector is created: a project may
 	declare its entrypoints and then build a document that shows none of them, and that build should not open an
-	HTTP session.
+	HTTP session. The tables resolve their requirements with resolvers of their own, as each table has its own depth
+	limit; the index they share keeps every project and release it downloaded.
 	"""
 
 	_entrypoints: dict[str, Entrypoint]                    #: The entrypoints declared in :file:`conf.py`.
@@ -352,10 +361,7 @@ class DependencyCollector(metaclass=ExtendedType, slots=True):
 	_overrides:   LicenseOverrides                         #: Licenses stated by hand, where the index can't.
 	_graph:       Nullable[PythonPackageDependencyGraph]   #: Graph the downloaded packages are collected in.
 	_index:       Nullable[PythonPackageIndex]             #: The package index this build queries, once opened.
-	_projects:    dict[str, Nullable[Project]]             #: Projects downloaded so far; ``None`` if unknown.
-	_detailed:    set[str]                                 #: Releases whose details were downloaded.
-	_undescribed: set[str]                                 #: Releases the index lists but can't describe.
-	_stopwatch:   Stopwatch                                #: Runs only while a request to the index is in flight.
+	_stopwatch:   Stopwatch                                #: Runs only while a resolution is in progress.
 	_unresolved:  dict[str, tuple[str, ...]]               #: Packages whose license the index couldn't answer for,
 	                                                       #: mapped to what it published instead.
 
@@ -380,13 +386,10 @@ class DependencyCollector(metaclass=ExtendedType, slots=True):
 		self._overrides =   overrides
 		self._graph =       None
 		self._index =       None
-		self._projects =    {}
-		self._detailed =    set()
-		self._undescribed = set()
 		self._unresolved =  {}
 
-		# 'preferPause', so each 'with' around a request is one active span: 'Activity' is the time spent waiting for
-		# the index rather than the age of the collector, and 'ActiveCount' is the number of requests
+		# 'preferPause', so each 'with' around a resolution is one active span: 'Activity' is the time spent resolving
+		# rather than the age of the collector, and 'ActiveCount' is the number of resolutions
 		self._stopwatch =   Stopwatch(preferPause=True)
 
 	@readonly
@@ -414,25 +417,25 @@ class DependencyCollector(metaclass=ExtendedType, slots=True):
 		return self._index
 
 	@readonly
-	def RequestCount(self) -> int:
+	def ResolutionCount(self) -> int:
 		"""
-		Number of requests sent to the package index.
+		Number of resolutions against the package index.
 
-		The stopwatch runs for exactly one span per request, so this is its
+		The stopwatch runs for exactly one span per resolution, so this is its
 		:attr:`~pyTooling.Stopwatch.Stopwatch.ActiveCount` - counting them a second time in a field of our own
 		would be a second answer to one question.
 
-		:returns: Number of requests sent.
+		:returns: Number of resolutions.
 		"""
 		return self._stopwatch.ActiveCount
 
 	@readonly
 	def Seconds(self) -> float:
 		"""
-		Time spent waiting for the package index, in seconds.
+		Time spent resolving requirements against the package index, in seconds.
 
 		This is the stopwatch's :attr:`~pyTooling.Stopwatch.Stopwatch.Activity` - the sum of the intervals it ran -
-		not its duration, because it is paused between requests and everything the build does in between is not
+		not its duration, because it is paused between resolutions and everything the build does in between is not
 		time this collector spent.
 
 		:returns: Seconds spent on the index.
@@ -452,89 +455,79 @@ class DependencyCollector(metaclass=ExtendedType, slots=True):
 		"""
 		return self._unresolved
 
-	def Project(self, packageName: str) -> Nullable[Project]:
+	def Resolve(self, requirements: Iterable[Requirement], limit: Nullable[int]) -> Resolution:
 		"""
-		Return a project, downloading it the first time it is asked for.
+		Resolve requirements against the package index, every level of the tree up front.
 
-		A package the index doesn't know is remembered as unknown, so a table naming it doesn't ask again for every
-		row that mentions it. A warning reported while loading the project, e.g. for a release whose version the parser
-		doesn't support, is reported as a Sphinx warning.
+		Warnings reported while resolving are handled by :meth:`_ReportWarnings`.
 
-		:param packageName:             Name of the package to look up.
-		:returns:                       The project, or ``None`` if the index doesn't know it.
+		:param requirements:            The requirements to resolve.
+		:param limit:                   Number of levels resolved below the requirements, or ``None`` for unlimited.
+		:returns:                       The resolution.
 		:raises MissingDependencyError: If the 'pypi' extra isn't installed.
+		"""
+		from pyTooling.Dependency.Resolver import ResolutionStrategy, Resolver
+
+		warnings: list[BaseException] = []
+		resolver = Resolver(self.Index, strategy=ResolutionStrategy.Eager, limit=limit)
+		with self._stopwatch, WarningCollector(warnings):
+			resolution = resolver.ResolveRequirements(requirements)
+
+		self._ReportWarnings(warnings)
+
+		return resolution
+
+	def PublishedRequirements(self, packages: Iterable[tuple[str, Nullable[str]]]) -> list[Requirement]:
+		"""
+		Ask the package index what the latest releases of packages require, or one of their extras.
+
+		Warnings reported while asking are handled by :meth:`_ReportWarnings`.
+
+		:param packages:                Pairs of a package name and an extra's name, or ``None`` for the package's own
+		                                requirements.
+		:returns:                       The requirements, flattened in the order the packages are given.
+		:raises MissingDependencyError: If the 'pypi' extra isn't installed.
+		:raises SphinxExtensionError:   If the index doesn't know a package, can't describe its latest release, or the
+		                                package has no such extra.
 		"""
 		try:
 			from requests import RequestException
 		except ImportError as ex:  # pragma: no cover
 			raise MissingDependencyError(dependency="requests", extra="pypi") from ex
 
-		from pyTooling.Dependency        import DependencyError
-		from pyTooling.Dependency.Python import LazyLoaderState
-
-		if packageName in self._projects:
-			return self._projects[packageName]
+		from pyTooling.Dependency          import DependencyError
+		from pyTooling.Dependency.Resolver import Resolver
 
 		warnings: list[BaseException] = []
-		with self._stopwatch, WarningCollector(warnings):
-			try:
-				project: Nullable[Project] = self.Index.DownloadProject(packageName, LazyLoaderState.PartiallyLoaded)
-			except (DependencyError, RequestException, ValueError, KeyError):
-				project = None
-
-		self._projects[packageName] = project
-
-		for warning in warnings:
-			_ReportWarning("[dependency-table]", warning)
-
-		return project
-
-	def Details(self, release: Release) -> Nullable[Release]:
-		"""
-		Make sure a release knows its own requirements and its license.
-
-		A release the index lists but can't describe - a yanked one, or a version its release endpoint spells
-		differently - is remembered as unusable and answered with ``None``. Handing back the release itself would
-		be worse than useless: its lazily loaded properties would each retry the download and raise.
-
-		An :class:`~pyTooling.Dependency.UnknownLicenseWarning` is recorded in :attr:`UnresolvedLicenses`. Every other
-		warning, e.g. a :class:`~pyTooling.Dependency.BrokenRequirementWarning` for a requirement whose marker names no
-		extra the release declares, is reported as a Sphinx warning.
-
-		:param release:                 The release to fill in.
-		:returns:                       The release with its details, or ``None`` if the index can't describe it.
-		:raises MissingDependencyError: If the 'pypi' extra isn't installed.
-		"""
 		try:
-			from packaging.utils import canonicalize_name
-			from requests        import RequestException
-		except ImportError as ex:  # pragma: no cover
-			raise MissingDependencyError(dependency="requests", extra="pypi") from ex
+			with self._stopwatch, WarningCollector(warnings):
+				resolution = Resolver(self.Index, limit=0).ResolvePackages(packages)
+		except (DependencyError, RequestException, ValueError, KeyError) as cause:
+			raise SphinxExtensionError(" ".join((str(cause), *getattr(cause, "__notes__", ())))) from cause
+		finally:
+			self._ReportWarnings(warnings)
 
-		from pyTooling.Dependency import DependencyError
+		return [resolved.Requirement for resolved in resolution.Requirements]
 
-		key = f"{release.Package.Name}=={release.Version}"
-		if key in self._detailed:
-			return release if key not in self._undescribed else None
+	def _ReportWarnings(self, warnings: Iterable[BaseException]) -> None:
+		"""
+		Record or report the warnings collected while resolving.
 
-		warnings: list[BaseException] = []
-		with self._stopwatch, WarningCollector(warnings):
-			try:
-				release.DownloadDetails()
-			except (DependencyError, RequestException, ValueError, KeyError):
-				self._undescribed.add(key)
+		An :class:`~pyTooling.Dependency.UnknownLicenseWarning` naming its project is recorded in
+		:attr:`UnresolvedLicenses`. Every other warning, e.g. a :class:`~pyTooling.Dependency.BrokenRequirementWarning`
+		for a requirement naming an extra its release doesn't declare, is reported as a Sphinx warning.
 
-		self._detailed.add(key)
+		:param warnings: The collected warnings.
+		"""
+		from packaging.utils import canonicalize_name
 
 		for warning in warnings:
-			if isinstance(warning, UnknownLicenseWarning):
+			if isinstance(warning, UnknownLicenseWarning) and warning.ProjectName is not None:
 				# the warning's notes are what the index published, which is the reason an override is needed; keyed by the
 				# canonical name, which is the override file's spelling, so two spellings of one package are one entry
-				self._unresolved[canonicalize_name(release.Package.Name)] = warning.Notes
+				self._unresolved[canonicalize_name(warning.ProjectName)] = warning.Notes
 			else:
 				_ReportWarning("[dependency-table]", warning)
-
-		return None if key in self._undescribed else release
 
 
 @export
@@ -794,12 +787,16 @@ class DependencyTable(BaseDirective):
 			"dependency-format", DependencyFormat, DEFAULT_DEPENDENCY_FORMAT
 		)
 
+		# ':depth: 0' - and the default - means expand until the tree ends, which is the resolver's 'None'
+		depth = self.options.get("depth", DEFAULT_DEPTH)
+		limit: Nullable[int] = None if depth == 0 else depth
+
 		with Stopwatch() as stopwatch:
 			try:
 				collector = self._Collector()
-				requestsBefore = collector.RequestCount
-				requirements = self._Resolve(identifier, collector)
-				table = self._CreateTable(identifier, requirements, collector)
+				requirements = self._Requirements(identifier, collector)
+				resolution = collector.Resolve(requirements.values(), limit)
+				table = self._CreateTable(identifier, resolution)
 			except SphinxExtensionError as cause:
 				return [self.state.document.reporter.error(
 					f"{self.directiveName}: {cause}", line=self.lineno
@@ -809,10 +806,7 @@ class DependencyTable(BaseDirective):
 
 		# what this table cost, not what the build has spent so far - a package another table already downloaded is
 		# free here, and that is the point of sharing the collector
-		_logger.info(
-			f"[{self.directiveName}] {identifier}: {len(requirements)} package(s), "
-			f"{collector.RequestCount - requestsBefore} request(s), {seconds:.2f} s"
-		)
+		_logger.info(f"[{self.directiveName}] {identifier}: {len(requirements)} package(s), {seconds:.2f} s")
 
 		return [table]
 
@@ -861,7 +855,7 @@ class DependencyTable(BaseDirective):
 
 		return collector
 
-	def _Resolve(self, identifier: str, collector: DependencyCollector) -> dict[str, Requirement]:
+	def _Requirements(self, identifier: str, collector: DependencyCollector) -> dict[str, Requirement]:
 		"""
 		Return what the named entrypoint requires.
 
@@ -872,8 +866,8 @@ class DependencyTable(BaseDirective):
 		:param collector:               The build's collector.
 		:returns:                       Every required package, by its canonical name.
 		:raises MissingDependencyError: If the 'pypi' extra isn't installed.
-		:raises SphinxExtensionError:   If the identifier is unknown, or the
-		  package index can't answer for the entrypoint's package.
+		:raises SphinxExtensionError:   If the identifier is unknown, or the package index can't answer for the
+		                                entrypoint's packages.
 		"""
 		try:
 			from packaging.utils import canonicalize_name
@@ -895,57 +889,23 @@ class DependencyTable(BaseDirective):
 
 		# several packages flatten in the order they are declared, the rule a file's '-r' references already follow
 		requirements = {}
-		for packageName, extra in entrypoint.Packages:
-			for requirement in self._PublishedRequirements(packageName, extra, collector):
-				requirements[canonicalize_name(requirement.name)] = requirement
+		for requirement in collector.PublishedRequirements(entrypoint.Packages):
+			requirements[canonicalize_name(requirement.name)] = requirement
 
 		entrypoint.CacheRequirements(requirements)
 
 		return requirements
 
-	def _PublishedRequirements(
-		self,
-		packageName: str,
-		extra: Nullable[str],
-		collector: DependencyCollector
-	) -> list[Requirement]:
+	def _CreateTable(self, identifier: str, resolution: Resolution) -> nodes.table:
 		"""
-		Ask the package index what a package's latest release requires.
+		Render the resolved requirements as a four-column table, one row per package, sorted by name.
 
-		:param packageName:           Name of the package to ask about.
-		:param extra:                 Extra whose requirements are wanted, or ``None`` for the package's own.
-		:param collector:             The build's collector.
-		:returns:                     What that release requires.
-		:raises SphinxExtensionError: If the index doesn't know the
-		  package, can't describe its latest release, or the package has no such extra.
+		:param identifier: Identifier of the entrypoint, used as the table's identifier.
+		:param resolution: The entrypoint's requirements, resolved.
+		:returns:          The finished table.
 		"""
-		if (project := collector.Project(packageName)) is None:
-			raise SphinxExtensionError(f"Package '{packageName}' is unknown to the package index.")
+		from packaging.utils import canonicalize_name
 
-		if (release := collector.Details(project.LatestRelease)) is None:
-			raise SphinxExtensionError(f"The package index can't describe the latest release of '{packageName}'.")
-
-		published: Nullable[list[Requirement]] = release.Requirements.get(extra, None)
-		if published is None:
-			known = ", ".join(sorted(str(key) for key in release.Requirements if key is not None))
-			raise SphinxExtensionError(f"Package '{packageName}' has no extra '{extra}'. Known are: {known}.")
-
-		return published
-
-	def _CreateTable(
-		self,
-		identifier: str,
-		requirements: dict[str, Requirement],
-		collector: DependencyCollector
-	) -> nodes.table:
-		"""
-		Render the requirements as a four-column table.
-
-		:param identifier:   Identifier of the entrypoint, used as the table's identifier.
-		:param requirements: Every required package, by its canonical name.
-		:param collector:    The build's collector.
-		:returns:            The finished table.
-		"""
 		tableGroup = self._CreateSingleRowTableHeader(
 			columns=list(TABLE_COLUMNS),
 			identifier=identifier,
@@ -953,16 +913,11 @@ class DependencyTable(BaseDirective):
 		)
 		tableGroup += (tableBody := nodes.tbody())
 
-		# ':depth: 0' - and the default - means expand until the tree ends; 'None' is that, internally, because
-		# 'depth - 1' would otherwise walk 0 into negative numbers and mean two different things at once
-		depth = self.options.get("depth", DEFAULT_DEPTH)
-		levels: Nullable[int] = None if depth == 0 else depth
-
-		if len(requirements) == 0:
+		if resolution.RequirementCount == 0:
 			tableBody += self._CreateEmptyRow(len(TABLE_COLUMNS))
 		else:
-			for name in sorted(requirements, key=str.lower):
-				tableBody += self._CreateRow(requirements[name], collector, levels)
+			for resolved in sorted(resolution.Requirements, key=lambda item: canonicalize_name(item.Requirement.name)):
+				tableBody += self._CreateRow(resolved)
 
 		table = cast(nodes.table, tableGroup.parent)
 		if (caption := self.options.get("caption", None)) is not None:
@@ -992,65 +947,29 @@ class DependencyTable(BaseDirective):
 
 		return tableRow
 
-	def _CreateRow(
-		self,
-		requirement: Requirement,
-		collector: DependencyCollector,
-		depth: Nullable[int]
-	) -> nodes.row:
+	def _CreateRow(self, resolved: ResolvedRequirement) -> nodes.row:
 		"""
 		Render one required package as a table row.
 
 		A package the index doesn't know, or one with no release matching the requirement, still gets a row - the
 		specifier the entrypoint states is worth showing even when nothing else could be resolved.
 
-		:param requirement: The requirement to render.
-		:param collector:   The build's collector.
-		:param depth:       Levels of sub-dependencies still to expand.
-		:returns:           The table row.
+		:param resolved: The resolved requirement to render.
+		:returns:        The table row.
 		"""
 		tableRow = nodes.row("", classes=["dependency-table-row"])
 
-		project = collector.Project(requirement.name)
-		release = self._SelectRelease(project, requirement, collector)
+		requirement = resolved.Requirement
+		release =     _SelectedRelease(resolved)
 
-		tableRow += self._PackageEntry(requirement, project)
+		tableRow += self._PackageEntry(requirement, resolved.Project)
 		specifier = self._FormatSpecifier(requirement.specifier, self._simplify, self._versionFormat)
 
 		tableRow += nodes.entry("", nodes.paragraph(text=specifier))
 		tableRow += self._LicenseEntry(release)
-		tableRow += self._DependenciesEntry(release, collector, depth, {requirement.name.lower()})
+		tableRow += self._DependenciesEntry(resolved)
 
 		return tableRow
-
-	def _SelectRelease(
-		self,
-		project: Nullable[Project],
-		requirement: Requirement,
-		collector: DependencyCollector
-	) -> Nullable[Release]:
-		"""
-		Return the newest release satisfying a requirement.
-
-		Pre-releases are skipped unless the specifier asks for them, because that is what an installer would resolve
-		to and the table describes what would be installed.
-
-		:param project:     The project to pick a release of, or ``None`` if the index doesn't know it.
-		:param requirement: The requirement to satisfy.
-		:param collector:   The build's collector.
-		:returns:           The newest matching release, or ``None`` if nothing matches.
-		"""
-		if project is None:
-			return None
-
-		matching = [
-			release for version, release in project.Releases.items()
-			if requirement.specifier.contains(str(version))
-		]
-		if len(matching) == 0:
-			return None
-
-		return collector.Details(max(matching, key=lambda release: release.Version))
 
 	@staticmethod
 	def _FormatVersion(version: str, versionFormat: VersionFormat) -> str:
@@ -1249,83 +1168,65 @@ class DependencyTable(BaseDirective):
 
 		return None
 
-	def _DependenciesEntry(
-		self,
-		release: Nullable[Release],
-		collector: DependencyCollector,
-		depth: Nullable[int],
-		visited: set[str]
-	) -> nodes.entry:
+	def _DependenciesEntry(self, resolved: ResolvedRequirement) -> nodes.entry:
 		"""
-		Render a release's own requirements as a nested bullet list.
+		Render the dependencies of a resolved requirement as a nested bullet list.
 
-		Only the unconditional requirements are listed - what an extra pulls in is that extra's table, not this one.
-		A package already on the path is not expanded again, so a dependency cycle terminates.
+		The dependencies are the selected release's unconditional requirements and the requirements of the extras the
+		requirement names (``pyTooling[yaml]``). A package already on the path isn't listed again, so a dependency
+		cycle ends.
 
-		:param release:   The release to render the dependencies of, or ``None``.
-		:param collector: The build's collector.
-		:param depth:     Levels still to expand; at zero nothing is expanded.
-		:param visited:   Packages already on this path, lower-cased.
-		:returns:         The table entry.
+		:param resolved: The resolved requirement to render the dependencies of.
+		:returns:        The table entry.
 		"""
 		entry = nodes.entry()
 
-		if release is None or (depth is not None and depth <= 0):
+		if _SelectedRelease(resolved) is None:
 			entry += nodes.paragraph("", "", nodes.emphasis(text="not evaluated"))
 			return entry
 
-		requirements = [
-			requirement for requirement in release.Requirements.get(None, [])
-			if requirement.name.lower() not in visited
-		]
-		if len(requirements) == 0:
+		if len(dependencies := self._Dependencies(resolved)) == 0:
 			entry += nodes.paragraph("", "", nodes.emphasis(text="none"))
 			return entry
 
-		entry += self._CreateBulletList(requirements, collector, _OneLevelDown(depth), visited)
+		entry += self._CreateBulletList(dependencies)
 
 		return entry
 
-	def _CreateBulletList(
-		self,
-		requirements: list[Requirement],
-		collector: DependencyCollector,
-		depth: Nullable[int],
-		visited: set[str]
-	) -> nodes.bullet_list:
+	@staticmethod
+	def _Dependencies(resolved: ResolvedRequirement) -> list[ResolvedRequirement]:
 		"""
-		Render requirements as a bullet list, each item expanded by one more level.
+		Return the dependencies of a resolved requirement, without those closing a cycle.
+
+		:param resolved: The resolved requirement.
+		:returns:        Its dependencies, except those whose package is on the path already.
+		"""
+		from pyTooling.Dependency.Resolver import ResolutionStatus
+
+		return [dependency for dependency in resolved.Dependencies if dependency.Status is not ResolutionStatus.Cycle]
+
+	def _CreateBulletList(self, dependencies: list[ResolvedRequirement]) -> nodes.bullet_list:
+		"""
+		Render resolved requirements as a bullet list, each item followed by its own dependencies.
 
 		An item whose own dependencies the depth limit cuts off gets a marker saying how many weren't expanded.
 
-		:param requirements: The requirements to list.
-		:param collector:    The build's collector.
-		:param depth:        Levels still to expand below this list.
-		:param visited:      Packages already on this path, lower-cased.
+		:param dependencies: The resolved requirements to list.
 		:returns:            The bullet list.
 		"""
+		from pyTooling.Dependency.Resolver import ResolutionStatus
+
 		bulletList = nodes.bullet_list()
 
-		for requirement in sorted(requirements, key=lambda item: item.name.lower()):
+		for dependency in sorted(dependencies, key=lambda item: item.Requirement.name.lower()):
 			item = nodes.list_item()
+			item += self._RequirementParagraph(dependency.Requirement, dependency.Project, _SelectedRelease(dependency))
 
-			# a leaf at the depth limit is resolved too: whether its tree goes on is what the limit marker states
-			project = collector.Project(requirement.name)
-			release = self._SelectRelease(project, requirement, collector)
-
-			item += self._RequirementParagraph(requirement, project, release)
-
-			if release is not None:
-				nested = [
-					nestedRequirement for nestedRequirement in release.Requirements.get(None, [])
-					if nestedRequirement.name.lower() not in visited
-				]
-				if len(nested) > 0 and (depth is None or depth > 0):
-					item += self._CreateBulletList(
-						nested, collector, _OneLevelDown(depth), visited | {requirement.name.lower()}
-					)
-				elif len(nested) > 0:
+			if len(nested := self._Dependencies(dependency)) > 0:
+				if any(nestedDependency.Status is ResolutionStatus.LimitReached for nestedDependency in nested):
 					item += self._CreateLimitMarker(len(nested))
+				else:
+					item += self._CreateBulletList(nested)
 
 			bulletList += item
 
@@ -1430,11 +1331,11 @@ def reportBuildTime(app: Sphinx, exception: Nullable[Exception]) -> None:
 	:param app:       The Sphinx application that finished building.
 	:param exception: The exception that ended the build, or ``None`` if it succeeded.
 	"""
-	if (collector := _COLLECTORS.pop(id(app), None)) is None or collector.RequestCount == 0:
+	if (collector := _COLLECTORS.pop(id(app), None)) is None or collector.ResolutionCount == 0:
 		return
 
 	_logger.info(
-		f"[dependency-table] {collector.RequestCount} request(s) to the package index, "
+		f"[dependency-table] {collector.ResolutionCount} resolution(s) against the package index, "
 		f"{collector.Seconds:.2f} s in total."
 	)
 
