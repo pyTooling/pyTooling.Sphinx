@@ -117,7 +117,7 @@ __author__ =            "Patrick Lehmann"
 __email__ =             "Paebbels@gmail.com"
 __copyright__ =         "2026-2026, Patrick Lehmann"
 __license__ =           "Apache License, Version 2.0"
-__version__ =           "0.1.0rc4"
+__version__ =           "0.1.0rc5"
 __keywords__ =          ["Sphinx", "Sphinx Extension", "Documentation", "Directive", "Role", "Domain", "docutils"]
 __project_url__ =       "https://github.com/pyTooling/pyTooling.Sphinx"
 __documentation_url__ = "https://pyTooling.github.io/pyTooling.Sphinx"
@@ -142,7 +142,7 @@ from sphinx.roles            import XRefRole
 from sphinx.util.logging     import getLogger
 from sphinx.util.nodes       import make_refnode
 
-from pyTooling.Common        import readResourceFile
+from pyTooling.Common        import getTypeName, readResourceFile
 from pyTooling.Decorators    import export, readonly
 from pyTooling.Documentation import DocumentationError
 
@@ -562,12 +562,12 @@ class BaseDirective(ObjectDescription[str]):
 		"""
 		logger = getLogger(location)
 		logger.error(f"{message}")
-		logger.error(f"  {exception.__class__.__name__}: {exception}")
+		logger.error(f"  {getTypeName(exception)}: {exception}")
 		for note in getattr(exception, "__notes__", ()):
 			logger.error(f"    {note}")
 
 		if exception.__cause__ is not None:
-			logger.error(f"    {exception.__cause__.__class__.__name__}: {exception.__cause__}")
+			logger.error(f"    {getTypeName(exception.__cause__)}: {exception.__cause__}")
 		logger.exception(exception)
 
 		container += nodes.paragraph(text=message)
@@ -969,7 +969,7 @@ def checkReportConfiguration(sphinx: Sphinx, config: Config) -> None:
 		try:
 			check(sphinx, config)
 		except ReportExtensionError as ex:
-			getLogger(__name__).error(f"Caught {ex.__class__.__name__} when checking configuration variables.\n  {ex}")
+			getLogger(__name__).error(f"Caught {getTypeName(ex)} when checking configuration variables.\n  {ex}")
 
 
 @export

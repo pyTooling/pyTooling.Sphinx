@@ -93,7 +93,7 @@ from sphinx.application                            import Sphinx
 from sphinx.config                                 import Config
 from sphinx.util.logging                           import getLogger
 
-from pyTooling.Common                              import getFullyQualifiedName
+from pyTooling.Common                              import getFullyQualifiedName, getTypeName
 from pyTooling.Decorators                          import export
 from pyTooling.Warning                             import WarningCollector
 
@@ -326,9 +326,9 @@ class DocCoverageBase(BaseDirective):
 			raise ReportExtensionError(f"Package '{packageName}' can't be analyzed.") from ex
 
 		for warning in warnings:
-			message = f"Caught {warning.__class__.__name__} when analyzing package '{packageName}'.\n  {warning}"
+			message = f"Caught {getTypeName(warning)} when analyzing package '{packageName}'.\n  {warning}"
 			if (cause := warning.__cause__) is not None:
-				message += f"\n  {cause.__class__.__name__}: {cause}"
+				message += f"\n  {getTypeName(cause)}: {cause}"
 
 			getLogger(__name__).warning(message)
 
@@ -694,14 +694,14 @@ class DocStrCoverage(DocCoverage):
 		try:
 			self._CheckOptions()
 		except SphinxExtensionError as ex:
-			message = f"Caught {ex.__class__.__name__} when checking options for directive '{self.directiveName}'."
+			message = f"Caught {getTypeName(ex)} when checking options for directive '{self.directiveName}'."
 			return self._internalError(container, __name__, message, ex)
 
 		try:
 			self._report = self.GetReport(self._reportID)
 		except ReportExtensionError as ex:
 			cause = ex if ex.__cause__ is None else ex.__cause__
-			message = f"Caught {cause.__class__.__name__} when analyzing package '{self._packageName}'."
+			message = f"Caught {getTypeName(cause)} when analyzing package '{self._packageName}'."
 			return self._internalError(container, __name__, message, cause)
 
 		container += self._GenerateCoverageTable()
@@ -813,7 +813,7 @@ class DocCoverageLegend(DocCoverageBase):
 		try:
 			self._CheckOptions()
 		except SphinxExtensionError as ex:
-			message = f"Caught {ex.__class__.__name__} when checking options for directive '{self.directiveName}'."
+			message = f"Caught {getTypeName(ex)} when checking options for directive '{self.directiveName}'."
 			return self._internalError(container, __name__, message, ex)
 
 		if LegendStyle.Table in self._style:
@@ -887,8 +887,8 @@ class DocCoverageReportPages(ReportPages):
 			except ReportExtensionError as ex:
 				cause = ex if ex.__cause__ is None else ex.__cause__
 				getLogger(__name__).error(
-					f"Caught {ex.__class__.__name__} when generating the pages of documentation coverage '{reportID}'.\n"
-					f"  {cause.__class__.__name__}: {cause}"
+					f"Caught {getTypeName(ex)} when generating the pages of documentation coverage '{reportID}'.\n"
+					f"  {getTypeName(cause)}: {cause}"
 				)
 				continue
 

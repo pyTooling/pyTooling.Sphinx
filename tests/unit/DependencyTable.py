@@ -36,19 +36,19 @@ from pathlib                          import Path
 from sys                              import platform as sys_platform
 from tempfile                         import TemporaryDirectory
 from textwrap                         import dedent
-from typing                           import Any, Optional as Nullable
+from typing                           import Optional as Nullable
 
 from docutils                         import nodes
 from packaging.requirements           import Requirement
 from packaging.specifiers             import SpecifierSet
 from pytest                           import mark
 
-from pyTooling.Dependency             import BrokenRequirementWarning, UnknownLicenseWarning
+from pyTooling.Dependency             import BrokenRequirementWarning, UnknownLicenseWarning, UnsupportedVersionWarning
+from pyTooling.Dependency.Resolver    import ResolutionStatus
 from pyTooling.Sphinx                 import SphinxExtensionError
 from pyTooling.Sphinx.DependencyTable import DependencyFormat, DependencyTable, VersionFormat, formatUnresolvedLicenses
 from pyTooling.Sphinx.DependencyTable import DependencyCollector, readEntrypoints
 from pyTooling.Testing                import Testcase, testsuite, testcase
-from pyTooling.Warning                import CriticalWarning, WarningCollector
 
 
 #: Name of the logger :mod:`pyTooling.Sphinx.DependencyTable` reports through, as Sphinx prefixes it.
@@ -533,111 +533,126 @@ class DependencyFormats(Testcase):
 		self.assertEqual("MajorMinor", str(VersionFormat.MajorMinor))
 
 
-class _TreeRelease:
-	"""A release requiring other packages, unconditionally."""
+class _Resolved:
+	"""A requirement as the resolver hands it over: the package's name stands in for its project and release."""
 
-	def __init__(self, *requirements: str) -> None:
-		self.Requirements = {None: [Requirement(requirement) for requirement in requirements]}
-
-
-class _TreeCollector:
-	"""A collector knowing every package by its name."""
-
-	@staticmethod
-	def Project(name: str) -> str:
-		return name
+	def __init__(self, name: str, status: ResolutionStatus, *dependencies: "_Resolved") -> None:
+		self.Requirement =  Requirement(name)
+		self.Status =       status
+		self.Project =      name
+		self.Release =      name
+		self.Dependencies = dependencies
 
 
 class _TreeTable(DependencyTable):
-	"""A table rendering a package as its name, with releases from a dictionary instead of the package index."""
+	"""A table rendering a package as its name."""
 
-	_releases: dict[str, _TreeRelease]  #: The release of each package, by name.
+	def __init__(self) -> None:
+		pass
 
-	def __init__(self, releases: dict[str, _TreeRelease]) -> None:
-		self._releases = releases
-
-	def _SelectRelease(self, project: str, requirement: Requirement, collector: _TreeCollector) -> _TreeRelease:
-		return self._releases[project]
-
-	def _RequirementParagraph(self, requirement: Requirement, project: str, release: _TreeRelease) -> nodes.paragraph:
+	def _RequirementParagraph(self, requirement: Requirement, project: str, release: str) -> nodes.paragraph:
 		return nodes.paragraph(text=requirement.name)
 
 
 @testsuite("Dependency trees")
 class DependencyTrees(Testcase):
-	"""A dependency tree is expanded up to the depth limit, and says where the limit cut it off."""
+	"""
+	A dependency tree is rendered as the resolver resolved it, and says where the depth limit cut it off.
 
-	_releases = {
-		"a": _TreeRelease("b"),
-		"b": _TreeRelease("c", "d"),
-		"c": _TreeRelease("e"),
-		"d": _TreeRelease(),
-		"e": _TreeRelease("a")
-	}
+	The trees are 'a -> b -> c, d; c -> e -> a', as the resolver returns them for each limit.
+	"""
 
 	@staticmethod
-	def _render(depth: Nullable[int]) -> list[str]:
-		table = _TreeTable(DependencyTrees._releases)
-		bulletList = table._CreateBulletList([Requirement("a")], _TreeCollector(), depth, set())
+	def _render(root: _Resolved) -> list[str]:
+		bulletList = _TreeTable()._CreateBulletList([root])
 
 		return [node.astext() for node in bulletList.findall(nodes.paragraph)]
 
 	@testcase("Unlimited")
 	def Unlimited(self) -> None:
 		"""
-		Without a limit, a tree is expanded until it ends; a cycle ends at a package already on the path.
+		Without a limit, a tree is rendered until it ends; a cycle ends at a package already on the path.
 
-		Renders a -> b -> c, d; c -> e -> a and checks every package is listed once and nothing is marked.
+		Renders a tree whose 'a' below 'e' closes a cycle and checks every package is listed once and nothing is marked.
 		"""
-		self.assertEqual(["a", "b", "c", "e", "d"], self._render(None))
+		tree = _Resolved("a", ResolutionStatus.Resolved,
+			_Resolved("b", ResolutionStatus.Resolved,
+				_Resolved("c", ResolutionStatus.Resolved,
+					_Resolved("e", ResolutionStatus.Resolved, _Resolved("a", ResolutionStatus.Cycle))
+				),
+				_Resolved("d", ResolutionStatus.Resolved)
+			)
+		)
+
+		self.assertEqual(["a", "b", "c", "e", "d"], self._render(tree))
 
 	@testcase("Limited")
 	def Limited(self) -> None:
 		"""
 		A package whose dependencies the limit cuts off says how many weren't expanded.
 
-		Renders the tree with one level below 'a' and checks 'b' is followed by the marker for its two dependencies.
+		Renders a tree whose dependencies of 'b' reached the limit and checks 'b' is followed by the marker for its two.
 		"""
-		self.assertEqual(["a", "b", "… 2 more dependencies not expanded"], self._render(1))
+		tree = _Resolved("a", ResolutionStatus.Resolved,
+			_Resolved("b", ResolutionStatus.Resolved,
+				_Resolved("c", ResolutionStatus.LimitReached),
+				_Resolved("d", ResolutionStatus.LimitReached)
+			)
+		)
+
+		self.assertEqual(["a", "b", "… 2 more dependencies not expanded"], self._render(tree))
 
 	@testcase("Limited, one dependency")
 	def Limited_One(self) -> None:
 		"""
 		The marker counts a single dependency in the singular.
 
-		Renders the tree with two levels below 'a' and checks the marker of 'c', which requires 'e' only.
+		Renders a tree whose 'e' below 'c' reached the limit and checks the marker of 'c'.
 		"""
-		self.assertEqual(["a", "b", "c", "… 1 more dependency not expanded", "d"], self._render(2))
+		tree = _Resolved("a", ResolutionStatus.Resolved,
+			_Resolved("b", ResolutionStatus.Resolved,
+				_Resolved("c", ResolutionStatus.Resolved, _Resolved("e", ResolutionStatus.LimitReached)),
+				_Resolved("d", ResolutionStatus.Resolved)
+			)
+		)
+
+		self.assertEqual(["a", "b", "c", "… 1 more dependency not expanded", "d"], self._render(tree))
 
 	@testcase("Limited, leaf")
 	def Limited_Leaf(self) -> None:
 		"""
 		A package without dependencies gets no marker, even at the limit; neither does a cycle back into the path.
 
-		Renders the tree with three levels below 'a' and checks 'e' - requiring only 'a' - and 'd' are unmarked.
+		Renders a tree whose 'e' requires only 'a', which closes a cycle, and checks 'e' and 'd' are unmarked.
 		"""
-		self.assertEqual(["a", "b", "c", "e", "d"], self._render(3))
+		tree = _Resolved("a", ResolutionStatus.Resolved,
+			_Resolved("b", ResolutionStatus.Resolved,
+				_Resolved("c", ResolutionStatus.Resolved,
+					_Resolved("e", ResolutionStatus.Resolved, _Resolved("a", ResolutionStatus.Cycle))
+				),
+				_Resolved("d", ResolutionStatus.Resolved)
+			)
+		)
+
+		self.assertEqual(["a", "b", "c", "e", "d"], self._render(tree))
+
+	@testcase("Not resolved")
+	def NotResolved(self) -> None:
+		"""
+		A row whose package wasn't resolved to a release says its dependencies weren't evaluated.
+
+		Renders the dependencies entry of a package the index doesn't know and checks the text.
+		"""
+		entry = _TreeTable()._DependenciesEntry(_Resolved("ghost", ResolutionStatus.UnknownProject))
+
+		self.assertEqual("not evaluated", entry.astext())
 
 
-@testsuite("Unresolved license report")
-class _Package:
-	"""A package as a release names it: only its name."""
+def _licenseWarning(name: str) -> UnknownLicenseWarning:
+	warning = UnknownLicenseWarning(f"License of '{name}' 1.0 couldn't be resolved.", projectName=name)
+	warning.add_note("license: BSD")
 
-	def __init__(self, name: str) -> None:
-		self.Name = name
-
-
-class _Release:
-	"""A release whose details name a license the index can't answer for."""
-
-	def __init__(self, name: str) -> None:
-		self.Package = _Package(name)
-		self.Version = "1.0"
-
-	def DownloadDetails(self) -> None:
-		warning = UnknownLicenseWarning(f"License of '{self.Package.Name}' is unknown.")
-		warning.add_note("license: BSD")
-		WarningCollector.Raise(warning)
+	return warning
 
 
 @testsuite("Collecting unresolved licenses")
@@ -649,88 +664,83 @@ class UnresolvedLicenseCollection(Testcase):
 		"""
 		A package required under two spellings is recorded once, by its canonical name.
 
-		Details two releases named 'Sphinx_RTD_Theme' and 'sphinx-rtd-theme', each warning about an unknown license,
-		and checks that one entry remains, keyed 'sphinx-rtd-theme'.
+		Reports two warnings about an unknown license, naming 'Sphinx_RTD_Theme' and 'sphinx-rtd-theme', and checks
+		that one entry remains, keyed 'sphinx-rtd-theme'.
 		"""
 		collector = DependencyCollector({}, "https://pypi.org", "https://pypi.org/pypi", None)
 
-		collector.Details(_Release("Sphinx_RTD_Theme"))
-		collector.Details(_Release("sphinx-rtd-theme"))
+		with self.assertNoLogs(LOGGER_NAME, level="WARNING"):
+			collector._ReportWarnings([_licenseWarning("Sphinx_RTD_Theme"), _licenseWarning("sphinx-rtd-theme")])
 
 		self.assertEqual({"sphinx-rtd-theme": ("license: BSD",)}, collector.UnresolvedLicenses)
 
+	@testcase("Unnamed project")
+	def Unnamed(self) -> None:
+		"""
+		A warning about an unknown license that doesn't name its project is reported as a Sphinx warning.
 
-class _BrokenRelease(_Release):
-	"""A release whose details name a requirement with a marker matching no declared extra."""
+		Reports a warning without a project name and checks it and its note are logged, and nothing is recorded.
+		"""
+		collector = DependencyCollector({}, "https://pypi.org", "https://pypi.org/pypi", None)
+		warning = UnknownLicenseWarning("License of 'pyTooling' 1.0 couldn't be resolved.")
+		warning.add_note("license: BSD")
 
-	def DownloadDetails(self) -> None:
-		warning = BrokenRequirementWarning(
-			f"Package '{self.Package.Name}' has 1 requirement(s) whose marker matches no declared extra."
+		with self.assertLogs(LOGGER_NAME, level="WARNING") as logCapture:
+			collector._ReportWarnings([warning])
+
+		self.assertEqual(1, len(logCapture.records))
+		self.assertEqual(
+			"[dependency-table] License of 'pyTooling' 1.0 couldn't be resolved.\n  license: BSD",
+			logCapture.records[0].getMessage()
 		)
-		warning.add_note("Broken requirement: colorama; extra == 'terminal'")
-		WarningCollector.Raise(warning)
+		self.assertEqual({}, collector.UnresolvedLicenses)
 
 
-@testsuite("Reporting broken requirements")
-class BrokenRequirementReport(Testcase):
-	"""A broken requirement in a release's details is reported as a Sphinx warning, not recorded as a license."""
+@testsuite("Reporting warnings")
+class WarningReport(Testcase):
+	"""A warning reported while resolving is reported as a Sphinx warning, not raised and not recorded as a license."""
 
 	@testcase("Broken requirement")
 	def BrokenRequirement(self) -> None:
 		"""
-		A release whose details warn about a broken requirement is reported and still described.
+		A warning about a broken requirement is logged with its note.
 
-		Details a release warning about a broken requirement, and checks the warning and its note are logged, the
-		release is returned, and no unresolved license is recorded.
+		Reports a warning about a requirement naming an undeclared extra and checks the warning and its note are logged
+		and no unresolved license is recorded.
 		"""
 		collector = DependencyCollector({}, "https://pypi.org", "https://pypi.org/pypi", None)
-		release = _BrokenRelease("pyTooling")
+		warning = BrokenRequirementWarning(
+			"Requirement 'pyTooling[terminal]' names extra 'terminal', which release '1.0' of package 'pyTooling' doesn't "
+			"declare."
+		)
+		warning.add_note("Known extras: yaml")
 
 		with self.assertLogs(LOGGER_NAME, level="WARNING") as logCapture:
-			described = collector.Details(release)
+			collector._ReportWarnings([warning])
 
-		self.assertIs(release, described)
 		self.assertEqual(1, len(logCapture.records))
 		message = logCapture.records[0].getMessage()
-		self.assertIn("[dependency-table] Package 'pyTooling' has 1 requirement(s)", message)
-		self.assertIn("\n  Broken requirement: colorama; extra == 'terminal'", message)
+		self.assertIn("[dependency-table] Requirement 'pyTooling[terminal]' names extra 'terminal'", message)
+		self.assertIn("\n  Known extras: yaml", message)
 		self.assertEqual({}, collector.UnresolvedLicenses)
 
-
-
-class _SkippedReleaseWarning(CriticalWarning):
-	"""A critical warning, like the one pyTooling reports for a release whose version can't be parsed."""
-
-
-class _WarningIndex:
-	"""A package index whose project download reports a critical warning, as a project with an unparsable release does."""
-
-	def DownloadProject(self, projectName: str, lazy: Any) -> str:
-		WarningCollector.Raise(_SkippedReleaseWarning(f"Skipping release '2004d' of package '{projectName}'."))
-		return projectName
-
-
-@testsuite("Reporting project warnings")
-class ProjectWarningReport(Testcase):
-	"""A warning reported while downloading a project is reported as a Sphinx warning, not raised."""
-
-	@testcase("Skipped release")
-	def SkippedRelease(self) -> None:
+	@testcase("Critical warning")
+	def Critical(self) -> None:
 		"""
-		A project whose download reports a critical warning is still returned, and the warning is logged.
+		A critical warning, as pyTooling reports for a release whose version can't be parsed, is logged once.
 
-		Asks for a project from an index whose download reports a critical warning, and checks the project is
-		returned and the warning logged once.
+		Reports a critical warning and checks it is logged.
 		"""
 		collector = DependencyCollector({}, "https://pypi.org", "https://pypi.org/pypi", None)
-		collector._index = _WarningIndex()
 
 		with self.assertLogs(LOGGER_NAME, level="WARNING") as logCapture:
-			project = collector.Project("pytz")
+			collector._ReportWarnings([UnsupportedVersionWarning("Skipping release '2004d' of package 'pytz'.")])
 
-		self.assertEqual("pytz", project)
 		self.assertEqual(1, len(logCapture.records))
-		self.assertIn("[dependency-table] Skipping release '2004d' of package 'pytz'.", logCapture.records[0].getMessage())
+		self.assertEqual(
+			"[dependency-table] Skipping release '2004d' of package 'pytz'.",
+			logCapture.records[0].getMessage()
+		)
 
 
 class UnresolvedLicenseReport(Testcase):

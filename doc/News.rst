@@ -31,6 +31,9 @@ Version 0.x (2026)
      with ``-r``, a warning of a release's details and a warning from loading a project as a Sphinx warning. A package
      whose license needs an override is reported once, by its canonical name - the key the override file is looked up
      by.
+   * A :ref:`dependency-table <DIR/DependencyTable>` resolves the requirements with pyTooling's
+     :class:`~pyTooling.Dependency.Resolver.Resolver`, which downloads the packages of one level in parallel; a
+     requirement naming extras lists their requirements too.
    * A :ref:`tree <DIR/Tree>` explains its icons in a :ref:`legend <DIR/Tree/Legend>`: an icon option takes a text
      behind a ``|``, and ``:legend:`` draws the legend above or below the tree.
    * A :ref:`tree <DIR/Tree>` entry may have a :ref:`description <DIR/Tree/Descriptions>` behind a ``|``, drawn as a
