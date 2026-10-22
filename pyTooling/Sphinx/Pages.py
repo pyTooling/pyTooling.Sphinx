@@ -35,7 +35,8 @@ entity, ... - built without a source file, in the navigation below the directive
 :class:`GeneratedPages` holds what doesn't depend on the model or the domain: the document names, the registration and
 generation of the documents, and the tables of contents. :class:`ReportPages` adds the objects of domain ``report``:
 an entry per page, which a role of :data:`~pyTooling.Sphinx.REPORT_ROLES` refers to. Another domain - e.g. a VHDL
-domain - derives from :class:`GeneratedPages`, names its domain in :attr:`GeneratedPages._DOMAIN`, and registers its
+domain - derives from :class:`GeneratedPages`, names the type of its objects as the type argument
+(``GeneratedPages[Library | DesignUnit]``), names its domain in :attr:`GeneratedPages._DOMAIN`, and registers its
 objects in :meth:`GeneratedPages._Registered`; a page may also be written as reStructuredText, see
 :meth:`GeneratedPages._Fill`.
 
@@ -63,7 +64,7 @@ from __future__                     import annotations
 from pathlib                        import Path
 from re                             import compile as re_compile
 from time                           import time_ns
-from typing                         import Any, ClassVar, Iterable, Optional as Nullable
+from typing                         import Any, ClassVar, Generic, Iterable, Optional as Nullable, TypeVar
 
 from docutils                       import nodes
 from docutils.frontend              import get_default_settings
@@ -86,34 +87,37 @@ from pyTooling.MetaClasses          import ExtendedType, abstractmethod
 from pyTooling.Sphinx               import ReportDomain, ReportEntry, ReportExtensionError
 
 
-__all__ = ["UNSAFE_CHARACTERS"]
+__all__ = ["UNSAFE_CHARACTERS", "EntityType"]
 
 #: Characters of an object's name, which are replaced in its document name.
 UNSAFE_CHARACTERS = re_compile(r"[^A-Za-z0-9_.\-]+")
 
+EntityType = TypeVar("EntityType")  #: The type of the objects a model's pages are generated for.
+
 
 @export
-class GeneratedPages(metaclass=ExtendedType, slots=True):
+class GeneratedPages(Generic[EntityType], metaclass=ExtendedType, slots=True):
 	"""
 	Base-class of the pages generated for one model - a report, a design, ...: a document name per object.
 
 	The document names are computed once, when the pages are created, so a summary, the roles and the pages agree on
-	them. A derived class names an object, lists its children, builds its page, and names the domain of the pages'
-	objects in :attr:`_DOMAIN`; it declares its own class variable :attr:`_pages`, the registry of its models' pages.
+	them. A derived class names the type of the model's objects as the type argument :data:`EntityType`, names an
+	object, lists its children, builds its page, and names the domain of the pages' objects in :attr:`_DOMAIN`; it
+	declares its own class variable :attr:`_pages`, the registry of its models' pages.
 	"""
 
-	_DOMAIN:    ClassVar[str]                                #: Name of the domain, which the pages' objects belong to.
-	_pages:     ClassVar[dict[str, GeneratedPages]] = {}     #: The pages of every model of this kind, by pages ID.
-	_separator: ClassVar[str] = "."                          #: Separator of the names in an object's qualified name.
+	_DOMAIN:    ClassVar[str]                                  #: Name of the domain, which the pages' objects belong to.
+	_pages:     ClassVar[dict[str, GeneratedPages[Any]]] = {}  #: The pages of every model of this kind, by pages ID.
+	_separator: ClassVar[str] = "."                            #: Separator of the names in an object's qualified name.
 
-	_pagesID:   str                             #: Identifier of the pages, e.g. a report's identifier.
-	_source:    Path                            #: The file Sphinx regards as the pages' source, e.g. the report file.
-	_paths:     dict[int, tuple[str, ...]]      #: Names from the model's root down to an object, by its ``id()``.
-	_docNames:  dict[int, str]                  #: Document names, by the ``id()`` of their object.
-	_documents: dict[str, tuple[str, Any]]      #: Role name and object, by document name.
-	_topLevel:  list[str]                       #: Document names of the top-level objects' pages.
+	_pagesID:   str                                #: Identifier of the pages, e.g. a report's identifier.
+	_source:    Path                               #: The file Sphinx regards as the pages' source, e.g. the report file.
+	_paths:     dict[int, tuple[str, ...]]         #: Names from the model's root down to an object, by its ``id()``.
+	_docNames:  dict[int, str]                     #: Document names, by the ``id()`` of their object.
+	_documents: dict[str, tuple[str, EntityType]]  #: Role name and object, by document name.
+	_topLevel:  list[str]                          #: Document names of the top-level objects' pages.
 
-	def __init__(self, pagesID: str, prefix: str, source: Path, topLevel: Iterable[tuple[str, Any]]) -> None:
+	def __init__(self, pagesID: str, prefix: str, source: Path, topLevel: Iterable[tuple[str, EntityType]]) -> None:
 		"""
 		Compute the document names of a model's objects.
 
@@ -133,7 +137,7 @@ class GeneratedPages(metaclass=ExtendedType, slots=True):
 
 		qualifiedNames: dict[str, set[str]] = {}
 
-		def addPages(children: Iterable[tuple[str, Any]], path: tuple[str, ...], directory: str) -> list[str]:
+		def addPages(children: Iterable[tuple[str, EntityType]], path: tuple[str, ...], directory: str) -> list[str]:
 			"""
 			Nested function adding a document name and entry per object, recursing into the objects' children.
 
@@ -212,7 +216,7 @@ class GeneratedPages(metaclass=ExtendedType, slots=True):
 		return pagesID in cls._pages
 
 	@classmethod
-	def GetPages(cls, pagesID: str) -> GeneratedPages:
+	def GetPages(cls, pagesID: str) -> GeneratedPages[Any]:
 		"""
 		Return the pages of a model.
 
@@ -280,7 +284,7 @@ class GeneratedPages(metaclass=ExtendedType, slots=True):
 		"""
 		return tuple(self._documents)
 
-	def DocName(self, entity: Any) -> Nullable[str]:
+	def DocName(self, entity: EntityType) -> Nullable[str]:
 		"""
 		Return the name of an object's document.
 
@@ -399,7 +403,7 @@ class GeneratedPages(metaclass=ExtendedType, slots=True):
 		return table, tableBody
 
 	@abstractmethod
-	def _Name(self, entity: Any) -> str:
+	def _Name(self, entity: EntityType) -> str:
 		"""
 		Return an object's name, the last element of its path.
 
@@ -416,7 +420,7 @@ class GeneratedPages(metaclass=ExtendedType, slots=True):
 		"""
 		return (name, )
 
-	def _Source(self, entity: Any) -> Path:
+	def _Source(self, entity: EntityType) -> Path:
 		"""
 		Return the file Sphinx regards as the source of an object's page: the pages' source, unless a derived class names
 		another one.
@@ -427,7 +431,7 @@ class GeneratedPages(metaclass=ExtendedType, slots=True):
 		return self._source
 
 	@abstractmethod
-	def _Children(self, roleName: str, entity: Any) -> Iterable[tuple[str, Any]]:
+	def _Children(self, roleName: str, entity: EntityType) -> Iterable[tuple[str, EntityType]]:
 		"""
 		Return an object's children, in the order of their pages.
 
@@ -442,7 +446,7 @@ class GeneratedPages(metaclass=ExtendedType, slots=True):
 		document:          nodes.document,
 		docName:           str,
 		roleName:          str,
-		entity:            Any
+		entity:            EntityType
 	) -> None:
 		"""
 		Add an object's page to its document: the top section built by :meth:`_Page`.
@@ -500,7 +504,7 @@ class GeneratedPages(metaclass=ExtendedType, slots=True):
 			transformer.apply_transforms()
 
 	@abstractmethod
-	def _Page(self, docName: str, roleName: str, entity: Any) -> nodes.section:
+	def _Page(self, docName: str, roleName: str, entity: EntityType) -> nodes.section:
 		"""
 		Build an object's page.
 
@@ -510,7 +514,7 @@ class GeneratedPages(metaclass=ExtendedType, slots=True):
 		:returns:        The page's top section.
 		"""
 
-	def _Registered(self, domain: Domain, docName: str, roleName: str, entity: Any) -> None:
+	def _Registered(self, domain: Domain, docName: str, roleName: str, entity: EntityType) -> None:
 		"""
 		Register an object's page in the pages' domain, after the page was generated.
 
@@ -524,7 +528,7 @@ class GeneratedPages(metaclass=ExtendedType, slots=True):
 
 
 @export
-class ReportPages(GeneratedPages):
+class ReportPages(GeneratedPages[EntityType]):
 	"""
 	Base-class of the pages of one report: a document name and an entry of domain ``report`` per object.
 
@@ -536,7 +540,7 @@ class ReportPages(GeneratedPages):
 
 	_entries: dict[int, ReportEntry]  #: The entries, by the ``id()`` of their object.
 
-	def __init__(self, reportID: str, prefix: str, reportFile: Path, topLevel: Iterable[tuple[str, Any]]) -> None:
+	def __init__(self, reportID: str, prefix: str, reportFile: Path, topLevel: Iterable[tuple[str, EntityType]]) -> None:
 		"""
 		Compute the document names and entries of a report's objects.
 
@@ -585,7 +589,7 @@ class ReportPages(GeneratedPages):
 		"""
 		return self._pagesID
 
-	def Entry(self, entity: Any) -> Nullable[ReportEntry]:
+	def Entry(self, entity: EntityType) -> Nullable[ReportEntry]:
 		"""
 		Return the entry of an object of this report.
 
@@ -594,7 +598,7 @@ class ReportPages(GeneratedPages):
 		"""
 		return self._entries.get(id(entity), None)
 
-	def _Reference(self, roleName: str, entity: Any, docName: str) -> nodes.Node:
+	def _Reference(self, roleName: str, entity: EntityType, docName: str) -> nodes.Node:
 		"""
 		Create a reference to an object's page, or its name if it has no page.
 
@@ -609,7 +613,7 @@ class ReportPages(GeneratedPages):
 		return self.CreateReference(roleName, entry, docName)
 
 	@abstractmethod
-	def _Title(self, entity: Any) -> Nullable[str]:
+	def _Title(self, entity: EntityType) -> Nullable[str]:
 		"""
 		Return an object's title written for a reader, if it differs from its name.
 
@@ -617,7 +621,7 @@ class ReportPages(GeneratedPages):
 		:returns:      The title, or ``None``.
 		"""
 
-	def _Registered(self, domain: Domain, docName: str, roleName: str, entity: Any) -> None:
+	def _Registered(self, domain: Domain, docName: str, roleName: str, entity: EntityType) -> None:
 		"""
 		Register an object's entry in domain ``report``, after its page was generated.
 

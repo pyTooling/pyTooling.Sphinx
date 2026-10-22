@@ -57,7 +57,7 @@ CONF = dedent("""\
 	MODEL = {"name": "root", "children": [{"name": "left"}, {"name": "right", "children": [{"name": "leaf"}]}]}
 
 
-	class TreePages(GeneratedPages):
+	class TreePages(GeneratedPages[dict]):
 		_DOMAIN = "py"
 		_pages = {}
 
