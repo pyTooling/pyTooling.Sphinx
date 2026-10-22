@@ -489,6 +489,28 @@ class DomainData(PagesProject):
 		self.assertEqual([], domain.FindEntries("tc", "test_Unread"))
 
 
+	@testcase("An entry with an anchor")
+	def Anchor(self) -> None:
+		"""
+		A reference to an entry with an anchor links to that part of its page.
+
+		Builds the project, adds an entry with an anchor, and resolves a reference to it.
+		"""
+		app = self._buildPages("Index\n#####\n")
+		domain: ReportDomain = app.env.domains[ReportDomain.name]
+
+		domain.AddEntry("tc", ReportEntry("other/page", "ut", ("other", "test_Anchored"), ".", None, "anchored"))
+		contnode = nodes.inline("test_Anchored", "test_Anchored")
+		node = addnodes.pending_xref("", refexplicit=False)
+		reference = domain.resolve_xref(app.env, "index", app.builder, "tc", "test_Anchored", node, contnode)
+
+		self.assertEqual("other/page.html#anchored", reference["refuri"])
+		self.assertIn(
+			("ut:other.test_Anchored", "other.test_Anchored", "testcase", "other/page", "anchored", 2),
+			list(domain.get_objects())
+		)
+
+
 @testsuite("Configuration key 'pages'")
 class Configuration(Project):
 	"""The key 'pages' of a report's configuration."""
