@@ -657,14 +657,17 @@ def setLaTeXDefaults(sphinx: Sphinx, config: Config) -> None:
 @export
 class ReportEntry(NamedTuple):
 	"""
-	An object of a report, which has a page of its own - a testcase, a source file, ...: where it is, and its names.
+	An object of a report shown by a generated page - a testcase, a source file, ...: where it is, and its names.
+
+	An object is shown by a page of its own, or - with an anchor - by a part of another page.
 	"""
 
-	docName:   str              #: Name of the generated document showing the object.
-	reportID:  str              #: Identifier of the report in its configuration value.
-	path:      tuple[str, ...]  #: Names of the objects from the report's root down to this object's own name.
-	separator: str              #: Separator of the names in a qualified name, e.g. ``.`` or ``/``.
-	title:     Nullable[str]    #: Title of the object written for a reader, if the report has one.
+	docName:   str                    #: Name of the generated document showing the object.
+	reportID:  str                    #: Identifier of the report in its configuration value.
+	path:      tuple[str, ...]        #: Names of the objects from the report's root down to this object's own name.
+	separator: str                    #: Separator of the names in a qualified name, e.g. ``.`` or ``/``.
+	title:     Nullable[str]          #: Title of the object written for a reader, if the report has one.
+	anchor:    Nullable[str] = None   #: Anchor of the object's part of the page, or ``None`` for the whole page.
 
 	@readonly
 	def Name(self) -> str:
@@ -855,7 +858,8 @@ class ReportDomain(Domain):
 		Resolve a reference to an object of a report into a link to its page.
 
 		The link shows the object's name, or the title written in the role; in HTML, its title written for a reader - if
-		the report has one - is shown on hover. An ambiguous name is warned about and shown as text.
+		the report has one - is shown on hover. It points to the object's anchor, if it has one, and to a line, if the
+		target ends in one. An ambiguous name is warned about and shown as text.
 
 		:param env:         The build environment.
 		:param fromdocname: Name of the document holding the reference.
@@ -894,7 +898,7 @@ class ReportDomain(Domain):
 			content = nodes.inline(text, text, classes=contnode["classes"])
 
 		try:
-			return make_refnode(builder, fromdocname, entry.docName, anchor or None, content, entry.title)
+			return make_refnode(builder, fromdocname, entry.docName, anchor or entry.anchor, content, entry.title)
 		except NoUri:
 			# a builder may not write every document, so a link to a page becomes the name
 			return content
@@ -924,7 +928,7 @@ class ReportDomain(Domain):
 			if len(entries := self.FindEntries(roleName, target)) == 1:
 				entry = entries[0]
 				content = nodes.inline(entry.Name, entry.Name, classes=contnode["classes"])
-				reference = make_refnode(builder, fromdocname, entry.docName, None, content, entry.title)
+				reference = make_refnode(builder, fromdocname, entry.docName, entry.anchor, content, entry.title)
 				results.append((f"{self.name}:{roleName}", reference))
 
 		return results
@@ -942,7 +946,10 @@ class ReportDomain(Domain):
 			priority = 2 if roleName == "tc" else 1
 			for reportID, entries in self.data[roleName].items():
 				for qualifiedName, entry in entries.items():
-					yield f"{reportID}:{qualifiedName}", entry.QualifiedName, definition.objectType, entry.docName, "", priority
+					yield (
+						f"{reportID}:{qualifiedName}", entry.QualifiedName, definition.objectType, entry.docName,
+						entry.anchor or "", priority
+					)
 
 
 @export

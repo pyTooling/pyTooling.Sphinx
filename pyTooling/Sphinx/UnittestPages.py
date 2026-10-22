@@ -79,8 +79,8 @@ class UnittestReportPages(ReportPages):
 	The pages of one unit test report: a page per testsuite and per testcase.
 	"""
 
-	_reportPages: ClassVar[dict[str, ReportPages]] = {}  #: The pages of every unit test report with pages, by report ID.
-	_separator:   ClassVar[str] = "."                    #: Separator of the names in a qualified name.
+	_pages:     ClassVar[dict[str, ReportPages]] = {}  #: The pages of every unit test report with pages, by report ID.
+	_separator: ClassVar[str] = "."                    #: Separator of the names in a qualified name.
 
 	_summary: TestsuiteSummary  #: The report's testsuite summary.
 
@@ -111,7 +111,7 @@ class UnittestReportPages(ReportPages):
 
 		:param sphinxApplication: Sphinx application instance.
 		"""
-		cls._reportPages = {}
+		cls._pages = {}
 		for reportID, testSummary in UnittestSummary._testSummaries.items():
 			if (prefix := testSummary["pages"]) is None:
 				continue
@@ -127,7 +127,7 @@ class UnittestReportPages(ReportPages):
 				continue
 
 			pages = cls(reportID, prefix, testSummary["xml_report"], summary)
-			cls._reportPages[reportID] = pages
+			cls._pages[reportID] = pages
 			pages.Register(sphinxApplication.env)
 
 	def _Name(self, entity: Testsuite | Testcase) -> str:
