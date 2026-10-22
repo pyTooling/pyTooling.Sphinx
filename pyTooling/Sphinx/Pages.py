@@ -58,32 +58,32 @@ directive's document; a page's own sections aren't listed there. Every object wi
    :mod:`pyTooling.Sphinx.UnittestPages`
       |rarr| The pages of a unit test report: a page per testsuite and testcase.
 """
-from __future__                 import annotations
+from __future__                     import annotations
 
-from pathlib                    import Path
-from re                         import compile as re_compile
-from time                       import time_ns
-from typing                     import Any, ClassVar, Iterable, Optional as Nullable
+from pathlib                        import Path
+from re                             import compile as re_compile
+from time                           import time_ns
+from typing                         import Any, ClassVar, Iterable, Optional as Nullable
 
-from docutils                   import nodes
-from docutils.frontend          import get_default_settings
-from docutils.readers.standalone import Reader
+from docutils                       import nodes
+from docutils.frontend              import get_default_settings
+from docutils.readers.standalone    import Reader
 from docutils.transforms.references import DanglingReferences
-from docutils.utils             import DependencyList
-from sphinx.domains             import Domain
-from sphinx                     import addnodes
-from sphinx.addnodes            import pending_xref
-from sphinx.application         import Sphinx
-from sphinx.environment         import BuildEnvironment
-from sphinx.transforms          import DoctreeReadEvent, SphinxTransformer
-from sphinx.util.docutils       import new_document, sphinx_domains
-from sphinx.util.logging        import getLogger
+from docutils.utils                 import DependencyList
+from sphinx                         import addnodes
+from sphinx.addnodes                import pending_xref
+from sphinx.application             import Sphinx
+from sphinx.domains                 import Domain
+from sphinx.environment             import BuildEnvironment
+from sphinx.transforms              import DoctreeReadEvent, SphinxTransformer
+from sphinx.util.docutils           import new_document, sphinx_domains
+from sphinx.util.logging            import getLogger
 
-from pyTooling.Common           import getFullyQualifiedName
-from pyTooling.Decorators       import export, readonly
-from pyTooling.MetaClasses      import ExtendedType, abstractmethod
+from pyTooling.Common               import getFullyQualifiedName
+from pyTooling.Decorators           import export, readonly
+from pyTooling.MetaClasses          import ExtendedType, abstractmethod
 
-from pyTooling.Sphinx           import ReportDomain, ReportEntry, ReportExtensionError
+from pyTooling.Sphinx               import ReportDomain, ReportEntry, ReportExtensionError
 
 
 __all__ = ["UNSAFE_CHARACTERS"]
