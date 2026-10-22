@@ -186,8 +186,8 @@ class CodeCoverageReportPages(ReportPages):
 	The pages of one code coverage report: a page per directory and per source file.
 	"""
 
-	_reportPages: ClassVar[dict[str, ReportPages]] = {}  #: The pages of every code coverage report with pages, by ID.
-	_separator:   ClassVar[str] = "/"                    #: Separator of the names in a path.
+	_pages:     ClassVar[dict[str, ReportPages]] = {}  #: The pages of every code coverage report with pages, by ID.
+	_separator: ClassVar[str] = "/"                    #: Separator of the names in a path.
 
 	_sources: Path                                   #: Directory the report's file paths are relative to.
 	_levels:  dict[Union[int, str], dict[str, str]]  #: The report's coverage levels, coloring the tables.
@@ -226,7 +226,7 @@ class CodeCoverageReportPages(ReportPages):
 
 		:param sphinxApplication: Sphinx application instance.
 		"""
-		cls._reportPages = {}
+		cls._pages = {}
 		for reportID, packageConfiguration in CodeCoverageBase._packageConfigurations.items():
 			if (prefix := packageConfiguration["pages"]) is None:
 				continue
@@ -245,7 +245,7 @@ class CodeCoverageReportPages(ReportPages):
 				reportID, prefix, packageConfiguration["report"], coverage, packageConfiguration["sources"],
 				packageConfiguration["levels"]
 			)
-			cls._reportPages[reportID] = pages
+			cls._pages[reportID] = pages
 			pages.Register(sphinxApplication.env)
 
 	@staticmethod
