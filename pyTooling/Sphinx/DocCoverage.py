@@ -834,13 +834,13 @@ class DocCoverageLegend(DocCoverageBase):
 
 
 @export
-class DocCoverageReportPages(ReportPages):
+class DocCoverageReportPages(ReportPages["Item"]):
 	"""
 	The pages of one package's documentation coverage: a page per package and per module.
 	"""
 
-	_pages:     ClassVar[dict[str, ReportPages]] = {}  #: The pages of every analyzed package with pages, by report ID.
-	_separator: ClassVar[str] = "."                    #: Separator of the names in a dotted name.
+	_pages:     ClassVar[dict[str, DocCoverageReportPages]] = {}  #: The pages of every analyzed package, by report ID.
+	_separator: ClassVar[str] = "."                               #: Separator of the names in a dotted name.
 
 	_directory: Path                                   #: The package's source directory.
 	_levels:    dict[Union[int, str], dict[str, str]]  #: The package's coverage levels, coloring the tables.

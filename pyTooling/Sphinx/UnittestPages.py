@@ -74,13 +74,13 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 @export
-class UnittestReportPages(ReportPages):
+class UnittestReportPages(ReportPages["Testsuite | Testcase"]):
 	"""
 	The pages of one unit test report: a page per testsuite and per testcase.
 	"""
 
-	_pages:     ClassVar[dict[str, ReportPages]] = {}  #: The pages of every unit test report with pages, by report ID.
-	_separator: ClassVar[str] = "."                    #: Separator of the names in a qualified name.
+	_pages:     ClassVar[dict[str, UnittestReportPages]] = {}  #: The pages of every unit test report, by report ID.
+	_separator: ClassVar[str] = "."                            #: Separator of the names in a qualified name.
 
 	_summary: TestsuiteSummary  #: The report's testsuite summary.
 
