@@ -1,3 +1,3 @@
 pyTooling[pypi] >= 10.0.0rc6, < 11.0
-sphinx >= 9.1.1
+sphinx >= 9.1.1  # Not ~= 9.2: Sphinx 9.2 dropped Python 3.12 support.
 xmlschema ~= 4.3
