@@ -46,8 +46,8 @@ from pytest                           import mark
 from pyTooling.Dependency             import BrokenRequirementWarning, UnknownLicenseWarning, UnsupportedVersionWarning
 from pyTooling.Dependency.Resolver    import ResolutionStatus
 from pyTooling.Sphinx                 import SphinxExtensionError
-from pyTooling.Sphinx.DependencyTable import DependencyFormat, DependencyTable, VersionFormat, formatUnresolvedLicenses
-from pyTooling.Sphinx.DependencyTable import DependencyCollector, readEntrypoints
+from pyTooling.Sphinx.DependencyTable import DependencyFormat, DependencyTable, VersionFormat, \
+                                             formatUnresolvedLicenses, DependencyCollector, readEntrypoints
 from pyTooling.Testing                import Testcase, testsuite, testcase
 
 

@@ -119,8 +119,8 @@ from pyTooling.Common                  import StringEnum
 from pyTooling.Decorators              import export
 from pyTooling.Tree                    import Node
 from pyTooling.Sphinx                  import BaseDirective, SphinxExtensionError, strip
-from pyTooling.Sphinx.Node             import TreeDescription, TreeItem, TreeLabel, TreeLegend, TreeLegendItem
-from pyTooling.Sphinx.Node             import TreeSeparator
+from pyTooling.Sphinx.Node             import TreeDescription, TreeItem, TreeLabel, TreeLegend, TreeLegendItem, \
+                                              TreeSeparator
 
 
 __all__ = [

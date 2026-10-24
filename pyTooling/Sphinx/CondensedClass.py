@@ -66,8 +66,8 @@ descriptor it installed. The file is registered as a dependency of the page, so 
 make up a slotted class' fields - those are implementation. Class *variables* are kept, because a name with a value
 at class level is part of what a caller may read.
 """
-from ast                  import AST, AnnAssign, Assign, AsyncFunctionDef, ClassDef, FunctionDef, Module, Name
-from ast                  import get_source_segment, parse, unparse
+from ast                  import AST, AnnAssign, Assign, AsyncFunctionDef, ClassDef, FunctionDef, Module, Name, \
+                                 get_source_segment, parse, unparse
 from enum                 import Flag, auto
 from re                   import sub as re_sub
 from importlib.util       import find_spec

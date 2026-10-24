@@ -36,8 +36,9 @@ from unittest.mock                 import MagicMock
 from zlib                          import compress
 
 from pyTooling.Sphinx              import SphinxExtensionError, setup
-from pyTooling.Sphinx.ExternalLink import HOST_ICONS, ExternalLinkIcons, LinkIcon, MarkDownloadLinks, MarkExternalLinks
-from pyTooling.Sphinx.ExternalLink import AddDownloadSizes, MarkIntersphinxLinks, checkExternalLinkConfiguration
+from pyTooling.Sphinx.ExternalLink import HOST_ICONS, ExternalLinkIcons, LinkIcon, MarkDownloadLinks, \
+                                          MarkExternalLinks, AddDownloadSizes, MarkIntersphinxLinks, \
+                                          checkExternalLinkConfiguration
 from pyTooling.Testing             import Testcase, testsuite, testcase
 
 from tests.unit.Extension          import Project

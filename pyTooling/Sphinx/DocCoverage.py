@@ -85,8 +85,8 @@ from __future__                                    import annotations
 
 from pathlib                                       import Path
 from tokenize                                      import open as tokenize_open
-from typing                                        import TYPE_CHECKING, Any, ClassVar, Iterable, Optional as Nullable
-from typing                                        import TypedDict, Union
+from typing                                        import TYPE_CHECKING, Any, ClassVar, Iterable, \
+                                                          Optional as Nullable, TypedDict, Union
 
 from docutils                                      import nodes
 from sphinx.application                            import Sphinx
@@ -97,9 +97,9 @@ from pyTooling.Common                              import getFullyQualifiedName,
 from pyTooling.Decorators                          import export
 from pyTooling.Warning                             import WarningCollector
 
-from pyTooling.Sphinx                              import BaseDirective, LegendStyle, ReportExtensionError
-from pyTooling.Sphinx                              import ReportsPackageMissingError, SphinxExtensionError, strip
-from pyTooling.Sphinx                              import stripAndNormalize
+from pyTooling.Sphinx                              import BaseDirective, LegendStyle, ReportExtensionError, \
+                                                          ReportsPackageMissingError, SphinxExtensionError, strip, \
+                                                          stripAndNormalize
 from pyTooling.Sphinx.CodeCoveragePages            import tokenizeSource
 from pyTooling.Sphinx.CondensedSource              import CondensedSource, documentationState
 from pyTooling.Sphinx.Node                         import DOCUMENTATION_STATES, DocCoverageListing, ReportIndentation

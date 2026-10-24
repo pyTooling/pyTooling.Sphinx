@@ -84,8 +84,9 @@ from sphinx.util.logging              import getLogger
 from pyTooling.Common                 import getFullyQualifiedName, getTypeName
 from pyTooling.Decorators             import export
 
-from pyTooling.Sphinx                 import BaseDirective, LegendStyle, ReportExtensionError
-from pyTooling.Sphinx                 import ReportsPackageMissingError, SphinxExtensionError, strip, stripAndNormalize
+from pyTooling.Sphinx                 import BaseDirective, LegendStyle, ReportExtensionError, \
+                                             ReportsPackageMissingError, SphinxExtensionError, strip, \
+                                             stripAndNormalize
 from pyTooling.Sphinx.Node            import Landscape, ReportIndentation
 from pyTooling.Sphinx.Pages           import ReportPages
 

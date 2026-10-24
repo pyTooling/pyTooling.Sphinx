@@ -38,11 +38,10 @@ from docutils              import nodes
 from sphinx.writers.html5  import HTML5Translator
 
 from pyTooling.Decorators  import export
-from pyTooling.Sphinx.Node import Abbreviation, CopyButton, Landscape, TreeDescription, TreeItem, TreeLabel
-from pyTooling.Sphinx.Node import TreeLegend, TreeLegendItem, TreeSeparator
-from pyTooling.Sphinx.Node import COVERAGE_STATES, DOCUMENTATION_STATES, CoverageListing, DocCoverageListing
-from pyTooling.Sphinx.Node import Emoji, LineBreak, ReportIndentation, TaskListCheckbox
-from pyTooling.Sphinx.Node import visitFunc, departFunc
+from pyTooling.Sphinx.Node import Abbreviation, CopyButton, Landscape, TreeDescription, TreeItem, TreeLabel, \
+                                  TreeLegend, TreeLegendItem, TreeSeparator, COVERAGE_STATES, DOCUMENTATION_STATES, \
+                                  CoverageListing, DocCoverageListing, Emoji, LineBreak, ReportIndentation, \
+                                  TaskListCheckbox, visitFunc, departFunc
 
 
 __all__ = [

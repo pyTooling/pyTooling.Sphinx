@@ -59,8 +59,8 @@ from __future__                         import annotations
 from datetime                           import timedelta
 from enum                               import Flag
 from pathlib                            import Path
-from typing                             import TYPE_CHECKING, Any, ClassVar, Generator, Mapping, Optional as Nullable
-from typing                             import TypedDict
+from typing                             import TYPE_CHECKING, Any, ClassVar, Generator, Mapping, Optional as Nullable, \
+                                               TypedDict
 from xml.etree.ElementTree              import iterparse  # nosec B405 - reads the root element of the project's report
 
 from docutils                           import nodes
@@ -72,16 +72,14 @@ from sphinx.util.logging                import getLogger
 from pyTooling.Common                   import getTypeName
 from pyTooling.Decorators               import export
 
-from pyTooling.Sphinx                   import BaseDirective, ReportExtensionError
-from pyTooling.Sphinx                   import ReportsPackageMissingError, SphinxExtensionError
-from pyTooling.Sphinx                   import strip, stripAndNormalize
+from pyTooling.Sphinx                   import BaseDirective, ReportExtensionError, ReportsPackageMissingError, \
+                                               SphinxExtensionError, strip, stripAndNormalize
 from pyTooling.Sphinx.Node              import Landscape, ReportIndentation
 from pyTooling.Sphinx.Pages             import ReportPages
 
 if TYPE_CHECKING:  # pragma: no cover
 	# pyEDAA.Reports is an optional dependency (extra 'reports'), imported where a report is read.
-	from pyEDAA.Reports.Unittesting       import TestcaseStatus, TestsuiteStatus
-	from pyEDAA.Reports.Unittesting       import Testcase, Testsuite, TestsuiteSummary
+	from pyEDAA.Reports.Unittesting       import TestcaseStatus, TestsuiteStatus, Testcase, Testsuite, TestsuiteSummary
 
 
 __all__ = ["CONFIG_PREFIX", "REPORT_FORMATS"]

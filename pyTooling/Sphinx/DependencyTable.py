@@ -68,8 +68,8 @@ from __future__                      import annotations
 
 from enum                            import Enum, auto
 from pathlib                         import Path
-from typing                          import TYPE_CHECKING, Any, ClassVar, Iterable, Literal, Mapping
-from typing                          import Optional as Nullable, TypeVar, cast
+from typing                          import TYPE_CHECKING, Any, ClassVar, Iterable, Literal, Mapping, \
+                                            Optional as Nullable, TypeVar, cast
 
 from pyTooling.Common                import getFullyQualifiedName
 from pyTooling.Decorators            import export, readonly
@@ -91,12 +91,11 @@ if TYPE_CHECKING:  # pragma: no cover
 	from sphinx.config                 import Config
 	from packaging.requirements        import Requirement
 	from packaging.specifiers          import SpecifierSet
-	from pyTooling.Dependency.Python   import LicenseOverrides, Project, PythonPackageDependencyGraph
-	from pyTooling.Dependency.Python   import PythonPackageIndex, Release, RequirementsFile
+	from pyTooling.Dependency.Python   import LicenseOverrides, Project, PythonPackageDependencyGraph, \
+	                                          PythonPackageIndex, Release, RequirementsFile
 	from pyTooling.Dependency.Resolver import Resolution, ResolvedRequirement
 
-from pyTooling.Sphinx                import BaseDirective, SphinxExtensionError, strip
-from pyTooling.Sphinx                import stripAndNormalize
+from pyTooling.Sphinx                import BaseDirective, SphinxExtensionError, strip, stripAndNormalize
 
 
 #: URL of the package index the tables are built from, unless :file:`conf.py` names another.
