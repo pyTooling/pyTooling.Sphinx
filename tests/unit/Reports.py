@@ -38,7 +38,7 @@ from sys                             import executable
 from textwrap                        import dedent
 from unittest.mock                   import MagicMock
 
-from pyTooling.Sphinx                import ReportDomain, setup
+from pyTooling.Sphinx                import ReportDomain, ReportRole, setup
 from pyTooling.Sphinx.ExternalLink   import AddDownloadSizes, MarkDownloadLinks, MarkExternalLinks, MarkIntersphinxLinks
 from pyTooling.Sphinx.GitHubMarkdown import RasterizeShieldsBadges
 from pyTooling.Sphinx.Tree           import RemoveTreeLegends
@@ -367,3 +367,73 @@ class Rendering(ReportProject):
 			"ERROR: Caught ReportExtensionError when checking options for directive 'unittest-summary'.",
 			"\n".join(self._warningLines())
 		)
+
+
+@testsuite("Derived report domain")
+class DerivedDomain(Project):
+	"""A domain derived from 'ReportDomain' with roles of its own, resolving references to the entries it registers."""
+
+	_conf = dedent("""\
+		from docutils                import nodes
+		from sphinx.domains          import ObjType
+		from sphinx.util.docutils    import SphinxDirective
+		from pyTooling.Sphinx        import ReportDomain, ReportEntry, ReportRole, ReportRoleDefinition
+
+		ROLES = {"run": ReportRoleDefinition("run", "own_Reports", "own reports")}
+
+		class OwnDomain(ReportDomain):
+			_ROLES = ROLES
+			name = "own"
+			label = "own"
+			object_types = {d.objectType: ObjType(d.objectType, r) for r, d in ROLES.items()}
+			initial_data = {r: {} for r in ROLES}
+			roles = {r: ReportRole(domain="own", innernodeclass=nodes.inline, warn_dangling=True) for r in ROLES}
+			dangling_warnings = {r: f"{d.objectType} '%(target)s' not found in the {d.reports}" for r, d in ROLES.items()}
+
+		class RunEntry(SphinxDirective):
+			def run(self):
+				entry = ReportEntry(self.env.docname, "r1", ("Suite", "Run1"), ".", "First run")
+				self.env.domains["own"].AddEntry("run", entry)
+				return []
+
+		def setup(app):
+			app.add_config_value("own_Reports", {"r1": {}}, "env", dict)
+			app.add_domain(OwnDomain)
+			app.add_directive_to_domain("own", "run-entry", RunEntry)
+	""")
+
+	@testcase("References")
+	def References(self) -> None:
+		"""
+		A role of the derived domain resolves a qualified name and a suffix of it, and warns about an unknown name in the
+		domain's own words.
+
+		Builds a project whose second document registers an entry, and checks the links and the warning.
+		"""
+		self._build(
+			"Index\n#####\n\n:own:run:`r1:Suite.Run1`, :own:run:`Run1` and :own:run:`Run2`.\n",
+			documents={"other": "Other\n#####\n\n.. own:run-entry::\n"}, conf=self._conf
+		)
+
+		html = self._html("index")
+		self.assertEqual(
+			2, html.count('href="other.html" title="First run"><span class="xref own own-run">Run1</span></a>')
+		)
+		self.assertEqual(
+			["src/index.rst:4: WARNING: run 'Run2' not found in the own reports [ref.run]"], self._warningLines()
+		)
+
+	@testcase("Role parameter")
+	def RoleParameter(self) -> None:
+		"""
+		A role's domain is a string.
+
+		Creates roles with a missing domain and a domain of a wrong type.
+		"""
+		with self.assertRaises(ValueError) as context:
+			_ = ReportRole(domain=None)
+		self.assertEqual("Parameter 'domain' is None.", str(context.exception))
+
+		with self.assertRaises(TypeError) as context:
+			_ = ReportRole(domain=1)
+		self.assertEqual("Parameter 'domain' is not of type 'str'.", str(context.exception))

@@ -29,13 +29,20 @@
 # ==================================================================================================================== #
 #
 """
-Unit tests for :mod:`pyTooling.Sphinx.Unittest`: which testcases are listed, and how a runtime is written.
+Unit tests for :mod:`pyTooling.Sphinx.Unittest`: which testcases are listed, how a runtime is written, and the columns
+of a table a derived directive declares.
 """
 from datetime                  import timedelta
+from pathlib                   import Path
+from textwrap                  import dedent
+
+from docutils                  import nodes
 
 from pyEDAA.Reports            import Unittesting
-from pyTooling.Sphinx.Unittest import CONFIG_PREFIX, ShowTestcases, UnittestSummary
+from pyTooling.Sphinx.Unittest import CONFIG_PREFIX, Column, ColumnGroup, ShowTestcases, UnittestSummary
 from pyTooling.Testing         import Testcase, testsuite, testcase
+
+from tests.unit.Extension      import Project
 
 
 if __name__ == "__main__":  # pragma: no cover
@@ -128,3 +135,129 @@ class Summary(Testcase):
 		self.assertEqual("❌", directive._ConvertTestcaseStatusToSymbol(Unittesting.TestcaseStatus.Failed))
 		self.assertEqual("✅", directive._ConvertTestsuiteStatusToSymbol(Unittesting.TestsuiteStatus.Passed))
 		self.assertEqual("❌", directive._ConvertTestsuiteStatusToSymbol(Unittesting.TestsuiteStatus.Failed))
+
+
+DATA = Path(__file__).parent.parent / "data" / "Report"
+"""Directory of the report files the testcases read."""
+
+
+@testsuite("Table columns")
+class Columns(Testcase):
+	"""A column's parameters, and the cells it creates from the content its functions return."""
+
+	@testcase("Cells")
+	def Cells(self) -> None:
+		"""
+		A text becomes the cell's text, a node the cell's child, a cell is taken as is, and no function leaves it empty.
+
+		Creates the testsuite and testcase cells of four columns.
+		"""
+		testsuite = Unittesting.Testsuite("Suite")
+		testcase = Unittesting.Testcase("Case", parent=testsuite)
+		ownCell = nodes.entry("", nodes.Text("own"), classes=["mismatch"])
+
+		textCell = Column("Text", testsuite=lambda entity: entity.Name).TestsuiteCell(testsuite)
+		nodeCell = Column("Node", testcase=lambda entity: nodes.strong("", entity.Name)).TestcaseCell(testcase)
+		entryCell = Column("Entry", testcase=lambda entity: ownCell).TestcaseCell(testcase)
+		emptyCell = Column("Empty").TestsuiteCell(testsuite)
+
+		self.assertEqual("<entry>Suite</entry>", str(textCell))
+		self.assertEqual("<entry><strong>Case</strong></entry>", str(nodeCell))
+		self.assertIs(ownCell, entryCell)
+		self.assertEqual("", emptyCell.astext())
+
+	@testcase("Column parameters")
+	def ColumnParameters(self) -> None:
+		"""
+		A column's title is a string, its width an integer, and its functions callable.
+
+		Creates columns with a missing title, a title, width and function of a wrong type.
+		"""
+		with self.assertRaises(ValueError) as context:
+			_ = Column(None)
+		self.assertEqual("Parameter 'title' is None.", str(context.exception))
+
+		with self.assertRaises(TypeError) as context:
+			_ = Column(1)
+		self.assertEqual("Parameter 'title' is not of type 'str'.", str(context.exception))
+
+		with self.assertRaises(TypeError) as context:
+			_ = Column("Count", "1")
+		self.assertEqual("Parameter 'width' is not of type 'int'.", str(context.exception))
+
+		with self.assertRaises(TypeError) as context:
+			_ = Column("Count", testcase="Count")
+		self.assertEqual("Parameter 'testcase' is not callable.", str(context.exception))
+
+		column = Column("Count", 2)
+		self.assertEqual("Count", column.Title)
+		self.assertEqual(2, column.Width)
+
+	@testcase("Group parameters")
+	def GroupParameters(self) -> None:
+		"""
+		A group has a title and at least one column.
+
+		Creates groups without columns, with no iterable and with an element not being a column.
+		"""
+		with self.assertRaises(ValueError) as context:
+			_ = ColumnGroup("Alerts", [])
+		self.assertEqual("Parameter 'columns' is empty.", str(context.exception))
+
+		with self.assertRaises(TypeError) as context:
+			_ = ColumnGroup("Alerts", 1)
+		self.assertEqual("Parameter 'columns' is not iterable.", str(context.exception))
+
+		with self.assertRaises(TypeError) as context:
+			_ = ColumnGroup("Alerts", ["Errors"])
+		self.assertEqual("Parameter 'columns' contains an element not of type 'Column'.", str(context.exception))
+
+		group = ColumnGroup("Alerts", [Column("Errors"), Column("Warnings")])
+		self.assertEqual("Alerts", group.Title)
+		self.assertEqual(("Errors", "Warnings"), tuple(column.Title for column in group.Columns))
+
+
+@testsuite("Derived summary table")
+class DerivedTable(Project):
+	"""A directive derived from 'UnittestSummary' declaring its own columns, one of them a group."""
+
+	_conf = dedent("""\
+		from pyTooling.Sphinx.Unittest import Column, ColumnGroup, UnittestSummary
+
+		class OwnSummary(UnittestSummary):
+			directiveName = "own-summary"
+
+			def _Columns(self):
+				return [
+					Column("Testcases", 1, testsuite=lambda testsuite: f"{testsuite.TestcaseCount}"),
+					ColumnGroup("Assertions", [
+						Column("Passed", 1, testcase=lambda testcase: f"{testcase.PassedAssertionCount}"),
+						Column("Total",  1, testcase=lambda testcase: f"{testcase.AssertionCount}")
+					])
+				]
+
+		def setup(app):
+			app.add_directive_to_domain("report", "own-summary", OwnSummary)
+	""")
+
+	@testcase("Grouped columns")
+	def GroupedColumns(self) -> None:
+		"""
+		A group of columns gives the header a second row; a column outside a group spans both rows.
+
+		Builds a document with the derived directive and checks the header cells and a testsuite's cell.
+		"""
+		self._build(
+			"Index\n#####\n\n.. report:own-summary::\n   :reportid: ut\n", conf=self._conf,
+			pyTooling_Unittest_Testsuites={"ut": {"xml_report": str(DATA / "unittest.xml")}}
+		)
+
+		self.assertEqual([], self._warningLines())
+		html = self._html("index")
+		header = html[html.index("<thead>"):html.index("</thead>")]
+		self.assertEqual(2, header.count("<tr"))
+		self.assertIn('<th class="head" rowspan="2">Testsuite / Testcase</th>', header)
+		self.assertIn('<th class="head" rowspan="2">Testcases</th>', header)
+		self.assertIn('<th class="head" colspan="2">Assertions</th>', header)
+		self.assertIn('<th class="head">Passed</th>', header)
+		self.assertIn('class="report-unittest-table report-unittest-ut docutils', html)
