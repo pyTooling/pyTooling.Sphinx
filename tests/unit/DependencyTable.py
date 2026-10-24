@@ -47,7 +47,8 @@ from pyTooling.Dependency             import BrokenRequirementWarning, UnknownLi
 from pyTooling.Dependency.Resolver    import ResolutionStatus
 from pyTooling.Sphinx                 import SphinxExtensionError
 from pyTooling.Sphinx.DependencyTable import DependencyFormat, DependencyTable, VersionFormat, \
-                                             formatUnresolvedLicenses, DependencyCollector, readEntrypoints
+                                             formatUnresolvedLicenses, DependencyCollector, readEntrypoints, \
+                                             DEFAULT_DEPENDENCY_FORMAT, DEFAULT_VERSION_FORMAT
 from pyTooling.Testing                import Testcase, testsuite, testcase
 
 
@@ -450,8 +451,6 @@ class VersionFormats(Testcase):
 
 		Compares DEFAULT_VERSION_FORMAT with the enumeration member.
 		"""
-		from pyTooling.Sphinx.DependencyTable import DEFAULT_VERSION_FORMAT
-
 		self.assertIs(VersionFormat.MajorMinor, DEFAULT_VERSION_FORMAT)
 
 	@testcase("Version parts per format")
@@ -506,8 +505,6 @@ class DependencyFormats(Testcase):
 
 		Compares DEFAULT_DEPENDENCY_FORMAT with the enumeration member.
 		"""
-		from pyTooling.Sphinx.DependencyTable import DEFAULT_DEPENDENCY_FORMAT
-
 		self.assertIs(DependencyFormat.PackageVersionLicense, DEFAULT_DEPENDENCY_FORMAT)
 
 	@testcase("Content per format")

@@ -73,8 +73,9 @@ from typing                          import TYPE_CHECKING, Any, ClassVar, Iterab
 
 from pyTooling.Common                import getFullyQualifiedName
 from pyTooling.Decorators            import export, readonly
-from pyTooling.Dependency            import UnknownLicenseWarning
+from pyTooling.Dependency            import DependencyError, UnknownLicenseWarning
 from pyTooling.Exceptions            import ConfigurationError, MissingDependencyError
+from pyTooling.Licensing             import SPDXLicense, UnknownLicense
 from pyTooling.MetaClasses           import ExtendedType
 from pyTooling.Stopwatch             import Stopwatch
 from pyTooling.Warning               import WarningCollector
@@ -494,7 +495,6 @@ class DependencyCollector(metaclass=ExtendedType, slots=True):
 		except ImportError as ex:  # pragma: no cover
 			raise MissingDependencyError(dependency="requests", extra="pypi") from ex
 
-		from pyTooling.Dependency          import DependencyError
 		from pyTooling.Dependency.Resolver import Resolver
 
 		warnings: list[BaseException] = []
@@ -636,7 +636,6 @@ def _FileEntrypoint(
 	except ImportError as ex:  # pragma: no cover
 		raise MissingDependencyError(dependency="packaging", extra="pypi") from ex
 
-	from pyTooling.Dependency        import DependencyError
 	from pyTooling.Dependency.Python import RequirementsFile
 
 	readFiles: list[Path] = []
@@ -699,7 +698,6 @@ def prepareEntrypoints(sphinx: Sphinx, config: Config) -> None:
 	confDirectory = Path(sphinx.confdir)
 
 	try:
-		from pyTooling.Dependency        import DependencyError
 		from pyTooling.Dependency.Python import LicenseOverrides
 	except MissingDependencyError as cause:  # pragma: no cover
 		raise SphinxExtensionError(
@@ -1109,8 +1107,6 @@ class DependencyTable(BaseDirective):
 		:param release: The release to name the license of, or ``None``.
 		:returns:       The license' name, or ``None`` if nothing resolved.
 		"""
-		from pyTooling.Licensing import UnknownLicense
-
 		if release is None:
 			return None
 
@@ -1151,8 +1147,6 @@ class DependencyTable(BaseDirective):
 		:param release: The release to link the license of, or ``None``.
 		:returns:       The URL to link to, or ``None`` if nothing published this license.
 		"""
-		from pyTooling.Licensing import SPDXLicense
-
 		if release is None:
 			return None
 
