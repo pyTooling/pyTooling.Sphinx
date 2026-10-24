@@ -136,6 +136,25 @@ class Summary(Testcase):
 		self.assertEqual("✅", directive._ConvertTestsuiteStatusToSymbol(Unittesting.TestsuiteStatus.Passed))
 		self.assertEqual("❌", directive._ConvertTestsuiteStatusToSymbol(Unittesting.TestsuiteStatus.Failed))
 
+	@testcase("Legend symbols")
+	def LegendSymbols(self) -> None:
+		"""
+		The legend names every symbol a testcase or testsuite can be shown with, each once.
+
+		Converts every member of both enumerations and looks the symbol up in the legend.
+		"""
+		directive = UnittestSummary.__new__(UnittestSummary)
+		legendSymbols = [symbol for symbol, _ in UnittestSummary._LEGEND]
+
+		self.assertEqual(len(set(legendSymbols)), len(legendSymbols))
+		for status in Unittesting.TestcaseStatus:
+			with self.subTest(testcaseStatus=status):
+				self.assertIn(directive._ConvertTestcaseStatusToSymbol(status), legendSymbols)
+
+		for status in Unittesting.TestsuiteStatus:
+			with self.subTest(testsuiteStatus=status):
+				self.assertIn(directive._ConvertTestsuiteStatusToSymbol(status), legendSymbols)
+
 
 DATA = Path(__file__).parent.parent / "data" / "Report"
 """Directory of the report files the testcases read."""
@@ -261,3 +280,20 @@ class DerivedTable(Project):
 		self.assertIn('<th class="head" colspan="2">Assertions</th>', header)
 		self.assertIn('<th class="head">Passed</th>', header)
 		self.assertIn('class="report-unittest-table report-unittest-ut docutils', html)
+
+	@testcase("Legend")
+	def Legend(self) -> None:
+		"""
+		A derived table gets the legend of the status symbols below it.
+
+		Builds a document with the derived directive and checks the legend's class and its place.
+		"""
+		self._build(
+			"Index\n#####\n\n.. report:own-summary::\n   :reportid: ut\n", conf=self._conf,
+			pyTooling_Unittest_Testsuites={"ut": {"xml_report": str(DATA / "unittest.xml")}}
+		)
+
+		self.assertEqual([], self._warningLines())
+		html = self._html("index")
+		self.assertIn('<p class="report-unittest-legend report-unittest-legend-bottom">Legend: ', html)
+		self.assertLess(html.index('class="report-unittest-table'), html.index('class="report-unittest-legend'))

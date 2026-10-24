@@ -43,6 +43,7 @@ from pyTooling.Sphinx.ExternalLink   import AddDownloadSizes, MarkDownloadLinks,
 from pyTooling.Sphinx.GitHubMarkdown import RasterizeShieldsBadges
 from pyTooling.Sphinx.Tree           import RemoveTreeLegends
 from pyTooling.Sphinx.UnicodeTable   import RemoveUnicodeGlyphs
+from pyTooling.Sphinx.Unittest       import UnittestSummary
 from pyTooling.Sphinx.Workaround     import FixLatexTableWidths
 from pyTooling.Testing               import testsuite, testcase
 
@@ -437,3 +438,81 @@ class DerivedDomain(Project):
 		with self.assertRaises(TypeError) as context:
 			_ = ReportRole(domain=1)
 		self.assertEqual("Parameter 'domain' is not of type 'str'.", str(context.exception))
+
+
+@testsuite("Unit test summary legend")
+class UnittestLegend(ReportProject):
+	"""Option ':legend:' of 'report:unittest-summary': the legend of the status symbols, below or above the table."""
+
+	@testcase("Below the table")
+	def Bottom(self) -> None:
+		"""
+		Without the option, the legend is a paragraph below the table, naming every status symbol.
+
+		Builds a unit test summary and checks the legend's classes, its first and last item, and its place.
+		"""
+		self._buildReport("Index\n#####\n\n.. report:unittest-summary::\n   :reportid: ut\n")
+
+		self.assertEqual([], self._warningLines())
+		html = self._html("index")
+		self.assertIn('<p class="report-unittest-legend report-unittest-legend-bottom">Legend: ', html)
+		self.assertIn('<span class="report-unittest-legend-item">✅ passed</span>, ', html)
+		self.assertIn('<span class="report-unittest-legend-item">❓ unknown</span></p>', html)
+		self.assertEqual(len(UnittestSummary._LEGEND), html.count('class="report-unittest-legend-item"'))
+		self.assertLess(html.index('class="report-unittest-table'), html.index('class="report-unittest-legend'))
+
+	@testcase("Above the table")
+	def Top(self) -> None:
+		"""
+		``:legend: top`` draws the legend above the table.
+
+		Builds a unit test summary and checks the legend's class and its place.
+		"""
+		self._buildReport("Index\n#####\n\n.. report:unittest-summary::\n   :reportid: ut\n   :legend: top\n")
+
+		self.assertEqual([], self._warningLines())
+		html = self._html("index")
+		self.assertIn('<p class="report-unittest-legend report-unittest-legend-top">Legend: ', html)
+		self.assertLess(html.index('class="report-unittest-legend'), html.index('class="report-unittest-table'))
+
+	@testcase("Without a legend")
+	def Hidden(self) -> None:
+		"""
+		``:legend: none`` draws no legend.
+
+		Builds a unit test summary and checks that the page has the table, but no legend.
+		"""
+		self._buildReport("Index\n#####\n\n.. report:unittest-summary::\n   :reportid: ut\n   :legend: none\n")
+
+		self.assertEqual([], self._warningLines())
+		html = self._html("index")
+		self.assertIn('class="report-unittest-table', html)
+		self.assertNotIn('class="report-unittest-legend', html)
+
+	@testcase("Unknown position")
+	def UnknownPosition(self) -> None:
+		"""
+		A position other than ``top``, ``bottom`` or ``none`` is an error of the directive's option.
+
+		Builds a unit test summary with ``:legend: left`` and checks the error.
+		"""
+		self._buildReport("Index\n#####\n\n.. report:unittest-summary::\n   :reportid: ut\n   :legend: left\n")
+
+		warnings = "\n".join(self._warningLines())
+		self.assertIn('Error in "report:unittest-summary" directive:', warnings)
+		self.assertIn("'left' is not a valid LegendPosition.", warnings)
+
+	@testcase("LaTeX")
+	def LaTeX(self) -> None:
+		"""
+		LaTeX writes the legend too, on the table's landscape page.
+
+		Builds a unit test summary as LaTeX and checks that the legend is between the landscape environment's begin and end.
+		"""
+		self._buildReport("Index\n#####\n\n.. report:unittest-summary::\n   :reportid: ut\n", "latex")
+
+		self.assertEqual([], self._warningLines())
+		latex = next((self._path / "build" / "latex").glob("*.tex")).read_text(encoding="utf-8")
+		legend = latex.index("Legend: ")
+		self.assertLess(latex.index("\\begin{landscape}"), legend)
+		self.assertLess(legend, latex.index("\\end{landscape}"))

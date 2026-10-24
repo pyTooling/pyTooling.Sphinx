@@ -59,6 +59,8 @@ Version 0.x (2026)
      :class:`~pyTooling.Sphinx.Unittest.Column` and :class:`~pyTooling.Sphinx.Unittest.ColumnGroup`; its pages
      extend :class:`~pyTooling.Sphinx.UnittestPages.UnittestReportPages`, and a domain of its own with roles of its
      own derives from :class:`~pyTooling.Sphinx.ReportDomain`.
+   * A unit test summary explains its status symbols in a :ref:`legend <DIR/UnittestSummary/Legend>` below the
+     table; ``:legend:`` draws it above the table or leaves it out.
    * A code coverage report is read with pyEDAA.Reports' language-neutral model, from
      :ref:`Cobertura XML or coverage.py's JSON report <DIR/CodeCoverage/Formats>`, and shown per directory and source
      file. Declared with ``pages`` and ``sources``, it gets a
