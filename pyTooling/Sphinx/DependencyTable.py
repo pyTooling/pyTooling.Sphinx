@@ -691,6 +691,8 @@ def prepareEntrypoints(sphinx: Sphinx, config: Config) -> None:
 	:param config:                The configuration, after :file:`conf.py` was read.
 	:raises SphinxExtensionError: If the configuration is malformed, or a
 	  requirements or license override file can't be read.
+	:raises SphinxExtensionError: If a license override file is configured, but pyTooling's ``yaml`` extra isn't
+	                              installed.
 	"""
 	if len(declarations := getattr(config, f"{CONFIG_PREFIX}_Requirements", {})) == 0:
 		return
@@ -713,6 +715,11 @@ def prepareEntrypoints(sphinx: Sphinx, config: Config) -> None:
 
 		try:
 			overrides = LicenseOverrides.FromFile(path)
+		except MissingDependencyError as cause:
+			raise SphinxExtensionError(
+				f"conf.py: {CONFIG_PREFIX}_PackageOverrides: Reading the override file needs the 'yaml' extra: "
+				f"pip install pyTooling[yaml]"
+			) from cause
 		except (DependencyError, ConfigurationError, OSError) as cause:
 			raise SphinxExtensionError(
 				f"conf.py: {CONFIG_PREFIX}_PackageOverrides: Override file '{path}' can't be read: {cause}"
