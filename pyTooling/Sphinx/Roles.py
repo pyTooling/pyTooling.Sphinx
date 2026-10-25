@@ -52,7 +52,6 @@ from pyTooling.Decorators        import export
 
 __all__ = ["STYLE_ROLES", "PYTHON_CODE_ROLE", "BREAK_ROLES"]
 
-#: The style roles, mapping a role's name to the CSS classes it applies.
 STYLE_ROLES = {
 	"bolditalic": ("bolditalic", ),
 	"underline":  ("underline", ),
@@ -65,18 +64,21 @@ STYLE_ROLES = {
 	"deletion":   ("colorred", "strike"),
 	"addition":   ("colorgreen", ),
 }
+"""The style roles, mapping a role's name to the CSS classes it applies."""
 
-#: Name of the role rendering inline Python code.
 PYTHON_CODE_ROLE = "pycode"
+"""Name of the role rendering inline Python code."""
 
-#: The break roles, mapping a role's name to what each output format writes for it.
-#:
-#: A :class:`~docutils.nodes.raw` node carries the format it is meant for and a writer ignores every other one, so
-#: emitting all of them lets each builder pick its own. That is what makes ``|br|`` work outside HTML.
 BREAK_ROLES = {
 	"br": {"html": "<br />",  "latex": r"\\"},
 	"hr": {"html": "<hr />",  "latex": r"\par\noindent\rule{\textwidth}{0.4pt}\par"},
 }
+"""
+The break roles, mapping a role's name to what each output format writes for it.
+
+A :class:`~docutils.nodes.raw` node carries the format it is meant for and a writer ignores every other one, so
+emitting all of them lets each builder pick its own. That is what makes ``|br|`` work outside HTML.
+"""
 
 
 @export

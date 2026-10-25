@@ -87,8 +87,8 @@ from pyTooling.Sphinx.Tree             import SEPARATOR_PATTERN, icon
 
 __all__ = ["TABLE_CLASS"]
 
-#: The CSS class of every table the directive writes, by which :class:`RemoveUnicodeGlyphs` finds them.
 TABLE_CLASS = "pytooling-unicode-table"
+"""The CSS class of every table the directive writes, by which :class:`RemoveUnicodeGlyphs` finds them."""
 
 
 @export

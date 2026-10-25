@@ -127,13 +127,9 @@ __all__ = [
 	"DEFAULT_MARKER", "DEFAULT_ICONS", "CODE_POINT_PATTERN", "SEPARATOR_PATTERN", "SEPARATOR"
 ]
 
-#: The marker of an entry whose icon is the one of its kind.
 DEFAULT_MARKER = "-"
+"""The marker of an entry whose icon is the one of its kind."""
 
-#: The icons drawn when the directive's options don't state one, keyed by the option's name.
-#:
-#: Roots, nodes and leaves have none, so a tree shows only its lines; a node with children shows whether it is
-#: expanded.
 DEFAULT_ICONS = {
 	"root-icon":      "",
 	"node-icon":      "",
@@ -141,19 +137,27 @@ DEFAULT_ICONS = {
 	"expanded-icon":  "▾",
 	"collapsed-icon": "▸",
 }
+"""
+The icons drawn when the directive's options don't state one, keyed by the option's name.
 
-#: A word of an icon option written as a Unicode code point, e.g. ``U+1F4C1``.
+Roots, nodes and leaves have none, so a tree shows only its lines; a node with children shows whether it is
+expanded.
+"""
+
 CODE_POINT_PATTERN = re_compile(r"U\+([0-9A-Fa-f]{1,6})")
+"""A word of an icon option written as a Unicode code point, e.g. ``U+1F4C1``."""
 
-#: The separator between an entry's text and its description, as group ``separator``: a ``|`` after whitespace and
-#: before whitespace or the line's end.
-#:
-#: The other alternatives match what the separator isn't searched in - an escaped character, an inline literal, and
-#: interpreted text such as a role's -, so a ``|`` in them separates nothing.
 SEPARATOR_PATTERN = re_compile(r"\\.|``.*?``|`(?:\\.|[^`\\])*`|(?<=\s)(?P<separator>\|)(?=\s|$)")
+"""
+The separator between an entry's text and its description, as group ``separator``: a ``|`` after whitespace and
+before whitespace or the line's end.
 
-#: What a format without columns writes between an entry's text and its description: an en dash between spaces.
+The other alternatives match what the separator isn't searched in - an escaped character, an inline literal, and
+interpreted text such as a role's -, so a ``|`` in them separates nothing.
+"""
+
 SEPARATOR = " \u2013 "
+"""What a format without columns writes between an entry's text and its description: an en dash between spaces."""
 
 _Entry = Node
 """

@@ -62,11 +62,11 @@ if TYPE_CHECKING:  # pragma: no cover
 
 __all__ = ["DEFINITIONS", "ASSIGNMENTS", "Definition"]
 
-#: The statements expected to have a doc-string: a class and a function or method.
 DEFINITIONS = (ClassDef, FunctionDef, AsyncFunctionDef)
+"""The statements expected to have a doc-string: a class and a function or method."""
 
-#: The statements declaring a variable or a class' field.
 ASSIGNMENTS = (Assign, AnnAssign, TypeAlias)
+"""The statements declaring a variable or a class' field."""
 
 type Definition = Union[ClassDef, FunctionDef, AsyncFunctionDef]
 """A statement expected to have a doc-string."""

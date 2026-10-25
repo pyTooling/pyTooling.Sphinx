@@ -89,10 +89,11 @@ from pyTooling.Sphinx               import ReportDomain, ReportEntry, ReportExte
 
 __all__ = ["UNSAFE_CHARACTERS", "EntityType"]
 
-#: Characters of an object's name, which are replaced in its document name.
 UNSAFE_CHARACTERS = re_compile(r"[^A-Za-z0-9_.\-]+")
+"""Characters of an object's name, which are replaced in its document name."""
 
-EntityType = TypeVar("EntityType")  #: The type of the objects a model's pages are generated for.
+EntityType = TypeVar("EntityType")
+"""The type of the objects a model's pages are generated for."""
 
 
 @export
