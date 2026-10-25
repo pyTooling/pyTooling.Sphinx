@@ -41,8 +41,9 @@ from pygments.formatters.latex import escape_tex
 from sphinx.writers.latex      import LaTeXTranslator
 
 from pyTooling.Decorators      import export
-from pyTooling.Sphinx.Node     import COVERAGE_STATES, DOCUMENTATION_STATES, CoverageListing, DocCoverageListing
-from pyTooling.Sphinx.Node     import Landscape, LineBreak, ReportIndentation, TaskListCheckbox, visitFunc, departFunc
+from pyTooling.Sphinx.Node     import COVERAGE_STATES, DOCUMENTATION_STATES, CoverageListing, DocCoverageListing, \
+                                      Landscape, LineBreak, ReportIndentation, TaskListCheckbox, visitFunc, \
+                                      departFunc
 
 
 __all__ = [

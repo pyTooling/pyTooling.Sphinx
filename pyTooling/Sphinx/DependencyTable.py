@@ -68,13 +68,14 @@ from __future__                      import annotations
 
 from enum                            import Enum, auto
 from pathlib                         import Path
-from typing                          import TYPE_CHECKING, Any, ClassVar, Iterable, Literal, Mapping
-from typing                          import Optional as Nullable, TypeVar, cast
+from typing                          import TYPE_CHECKING, Any, ClassVar, Iterable, Literal, Mapping, \
+                                            Optional as Nullable, TypeVar, cast
 
 from pyTooling.Common                import getFullyQualifiedName
 from pyTooling.Decorators            import export, readonly
-from pyTooling.Dependency            import UnknownLicenseWarning
+from pyTooling.Dependency            import DependencyError, UnknownLicenseWarning
 from pyTooling.Exceptions            import ConfigurationError, MissingDependencyError
+from pyTooling.Licensing             import SPDXLicense, UnknownLicense
 from pyTooling.MetaClasses           import ExtendedType
 from pyTooling.Stopwatch             import Stopwatch
 from pyTooling.Warning               import WarningCollector
@@ -91,12 +92,11 @@ if TYPE_CHECKING:  # pragma: no cover
 	from sphinx.config                 import Config
 	from packaging.requirements        import Requirement
 	from packaging.specifiers          import SpecifierSet
-	from pyTooling.Dependency.Python   import LicenseOverrides, Project, PythonPackageDependencyGraph
-	from pyTooling.Dependency.Python   import PythonPackageIndex, Release, RequirementsFile
+	from pyTooling.Dependency.Python   import LicenseOverrides, Project, PythonPackageDependencyGraph, \
+	                                          PythonPackageIndex, Release, RequirementsFile
 	from pyTooling.Dependency.Resolver import Resolution, ResolvedRequirement
 
-from pyTooling.Sphinx                import BaseDirective, SphinxExtensionError, strip
-from pyTooling.Sphinx                import stripAndNormalize
+from pyTooling.Sphinx                import BaseDirective, SphinxExtensionError, strip, stripAndNormalize
 
 
 #: URL of the package index the tables are built from, unless :file:`conf.py` names another.
@@ -495,7 +495,6 @@ class DependencyCollector(metaclass=ExtendedType, slots=True):
 		except ImportError as ex:  # pragma: no cover
 			raise MissingDependencyError(dependency="requests", extra="pypi") from ex
 
-		from pyTooling.Dependency          import DependencyError
 		from pyTooling.Dependency.Resolver import Resolver
 
 		warnings: list[BaseException] = []
@@ -637,7 +636,6 @@ def _FileEntrypoint(
 	except ImportError as ex:  # pragma: no cover
 		raise MissingDependencyError(dependency="packaging", extra="pypi") from ex
 
-	from pyTooling.Dependency        import DependencyError
 	from pyTooling.Dependency.Python import RequirementsFile
 
 	readFiles: list[Path] = []
@@ -700,7 +698,6 @@ def prepareEntrypoints(sphinx: Sphinx, config: Config) -> None:
 	confDirectory = Path(sphinx.confdir)
 
 	try:
-		from pyTooling.Dependency        import DependencyError
 		from pyTooling.Dependency.Python import LicenseOverrides
 	except MissingDependencyError as cause:  # pragma: no cover
 		raise SphinxExtensionError(
@@ -1110,8 +1107,6 @@ class DependencyTable(BaseDirective):
 		:param release: The release to name the license of, or ``None``.
 		:returns:       The license' name, or ``None`` if nothing resolved.
 		"""
-		from pyTooling.Licensing import UnknownLicense
-
 		if release is None:
 			return None
 
@@ -1152,8 +1147,6 @@ class DependencyTable(BaseDirective):
 		:param release: The release to link the license of, or ``None``.
 		:returns:       The URL to link to, or ``None`` if nothing published this license.
 		"""
-		from pyTooling.Licensing import SPDXLicense
-
 		if release is None:
 			return None
 

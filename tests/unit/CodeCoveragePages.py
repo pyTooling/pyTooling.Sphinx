@@ -38,6 +38,7 @@ from textwrap                          import dedent
 from typing                            import Any
 
 from docutils                          import nodes
+from pygments.token                    import Keyword, Name, Text
 from sphinx                            import addnodes
 from sphinx.testing.util               import SphinxTestApp
 
@@ -419,8 +420,6 @@ class Highlighting(CoverageProject):
 
 		Checks a keyword, plain text and a token type without a class of its own.
 		"""
-		from pygments.token import Keyword, Name, Text
-
 		self.assertEqual("k", tokenClass(Keyword))
 		self.assertEqual("", tokenClass(Text))
 		self.assertEqual("n-Unknown", tokenClass(Name.Unknown))

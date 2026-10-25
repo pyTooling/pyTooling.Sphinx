@@ -43,11 +43,11 @@ it as a listing.
 """
 from __future__                                    import annotations
 
-from ast                                           import AST, AnnAssign, Assign, AsyncFunctionDef, ClassDef, Constant
-from ast                                           import Expr, FunctionDef, If, Try, TypeAlias, iter_child_nodes
-from ast                                           import parse, stmt
-from typing                                        import TYPE_CHECKING, Generator, Iterable
-from typing                                        import Optional as Nullable, Self, Union
+from ast                                           import AST, AnnAssign, Assign, AsyncFunctionDef, ClassDef, \
+                                                          Constant, Expr, FunctionDef, If, Try, TypeAlias, \
+                                                          iter_child_nodes, parse, stmt
+from typing                                        import TYPE_CHECKING, Generator, Iterable, Optional as Nullable, \
+                                                          Self, Union
 
 from sphinx.util.logging                           import getLogger
 

@@ -147,24 +147,24 @@ from pyTooling.Decorators    import export, readonly
 from pyTooling.Documentation import DocumentationError
 
 from pyTooling.Sphinx        import Resources as SphinxResources
-from pyTooling.Sphinx.HTML   import translateLandscape as translateLandscapeAsHTML
-from pyTooling.Sphinx.HTML   import translateCoverageListing as translateCoverageListingAsHTML
-from pyTooling.Sphinx.HTML   import translateDocCoverageListing as translateDocCoverageListingAsHTML
-from pyTooling.Sphinx.HTML   import translateAbbreviation, translateTreeItem, translateTreeLabel, translateTreeSeparator
-from pyTooling.Sphinx.HTML   import translateTreeDescription, translateTreeLegend, translateTreeLegendItem
-from pyTooling.Sphinx.HTML   import translateCopyButton, translateEmoji
-from pyTooling.Sphinx.HTML   import translateLineBreak as translateLineBreakAsHTML
-from pyTooling.Sphinx.HTML   import translateReportIndentation as translateReportIndentationAsHTML
-from pyTooling.Sphinx.HTML   import translateTaskListCheckbox as translateTaskListCheckboxAsHTML
-from pyTooling.Sphinx.LaTeX  import translateLandscape as translateLandscapeAsLaTeX
-from pyTooling.Sphinx.LaTeX  import translateCoverageListing as translateCoverageListingAsLaTeX
-from pyTooling.Sphinx.LaTeX  import translateDocCoverageListing as translateDocCoverageListingAsLaTeX
-from pyTooling.Sphinx.LaTeX  import translateLineBreak as translateLineBreakAsLaTeX
-from pyTooling.Sphinx.LaTeX  import translateReportIndentation as translateReportIndentationAsLaTeX
-from pyTooling.Sphinx.LaTeX  import translateTaskListCheckbox as translateTaskListCheckboxAsLaTeX
-from pyTooling.Sphinx.Node   import Abbreviation, Landscape, RegisteredNode, TreeItem, TreeLabel, TreeSeparator
-from pyTooling.Sphinx.Node   import CopyButton, CoverageListing, DocCoverageListing, TreeDescription, TreeLegend
-from pyTooling.Sphinx.Node   import Emoji, LineBreak, ReportIndentation, TaskListCheckbox, TreeLegendItem
+from pyTooling.Sphinx.HTML   import translateLandscape as translateLandscapeAsHTML, \
+                                    translateCoverageListing as translateCoverageListingAsHTML, \
+                                    translateDocCoverageListing as translateDocCoverageListingAsHTML, \
+                                    translateAbbreviation, translateTreeItem, translateTreeLabel, \
+                                    translateTreeSeparator, translateTreeDescription, translateTreeLegend, \
+                                    translateTreeLegendItem, translateCopyButton, translateEmoji, \
+                                    translateLineBreak as translateLineBreakAsHTML, \
+                                    translateReportIndentation as translateReportIndentationAsHTML, \
+                                    translateTaskListCheckbox as translateTaskListCheckboxAsHTML
+from pyTooling.Sphinx.LaTeX  import translateLandscape as translateLandscapeAsLaTeX, \
+                                    translateCoverageListing as translateCoverageListingAsLaTeX, \
+                                    translateDocCoverageListing as translateDocCoverageListingAsLaTeX, \
+                                    translateLineBreak as translateLineBreakAsLaTeX, \
+                                    translateReportIndentation as translateReportIndentationAsLaTeX, \
+                                    translateTaskListCheckbox as translateTaskListCheckboxAsLaTeX
+from pyTooling.Sphinx.Node   import Abbreviation, Landscape, RegisteredNode, TreeItem, TreeLabel, TreeSeparator, \
+                                    CopyButton, CoverageListing, DocCoverageListing, TreeDescription, TreeLegend, \
+                                    Emoji, LineBreak, ReportIndentation, TaskListCheckbox, TreeLegendItem
 
 
 __all__ = [
@@ -1012,28 +1012,25 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	:param sphinx: The Sphinx application to register with.
 	:returns:      The extension's metadata.
 	"""
-	from pyTooling.Sphinx.Abbreviation      import CONFIG_PREFIX as ABBREVIATION_PREFIX
-	from pyTooling.Sphinx.Abbreviation      import ROLES as ABBREVIATION_ROLES, AbbreviationDomain, AbbreviationRole
-	from pyTooling.Sphinx.Abbreviation      import Abbreviations
-	from pyTooling.Sphinx.CodeCoverage      import CONFIG_PREFIX as CODE_COVERAGE_PREFIX
-	from pyTooling.Sphinx.CodeCoverage      import CodeCoverage, CodeCoverageBase, CodeCoverageLegend, FileCoverage
+	from pyTooling.Sphinx.Abbreviation      import CONFIG_PREFIX as ABBREVIATION_PREFIX, ROLES as ABBREVIATION_ROLES, \
+	                                               AbbreviationDomain, AbbreviationRole, Abbreviations
+	from pyTooling.Sphinx.CodeCoverage      import CONFIG_PREFIX as CODE_COVERAGE_PREFIX, CodeCoverage, \
+	                                               CodeCoverageBase, CodeCoverageLegend, FileCoverage
 	from pyTooling.Sphinx.CodeCoveragePages import CodeCoverageReportPages
 	from pyTooling.Sphinx.CondensedClass    import CondensedClass
 	from pyTooling.Sphinx.DependencyTable   import CONFIG_PREFIX, DependencyTable, prepareEntrypoints, reportBuildTime
-	from pyTooling.Sphinx.DocCoverage       import CONFIG_PREFIX as DOC_COVERAGE_PREFIX
-	from pyTooling.Sphinx.DocCoverage       import DocCoverageBase, DocCoverageLegend, DocCoverageReportPages
-	from pyTooling.Sphinx.DocCoverage       import DocStrCoverage
-	from pyTooling.Sphinx.ExternalLink      import CONFIG_PREFIX as EXTERNAL_LINK_PREFIX, BaseExternalLinkTransform
-	from pyTooling.Sphinx.ExternalLink      import MarkDownloadLinks, MarkExternalLinks, MarkIntersphinxLinks
-	from pyTooling.Sphinx.ExternalLink      import AddDownloadSizes, checkExternalLinkConfiguration
+	from pyTooling.Sphinx.DocCoverage       import CONFIG_PREFIX as DOC_COVERAGE_PREFIX, DocCoverageBase, \
+	                                               DocCoverageLegend, DocCoverageReportPages, DocStrCoverage
+	from pyTooling.Sphinx.ExternalLink      import CONFIG_PREFIX as EXTERNAL_LINK_PREFIX, BaseExternalLinkTransform, \
+	                                               MarkDownloadLinks, MarkExternalLinks, MarkIntersphinxLinks, \
+	                                               AddDownloadSizes, checkExternalLinkConfiguration
 	from pyTooling.Sphinx.GitHubMarkdown    import RasterizeShieldsBadges
-	from pyTooling.Sphinx.Roles             import BREAK_ROLES, PYTHON_CODE_ROLE, STYLE_ROLES
-	from pyTooling.Sphinx.Roles             import breakRole, pythonCodeRole, styleRole
+	from pyTooling.Sphinx.Roles             import BREAK_ROLES, PYTHON_CODE_ROLE, STYLE_ROLES, breakRole, \
+	                                               pythonCodeRole, styleRole
 	from pyTooling.Sphinx.Shields           import Shields
 	from pyTooling.Sphinx.Tree              import RemoveTreeLegends, Tree
 	from pyTooling.Sphinx.UnicodeTable      import RemoveUnicodeGlyphs, UnicodeTable
-	from pyTooling.Sphinx.Unittest          import CONFIG_PREFIX as UNITTEST_PREFIX
-	from pyTooling.Sphinx.Unittest          import UnittestSummary
+	from pyTooling.Sphinx.Unittest          import CONFIG_PREFIX as UNITTEST_PREFIX, UnittestSummary
 	from pyTooling.Sphinx.UnittestPages     import UnittestReportPages
 	from pyTooling.Sphinx.Workaround        import FixLatexTableWidths
 	from pyTooling.Sphinx.XMLSchemaGraph    import XMLSchemaGraph
