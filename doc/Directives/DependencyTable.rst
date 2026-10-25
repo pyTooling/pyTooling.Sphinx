@@ -43,7 +43,7 @@ Each entrypoint states exactly one of:
      - The entrypoints, by identifier.
    * - ``pyTooling_Dependency_PackageOverrides``
      - Optional, a YAML file stating the license of a package the index can't answer for, relative to
-       :file:`conf.py`.
+       :file:`conf.py`. Reading it needs pyTooling's ``yaml`` extra.
    * - ``pyTooling_Dependency_IndexURL``
      - Optional, the package index. Default: ``https://pypi.org``.
    * - ``pyTooling_Dependency_APIURL``

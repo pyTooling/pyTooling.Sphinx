@@ -36,7 +36,9 @@ from pathlib                          import Path
 from sys                              import platform as sys_platform
 from tempfile                         import TemporaryDirectory
 from textwrap                         import dedent
+from types                            import SimpleNamespace
 from typing                           import Optional as Nullable
+from unittest.mock                    import patch
 
 from docutils                         import nodes
 from packaging.requirements           import Requirement
@@ -44,11 +46,13 @@ from packaging.specifiers             import SpecifierSet
 from pytest                           import mark
 
 from pyTooling.Dependency             import BrokenRequirementWarning, UnknownLicenseWarning, UnsupportedVersionWarning
+from pyTooling.Dependency.Python      import LicenseOverrides
 from pyTooling.Dependency.Resolver    import ResolutionStatus
+from pyTooling.Exceptions             import MissingDependencyError
 from pyTooling.Sphinx                 import SphinxExtensionError
 from pyTooling.Sphinx.DependencyTable import DependencyFormat, DependencyTable, VersionFormat, \
-                                             formatUnresolvedLicenses, DependencyCollector, readEntrypoints, \
-                                             DEFAULT_DEPENDENCY_FORMAT, DEFAULT_VERSION_FORMAT
+                                             formatUnresolvedLicenses, DependencyCollector, prepareEntrypoints, \
+                                             readEntrypoints, DEFAULT_DEPENDENCY_FORMAT, DEFAULT_VERSION_FORMAT
 from pyTooling.Testing                import Testcase, testsuite, testcase
 
 
@@ -60,6 +64,37 @@ if __name__ == "__main__":  # pragma: no cover
 	print("ERROR: you called a testcase declaration file as an executable module.")
 	print("Use: 'python -m unittest <testcase module>'")
 	exit(1)
+
+
+@testsuite("License override file")
+class PackageOverrides(Testcase):
+	"""``pyTooling_Dependency_PackageOverrides`` is read while :file:`conf.py` is processed; its errors end the build."""
+
+	@testcase("YAML extra missing")
+	def YAMLExtraMissing(self) -> None:
+		"""
+		An override file without pyTooling's 'yaml' extra ends the build with a message naming the extra.
+
+		Lets reading the override file raise the MissingDependencyError pyTooling raises without ruamel.yaml and checks the
+		SphinxExtensionError's message and cause.
+		"""
+		sphinx = SimpleNamespace(confdir=".")
+		config = SimpleNamespace(
+			pyTooling_Dependency_Requirements={"unittest": {"file": "requirements.txt"}},
+			pyTooling_Dependency_PackageOverrides="Dependency.PackageOverrides.yaml"
+		)
+		missing = MissingDependencyError(dependency="ruamel.yaml", extra="yaml")
+
+		with patch.object(LicenseOverrides, "FromFile", side_effect=missing):
+			with self.assertRaises(SphinxExtensionError) as context:
+				prepareEntrypoints(sphinx, config)
+
+		self.assertEqual(
+			"conf.py: pyTooling_Dependency_PackageOverrides: Reading the override file needs the 'yaml' extra: "
+			"pip install pyTooling[yaml]",
+			str(context.exception)
+		)
+		self.assertIs(missing, context.exception.__cause__)
 
 
 @testsuite("Dependency entrypoints")
