@@ -36,8 +36,8 @@ Written by hand it is wrong within a release or two: pyTooling's own documentati
 packages :file:`doc/requirements.txt` requires, listed one that isn't required at all, and called Sphinx BSD-3-Clause
 when it is BSD-2-Clause.
 
-**The entrypoints are declared in** :file:`conf.py` **and named by the documents**, the way
-:mod:`sphinx_reports` declares its reports:
+**The entrypoints are declared in** :file:`conf.py` **and named by the documents**, the way the domain ``report``
+declares its reports:
 
 .. code-block:: Python
 
