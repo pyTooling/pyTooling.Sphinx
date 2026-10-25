@@ -171,21 +171,21 @@ __all__ = [
 	"STYLESHEET", "SCRIPT", "LATEX_PACKAGE", "SUBSTITUTIONS", "NODES", "LINE_ANCHOR", "REPORT_ROLES"
 ]
 
-#: Name of the stylesheet, in :mod:`pyTooling.Sphinx.Resources`.
 STYLESHEET = "pyTooling.css"
+"""Name of the stylesheet, in :mod:`pyTooling.Sphinx.Resources`."""
 
-#: Name of the script, in :mod:`pyTooling.Sphinx.Resources`: it gives the copy buttons of the ``unicode-table``
-#: directive their function.
 SCRIPT = "pyTooling.js"
+"""
+Name of the script, in :mod:`pyTooling.Sphinx.Resources`: it gives the copy buttons of the ``unicode-table``
+directive their function.
+"""
 
-#: Name of the LaTeX package, whose file :file:`pyTooling.Sphinx.sty` is in :mod:`pyTooling.Sphinx.Resources`: it
-#: defines the commands LaTeX writes for the style roles ``:strike:`` and ``:underline:``.
 LATEX_PACKAGE = "pyTooling.Sphinx"
+"""
+Name of the LaTeX package, whose file :file:`pyTooling.Sphinx.sty` is in :mod:`pyTooling.Sphinx.Resources`: it
+defines the commands LaTeX writes for the style roles ``:strike:`` and ``:underline:``.
+"""
 
-#: Substitutions that have to stay substitutions, because ``|br|`` is written as one in every project.
-#:
-#: ``|br|`` and ``|hr|`` delegate to the ``:br:`` and ``:hr:`` roles rather than writing HTML themselves, so they
-#: reach every output format instead of only HTML - see :func:`~pyTooling.Sphinx.Roles.breakRole`.
 SUBSTITUTIONS = """
 .. |degree| unicode:: U+00B0
    :trim:
@@ -194,11 +194,13 @@ SUBSTITUTIONS = """
 
 .. |hr| replace:: :hr:`.`
 """
+"""
+Substitutions that have to stay substitutions, because ``|br|`` is written as one in every project.
 
-#: The nodes the extension registers, each with its visitors per output format.
-#:
-#: A format without visitors of its own - e.g. LaTeX for the tree's nodes - writes a node with the visitors of its
-#: base-class.
+``|br|`` and ``|hr|`` delegate to the ``:br:`` and ``:hr:`` roles rather than writing HTML themselves, so they
+reach every output format instead of only HTML - see :func:`~pyTooling.Sphinx.Roles.breakRole`.
+"""
+
 NODES: tuple[RegisteredNode, ...] = (
 	{"name": "TreeItem",           "node": TreeItem,           "html": translateTreeItem},
 	{"name": "TreeLabel",          "node": TreeLabel,          "html": translateTreeLabel},
@@ -222,6 +224,12 @@ NODES: tuple[RegisteredNode, ...] = (
 	{"name": "ReportIndentation",  "node": ReportIndentation,  "html": translateReportIndentationAsHTML,
 	 "latex": translateReportIndentationAsLaTeX},
 )
+"""
+The nodes the extension registers, each with its visitors per output format.
+
+A format without visitors of its own - e.g. LaTeX for the tree's nodes - writes a node with the visitors of its
+base-class.
+"""
 
 
 _EnumType = TypeVar("_EnumType", bound=Enum)
@@ -709,16 +717,16 @@ class ReportRoleDefinition(NamedTuple):
 	lineAnchors: bool = False  #: Whether a target may end in ``#<line number>``, linking to the line on the page.
 
 
-#: The line number a target of a role with line anchors may end in, e.g. ``#12`` of ``src/Counter.vhdl#12``.
 LINE_ANCHOR = re_compile(r"#(\d+)$")
+"""The line number a target of a role with line anchors may end in, e.g. ``#12`` of ``src/Counter.vhdl#12``."""
 
-#: The roles referring to the objects of reports with pages, by role name.
 REPORT_ROLES = {
 	"tc":     ReportRoleDefinition("testcase",  "pyTooling_Unittest_Testsuites",   "unit test reports"),
 	"ts":     ReportRoleDefinition("testsuite", "pyTooling_Unittest_Testsuites",   "unit test reports"),
 	"cov":    ReportRoleDefinition("source",    "pyTooling_CodeCoverage_Packages", "code coverage reports", True),
 	"doccov": ReportRoleDefinition("module",    "pyTooling_DocCoverage_Packages",  "documentation coverage reports"),
 }
+"""The roles referring to the objects of reports with pages, by role name."""
 
 
 @export

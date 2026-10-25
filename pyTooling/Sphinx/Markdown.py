@@ -80,11 +80,12 @@ if TYPE_CHECKING:  # pragma: no cover
 
 __all__ = ["IMAGE_CLASS", "ALERTS", "HTML_ELEMENTS"]
 
-#: The CSS class of every image the translator writes, by which
-#: :class:`~pyTooling.Sphinx.GitHubMarkdown.RasterizeShieldsBadges` finds them.
 IMAGE_CLASS = "github-image"
+"""
+The CSS class of every image the translator writes, by which
+:class:`~pyTooling.Sphinx.GitHubMarkdown.RasterizeShieldsBadges` finds them.
+"""
 
-#: The admonition each kind of GitHub alert becomes, by the kind as written: ``> [!NOTE]``.
 ALERTS: dict[str, type[nodes.Admonition]] = {
 	"NOTE":      nodes.note,
 	"TIP":       nodes.tip,
@@ -92,9 +93,8 @@ ALERTS: dict[str, type[nodes.Admonition]] = {
 	"WARNING":   nodes.warning,
 	"CAUTION":   nodes.caution,
 }
+"""The admonition each kind of GitHub alert becomes, by the kind as written: ``> [!NOTE]``."""
 
-#: The HTML elements with a docutils counterpart: the node class, and the CSS classes it gets. An element mapped to
-#: ``None`` is transparent: its content is kept, the element has no node of its own.
 HTML_ELEMENTS: dict[str, tuple[Nullable[type[nodes.Element]], tuple[str, ...]]] = {
 	"p":          (nodes.paragraph,       ()),
 	"ul":         (nodes.bullet_list,     ()),
@@ -128,6 +128,10 @@ HTML_ELEMENTS: dict[str, tuple[Nullable[type[nodes.Element]], tuple[str, ...]]] 
 	"div":        (None,                  ()),
 	"span":       (None,                  ()),
 }
+"""
+The HTML elements with a docutils counterpart: the node class, and the CSS classes it gets. An element mapped to
+``None`` is transparent: its content is kept, the element has no node of its own.
+"""
 
 
 @export

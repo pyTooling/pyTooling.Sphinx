@@ -93,8 +93,8 @@ from pyTooling.Sphinx                  import SphinxExtensionError
 
 __all__ = ["CONFIG_PREFIX", "HOST_ICONS", "ARCHIVE_FORMATS"]
 
-#: Prefix of the configuration values, e.g. ``pyTooling_ExternalLink_Icons``.
 CONFIG_PREFIX = "pyTooling_ExternalLink"
+"""Prefix of the configuration values, e.g. ``pyTooling_ExternalLink_Icons``."""
 
 
 @export
@@ -162,9 +162,6 @@ class LinkIcon(StringEnum):
 		return cls.DEFAULT
 
 
-#: The icon of a link to a host or to one of its subdomains, keyed by the host's domain name in lower case.
-#:
-#: A project adds hosts, or replaces an icon, with configuration value ``pyTooling_ExternalLink_Hosts``.
 HOST_ICONS: dict[str, LinkIcon] = {
 	"github.com":      LinkIcon.GitHub,
 	"gitlab.com":      LinkIcon.GitLab,
@@ -179,10 +176,12 @@ HOST_ICONS: dict[str, LinkIcon] = {
 	"rtfd.io":         LinkIcon.ReadTheDocs,
 	"sphinx-doc.org":  LinkIcon.Sphinx,
 }
+"""
+The icon of a link to a host or to one of its subdomains, keyed by the host's domain name in lower case.
 
-#: The formats of archives, keyed by their file name extension in lower case, as the label a download's size names.
-#:
-#: A link to a file with one of these extensions gets the icon :attr:`LinkIcon.Archive`.
+A project adds hosts, or replaces an icon, with configuration value ``pyTooling_ExternalLink_Hosts``.
+"""
+
 ARCHIVE_FORMATS: dict[str, str] = {
 	"zip":     "ZIP",
 	"tar.gz":  "tar.gz",
@@ -192,6 +191,11 @@ ARCHIVE_FORMATS: dict[str, str] = {
 	"tar.zst": "tar.zst",
 	"7z":      "7z",
 }
+"""
+The formats of archives, keyed by their file name extension in lower case, as the label a download's size names.
+
+A link to a file with one of these extensions gets the icon :attr:`LinkIcon.Archive`.
+"""
 
 
 @export

@@ -112,8 +112,8 @@ if TYPE_CHECKING:  # pragma: no cover
 
 __all__ = ["CONFIG_PREFIX"]
 
-#: Prefix every configuration value of the documentation coverage directives carries in :file:`conf.py`.
 CONFIG_PREFIX = "pyTooling_DocCoverage"
+"""Prefix every configuration value of the documentation coverage directives carries in :file:`conf.py`."""
 
 
 @export

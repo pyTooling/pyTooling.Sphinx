@@ -99,17 +99,17 @@ if TYPE_CHECKING:  # pragma: no cover
 from pyTooling.Sphinx                import BaseDirective, SphinxExtensionError, strip, stripAndNormalize
 
 
-#: URL of the package index the tables are built from, unless :file:`conf.py` names another.
 DEFAULT_INDEX_URL = "https://pypi.org"
+"""URL of the package index the tables are built from, unless :file:`conf.py` names another."""
 
-#: URL of that index's JSON API.
 DEFAULT_API_URL = "https://pypi.org/pypi/"
+"""URL of that index's JSON API."""
 
-#: Levels of sub-dependencies rendered when nothing says otherwise; ``0`` expands until the tree ends.
 DEFAULT_DEPTH = 0
+"""Levels of sub-dependencies rendered when nothing says otherwise; ``0`` expands until the tree ends."""
 
-#: Whether a version constraint is reduced to its lower bound when the document doesn't say.
 DEFAULT_SIMPLIFIED_VERSIONS = True
+"""Whether a version constraint is reduced to its lower bound when the document doesn't say."""
 
 
 @export
@@ -166,32 +166,34 @@ class DependencyFormat(Enum):
 		return self.name
 
 
-#: How many parts of a version number a table prints when the document doesn't say.
 DEFAULT_VERSION_FORMAT = VersionFormat.MajorMinor
+"""How many parts of a version number a table prints when the document doesn't say."""
 
-#: What a line of a dependency tree states when the document doesn't say.
 DEFAULT_DEPENDENCY_FORMAT = DependencyFormat.PackageVersionLicense
+"""What a line of a dependency tree states when the document doesn't say."""
 
-#: Comparison operators as a reader writes them. Order matters - the two-character forms have to be tried first.
 OPERATOR_SYMBOLS = (("<=", "≤"), (">=", "≥"), ("!=", "≠"), ("==", "="))
+"""Comparison operators as a reader writes them. Order matters - the two-character forms have to be tried first."""
 
-#: Operators a simplified constraint drops: an upper bound and an exclusion say what is *not* required.
 _DROPPED_OPERATORS = ("<", "<=", "!=")
+"""Operators a simplified constraint drops: an upper bound and an exclusion say what is *not* required."""
 
-#: The table's columns, as ``(title, relative width)``.
 TABLE_COLUMNS = (("Package", 3), ("Version", 1), ("License", 2), ("Dependencies", 4))
+"""The table's columns, as ``(title, relative width)``."""
 
-#: The fields one entrypoint may state in :file:`conf.py`, exactly one of them.
-#:
-#: The singular forms take a string and the plural forms an iterable of strings; they are otherwise the same
-#: statement, and a project writes whichever reads better where it stands.
 ENTRYPOINT_FIELDS = ("file", "files", "package", "packages")
+"""
+The fields one entrypoint may state in :file:`conf.py`, exactly one of them.
 
-#: Prefix every configuration value of this extension carries in :file:`conf.py`.
+The singular forms take a string and the plural forms an iterable of strings; they are otherwise the same
+statement, and a project writes whichever reads better where it stands.
+"""
+
 CONFIG_PREFIX = "pyTooling_Dependency"
+"""Prefix every configuration value of this extension carries in :file:`conf.py`."""
 
-#: What Sphinx accepts as the rebuild condition of a configuration value - the one this extension uses.
 _ConfigRebuild = Literal["env"]
+"""What Sphinx accepts as the rebuild condition of a configuration value - the one this extension uses."""
 
 __all__ = [
 	"DEFAULT_INDEX_URL", "DEFAULT_API_URL", "DEFAULT_DEPTH", "DEFAULT_SIMPLIFIED_VERSIONS", "OPERATOR_SYMBOLS",
@@ -201,8 +203,8 @@ __all__ = [
 
 _logger = logging.getLogger(__name__)
 
-#: The two option enumerations, so one parser serves both.
 _FormatType = TypeVar("_FormatType", VersionFormat, DependencyFormat)
+"""The two option enumerations, so one parser serves both."""
 
 
 def _SelectedRelease(resolved: ResolvedRequirement) -> Nullable[Release]:
@@ -235,11 +237,13 @@ def _ReportWarning(prefix: str, warning: BaseException) -> None:
 	_logger.warning("\n".join(lines))
 
 
-#: The collector of each running build, by the id of its Sphinx application.
-#:
-#: It can't live on the build environment, which Sphinx pickles between runs - an open HTTP session and the locks
-#: guarding lazy loading are not picklable, and a cached view of a package index would be stale anyway.
 _COLLECTORS: dict[int, "DependencyCollector"] = {}
+"""
+The collector of each running build, by the id of its Sphinx application.
+
+It can't live on the build environment, which Sphinx pickles between runs - an open HTTP session and the locks
+guarding lazy loading are not picklable, and a cached view of a package index would be stale anyway.
+"""
 
 
 @export

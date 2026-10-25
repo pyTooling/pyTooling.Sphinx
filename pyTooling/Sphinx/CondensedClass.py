@@ -80,8 +80,8 @@ from docutils.parsers.rst import directives
 from sphinx.util.docutils import SphinxDirective
 
 
-#: Definition of a function or a method.
 Function = Union[FunctionDef, AsyncFunctionDef]
+"""Definition of a function or a method."""
 
 
 class MemberKind(Flag):

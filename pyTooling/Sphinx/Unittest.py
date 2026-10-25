@@ -84,15 +84,15 @@ if TYPE_CHECKING:  # pragma: no cover
 
 __all__ = ["CONFIG_PREFIX", "REPORT_FORMATS"]
 
-#: Prefix every configuration value of the unit test directive carries in :file:`conf.py`.
 CONFIG_PREFIX = "pyTooling_Unittest"
+"""Prefix every configuration value of the unit test directive carries in :file:`conf.py`."""
 
-#: The report formats, by the root element of a report file.
 REPORT_FORMATS = {
 	"testsuites": "JUnit",
 	"testsuite":  "JUnit",
 	"TestReport": "pyTooling",
 }
+"""The report formats, by the root element of a report file."""
 
 
 @export

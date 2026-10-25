@@ -57,13 +57,15 @@ _SVG = (
 )
 """The attributes of a copy button's icons: hidden from a screen reader, as large as the text, and drawn as lines."""
 
-#: The icons of a copy button, as inline SVG hidden from a screen reader: two sheets of paper, and a check mark, which
-#: the stylesheet shows instead while the button reports a copied text.
 COPY_ICONS = (
 	f'<svg class="copy-icon" {_SVG}><rect x="8" y="8" width="12" height="12" rx="2"/>'
 	'<path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>'
 	f'<svg class="copied-icon" {_SVG}><path d="M5 12l5 5L20 7"/></svg>'
 )
+"""
+The icons of a copy button, as inline SVG hidden from a screen reader: two sheets of paper, and a check mark, which
+the stylesheet shows instead while the button reports a copied text.
+"""
 
 
 @export

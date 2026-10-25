@@ -81,8 +81,6 @@ if TYPE_CHECKING:  # pragma: no cover
 
 __all__ = ["LINE_STATES"]
 
-#: The state a listing marks a line with, by the name of the line's
-#: :class:`~pyEDAA.Reports.CodeCoverage.LineCoverageStatus`.
 LINE_STATES = {
 	"Covered":          "covered",
 	"PartiallyCovered": "partial",
@@ -90,6 +88,10 @@ LINE_STATES = {
 	"Excluded":         "excluded",
 	"Unknown":          "",
 }
+"""
+The state a listing marks a line with, by the name of the line's
+:class:`~pyEDAA.Reports.CodeCoverage.LineCoverageStatus`.
+"""
 
 
 @export
