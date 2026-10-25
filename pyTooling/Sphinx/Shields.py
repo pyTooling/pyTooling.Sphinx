@@ -135,8 +135,11 @@ class Shield(metaclass=ExtendedType, slots=True):
 		:param path:            Path and query on the badge host, with placeholders to format.
 		:param target:          Optional, what the badge links to.
 		:param options:         Optional, names of the directive's options the badge is made of.
-		:raises ValueError:     If parameter 'alternativeText' or 'path' is None.
-		:raises TypeError:      If parameter 'alternativeText', 'path' or 'target' is not a string.
+		:raises ValueError:     If parameter 'alternativeText' is None.
+		:raises TypeError:      If parameter 'alternativeText' is not a string.
+		:raises ValueError:     If parameter 'path' is None.
+		:raises TypeError:      If parameter 'path' is not a string.
+		:raises TypeError:      If parameter 'target' is not a string.
 		"""
 		if alternativeText is None:
 			raise ValueError("Parameter 'alternativeText' is None.")
