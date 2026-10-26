@@ -229,16 +229,17 @@ def describedIcon(option: Nullable[str]) -> tuple[str, str]:
 @export
 class LegendPosition(StringEnum):
 	"""
-	Where a tree's legend is drawn, as option ``:legend:`` of the ``tree`` directive states it.
+	Where a legend is drawn, as a directive's option ``:legend:`` states it.
 
-	The legend gets the CSS class ``tree-legend-<value>``.
+	A tree's legend gets the CSS class ``tree-legend-<value>``, a unit test summary's legend
+	``report-unittest-legend-<value>``.
 	"""
 
-	Top =    "top"     #: Above the tree.
-	Bottom = "bottom"  #: Below the tree.
+	Top =    "top"     #: Above the tree or table.
+	Bottom = "bottom"  #: Below the tree or table.
 	Hidden = "none"    #: Not at all.
 
-	DEFAULT = Bottom   #: An option without a value draws the legend below the tree.
+	DEFAULT = Bottom   #: An option without a value draws the legend below the tree or table.
 
 
 @export

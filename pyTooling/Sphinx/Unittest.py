@@ -81,6 +81,7 @@ from pyTooling.Sphinx                   import BaseDirective, ReportExtensionErr
                                                SphinxExtensionError, strip, stripAndNormalize
 from pyTooling.Sphinx.Node              import Landscape, ReportIndentation
 from pyTooling.Sphinx.Pages             import ReportPages
+from pyTooling.Sphinx.Tree              import LegendPosition
 
 if TYPE_CHECKING:  # pragma: no cover
 	# pyEDAA.Reports is an optional dependency (extra 'reports'), imported where a report is read.
@@ -357,6 +358,10 @@ class UnittestSummaryBase(BaseDirective):
 	identifier, the report file (key :attr:`_REPORT_KEY`) and optionally the key ``pages``. A derived class names them,
 	declares its own class variables :attr:`_testSummaries`, :attr:`_reports` and :attr:`_readErrors`, reads a report
 	file by :meth:`_ReadReport`, reads its options in :meth:`_CheckOptions`, and returns its pages by :meth:`_Pages`.
+
+	A legend of the status symbols (:attr:`_LEGEND`) is drawn below the table, or above it or not at all, as option
+	``:legend:`` chooses; a derived class accepts the option by adding ``"legend": LegendPosition.Parse`` to its
+	``option_spec``.
 	"""
 
 	_CONFIG_VALUE: ClassVar[str]                                         #: Configuration value declaring the reports.
@@ -368,12 +373,24 @@ class UnittestSummaryBase(BaseDirective):
 	_reports:       ClassVar[dict[str, TestsuiteSummary]]  #: Reports read by :meth:`ReadReports`, by ID.
 	_readErrors:    ClassVar[dict[str, Exception]]         #: Why a report couldn't be read, by report ID.
 
+	_LEGEND: ClassVar[tuple[tuple[str, str], ...]] = (
+		("✅", "passed"),
+		("❌", "failed"),
+		("⚠️", "skipped"),
+		("➖", "excluded"),
+		("❗", "errored"),
+		("⛔", "setup error"),
+		("🚫", "aborted"),
+		("❓", "unknown")
+	)  #: The status symbols of testsuites and testcases with the word explaining each, in the order of the legend.
+
 	_cssClasses:           list[str]         #: Additional CSS classes of the table.
 	_reportID:             str               #: Identifier of the report in the configuration.
 	_reportFile:           Path              #: The report file.
 	_hideTestsuiteSummary: bool              #: Whether the testsuite summary's row is left out.
 	_testsuiteSummaryName: str               #: Name replacing the testsuite summary's name, or ``""``.
 	_showTestcases:        ShowTestcases     #: Which testcases are listed.
+	_legend:               LegendPosition    #: Where the legend of the status symbols is drawn, by option ``:legend:``.
 	_testsuite:            TestsuiteSummary  #: The report's testsuite summary.
 
 	@notimplemented("A derived directive implements '_CheckOptions'.")
@@ -635,6 +652,24 @@ class UnittestSummaryBase(BaseDirective):
 
 		return tableGroup.parent
 
+	def _CreateLegend(self) -> nodes.paragraph:
+		"""
+		Build the legend of the status symbols: a paragraph naming each symbol of :attr:`_LEGEND` with its word.
+
+		The paragraph gets the CSS classes ``report-unittest-legend`` and ``report-unittest-legend-<position>``.
+
+		:returns: The legend.
+		"""
+		classes = ["report-unittest-legend", f"report-unittest-legend-{self._legend}"]
+		legend =  nodes.paragraph("", "Legend: ", classes=classes)
+		for index, (symbol, text) in enumerate(self._LEGEND):
+			if index > 0:
+				legend += nodes.Text(", ")
+
+			legend += nodes.inline("", f"{symbol} {text}", classes=["report-unittest-legend-item"])
+
+		return legend
+
 	def _RenderRoot(
 		self,
 		tableBody: nodes.tbody,
@@ -757,11 +792,14 @@ class UnittestSummaryBase(BaseDirective):
 		"""
 		Read the configured report and return it as a table, on landscape pages in LaTeX.
 
+		The legend of the status symbols is drawn below the table, or above it, as option ``:legend:`` chooses.
+		``:legend: none`` draws no legend.
+
 		A report with pages adds a hidden table of contents of its top-level testsuites, so the pages are below this
 		document in the navigation.
 
-		:returns: A :class:`~pyTooling.Sphinx.Node.Landscape` container holding the table, or the error message; then
-		          the table of contents, if the report has pages.
+		:returns: A :class:`~pyTooling.Sphinx.Node.Landscape` container holding the table and its legend, or the error
+		          message; then the table of contents, if the report has pages.
 		"""
 		container = Landscape()
 
@@ -770,6 +808,8 @@ class UnittestSummaryBase(BaseDirective):
 		except SphinxExtensionError as ex:
 			message = f"Caught {getTypeName(ex)} when checking options for directive '{self.directiveName}'."
 			return self._internalError(container, __name__, message, ex)
+
+		self._legend = self.options.get("legend", LegendPosition.DEFAULT)
 
 		if (readError := self._readErrors.get(self._reportID, None)) is not None:
 			if isinstance(readError, ReportsPackageMissingError):
@@ -787,6 +827,11 @@ class UnittestSummaryBase(BaseDirective):
 				f"'{self._reportFile}'."
 			)
 			return self._internalError(container, __name__, message, ex)
+
+		if self._legend is LegendPosition.Top:
+			container.insert(0, self._CreateLegend())
+		elif self._legend is LegendPosition.Bottom:
+			container += self._CreateLegend()
 
 		if (pages := self._Pages()) is None:
 			return [container]
@@ -812,7 +857,8 @@ class UnittestSummary(UnittestSummaryBase):
 		"testsuite-summary-name": strip,
 		"show-testcases":         stripAndNormalize,
 		"no-assertions":          flag,
-		"hide-testsuite-summary": flag
+		"hide-testsuite-summary": flag,
+		"legend":                 LegendPosition.Parse
 	}  #: Mapping of option names to validator functions.
 
 	configValues: ClassVar[dict[str, tuple[Any, str, Any]]] = {
