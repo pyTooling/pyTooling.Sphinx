@@ -516,16 +516,16 @@ class DependencyCollector(metaclass=ExtendedType, slots=True):
 		"""
 		Record or report the warnings collected while resolving.
 
-		An :class:`~pyTooling.Dependency.UnknownLicenseWarning` naming its project is recorded in
-		:attr:`UnresolvedLicenses`. Every other warning, e.g. a :class:`~pyTooling.Dependency.BrokenRequirementWarning`
-		for a requirement naming an extra its release doesn't declare, is reported as a Sphinx warning.
+		An :class:`~pyTooling.Dependency.UnknownLicenseWarning` is recorded in :attr:`UnresolvedLicenses`. Every other
+		warning, e.g. a :class:`~pyTooling.Dependency.BrokenRequirementWarning` for a requirement naming an extra its
+		release doesn't declare, is reported as a Sphinx warning.
 
 		:param warnings: The collected warnings.
 		"""
 		from packaging.utils import canonicalize_name
 
 		for warning in warnings:
-			if isinstance(warning, UnknownLicenseWarning) and warning.ProjectName is not None:
+			if isinstance(warning, UnknownLicenseWarning):
 				# the warning's notes are what the index published, which is the reason an override is needed; keyed by the
 				# canonical name, which is the override file's spelling, so two spellings of one package are one entry
 				self._unresolved[canonicalize_name(warning.ProjectName)] = warning.Notes
