@@ -49,6 +49,7 @@ from pyTooling.Dependency             import BrokenRequirementWarning, UnknownLi
 from pyTooling.Dependency.Python      import LicenseOverrides
 from pyTooling.Dependency.Resolver    import ResolutionStatus
 from pyTooling.Exceptions             import MissingDependencyError
+from pyTooling.Versioning             import SemanticVersion
 from pyTooling.Sphinx                 import SphinxExtensionError
 from pyTooling.Sphinx.DependencyTable import DependencyFormat, DependencyTable, VersionFormat, \
                                              formatUnresolvedLicenses, DependencyCollector, prepareEntrypoints, \
@@ -681,7 +682,11 @@ class DependencyTrees(Testcase):
 
 
 def _licenseWarning(name: str) -> UnknownLicenseWarning:
-	warning = UnknownLicenseWarning(f"License of '{name}' 1.0 couldn't be resolved.", projectName=name)
+	warning = UnknownLicenseWarning(
+		f"License of '{name}' 1.0 couldn't be resolved.",
+		projectName=name,
+		version=SemanticVersion(1, 0)
+	)
 	warning.add_note("license: BSD")
 
 	return warning
@@ -705,27 +710,6 @@ class UnresolvedLicenseCollection(Testcase):
 			collector._ReportWarnings([_licenseWarning("Sphinx_RTD_Theme"), _licenseWarning("sphinx-rtd-theme")])
 
 		self.assertEqual({"sphinx-rtd-theme": ("license: BSD",)}, collector.UnresolvedLicenses)
-
-	@testcase("Unnamed project")
-	def Unnamed(self) -> None:
-		"""
-		A warning about an unknown license that doesn't name its project is reported as a Sphinx warning.
-
-		Reports a warning without a project name and checks it and its note are logged, and nothing is recorded.
-		"""
-		collector = DependencyCollector({}, "https://pypi.org", "https://pypi.org/pypi", None)
-		warning = UnknownLicenseWarning("License of 'pyTooling' 1.0 couldn't be resolved.")
-		warning.add_note("license: BSD")
-
-		with self.assertLogs(LOGGER_NAME, level="WARNING") as logCapture:
-			collector._ReportWarnings([warning])
-
-		self.assertEqual(1, len(logCapture.records))
-		self.assertEqual(
-			"[dependency-table] License of 'pyTooling' 1.0 couldn't be resolved.\n  license: BSD",
-			logCapture.records[0].getMessage()
-		)
-		self.assertEqual({}, collector.UnresolvedLicenses)
 
 
 @testsuite("Reporting warnings")
@@ -766,7 +750,13 @@ class WarningReport(Testcase):
 		collector = DependencyCollector({}, "https://pypi.org", "https://pypi.org/pypi", None)
 
 		with self.assertLogs(LOGGER_NAME, level="WARNING") as logCapture:
-			collector._ReportWarnings([UnsupportedVersionWarning("Skipping release '2004d' of package 'pytz'.")])
+			collector._ReportWarnings([
+				UnsupportedVersionWarning(
+					"Skipping release '2004d' of package 'pytz'.",
+					projectName="pytz",
+					version="2004d"
+				)
+			])
 
 		self.assertEqual(1, len(logCapture.records))
 		self.assertEqual(
