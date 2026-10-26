@@ -88,7 +88,7 @@ from sphinx.util                     import logging
 if TYPE_CHECKING:  # pragma: no cover
 	# Only this directive needs a package index, so the model is imported when the configuration declares an
 	# entrypoint rather than when the extension is loaded - otherwise every documentation build using any of these
-	# roles would need the 'pypi' extra.
+	# roles would need the 'dependencies' extra.
 	from sphinx.config                 import Config
 	from packaging.requirements        import Requirement
 	from packaging.specifiers          import SpecifierSet
@@ -468,7 +468,7 @@ class DependencyCollector(metaclass=ExtendedType, slots=True):
 		:param requirements:            The requirements to resolve.
 		:param limit:                   Number of levels resolved below the requirements, or ``None`` for unlimited.
 		:returns:                       The resolution.
-		:raises MissingDependencyError: If the 'pypi' extra isn't installed.
+		:raises MissingDependencyError: If the 'dependencies' extra isn't installed.
 		"""
 		from pyTooling.Dependency.Resolver import ResolutionStrategy, Resolver
 
@@ -490,7 +490,7 @@ class DependencyCollector(metaclass=ExtendedType, slots=True):
 		:param packages:                Pairs of a package name and an extra's name, or ``None`` for the package's own
 		                                requirements.
 		:returns:                       The requirements, flattened in the order the packages are given.
-		:raises MissingDependencyError: If the 'pypi' extra isn't installed.
+		:raises MissingDependencyError: If the 'dependencies' extra isn't installed.
 		:raises SphinxExtensionError:   If the index doesn't know a package, can't describe its latest release, or the
 		                                package has no such extra.
 		"""
@@ -545,7 +545,7 @@ def readEntrypoints(configuration: Any, confDirectory: Path) -> dict[str, Entryp
 	:param configuration:           Value of ``pyTooling_Dependency_Requirements``.
 	:param confDirectory:           Directory :file:`conf.py` lives in; relative paths are resolved against it.
 	:returns:                       Every declared entrypoint, by its identifier.
-	:raises MissingDependencyError: If the 'pypi' extra isn't installed.
+	:raises MissingDependencyError: If the 'dependencies' extra isn't installed.
 	:raises SphinxExtensionError:   If the configuration is malformed, or a requirements file can't be read.
 	"""
 	if not isinstance(configuration, dict):
@@ -632,7 +632,7 @@ def _FileEntrypoint(
 	:param files:                   The declared paths.
 	:param confDirectory:           Directory relative paths resolve against.
 	:returns:                       The entrypoint, with its requirements read.
-	:raises MissingDependencyError: If the 'pypi' extra isn't installed.
+	:raises MissingDependencyError: If the 'dependencies' extra isn't installed.
 	:raises SphinxExtensionError:   If a file can't be read.
 	"""
 	try:
@@ -707,8 +707,8 @@ def prepareEntrypoints(sphinx: Sphinx, config: Config) -> None:
 		from pyTooling.Dependency.Python import LicenseOverrides
 	except MissingDependencyError as cause:  # pragma: no cover
 		raise SphinxExtensionError(
-			f"conf.py: {CONFIG_PREFIX}_Requirements: Querying a package index needs the 'pypi' extra: "
-			f"pip install pyTooling[pypi]"
+			f"conf.py: {CONFIG_PREFIX}_Requirements: Querying a package index needs the 'dependencies' extra: "
+			"pip install pyTooling[dependencies]"
 		) from cause
 
 	overrides = LicenseOverrides()
@@ -873,7 +873,7 @@ class DependencyTable(BaseDirective):
 		:param identifier:              Identifier the document names.
 		:param collector:               The build's collector.
 		:returns:                       Every required package, by its canonical name.
-		:raises MissingDependencyError: If the 'pypi' extra isn't installed.
+		:raises MissingDependencyError: If the 'dependencies' extra isn't installed.
 		:raises SphinxExtensionError:   If the identifier is unknown, or the package index can't answer for the
 		                                entrypoint's packages.
 		"""
