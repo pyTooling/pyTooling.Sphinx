@@ -127,7 +127,7 @@ from enum                    import Enum, Flag
 from hashlib                 import md5
 from pathlib                 import Path
 from re                      import compile as re_compile, match as re_match
-from typing                  import Any, Iterable, Iterator, NamedTuple, Optional as Nullable, TypeVar
+from typing                  import Any, ClassVar, Iterable, Iterator, NamedTuple, Optional as Nullable, TypeVar
 
 from docutils                import nodes
 from sphinx.addnodes         import pending_xref
@@ -142,7 +142,7 @@ from sphinx.roles            import XRefRole
 from sphinx.util.logging     import getLogger
 from sphinx.util.nodes       import make_refnode
 
-from pyTooling.Common        import getTypeName, readResourceFile
+from pyTooling.Common        import getFullyQualifiedName, getTypeName, readResourceFile
 from pyTooling.Decorators    import export, readonly
 from pyTooling.Documentation import DocumentationError
 
@@ -737,9 +737,31 @@ class ReportRole(XRefRole):
 	Role ``tc`` refers to a testcase, ``ts`` to a testsuite.
 
 	Sphinx registers a role outside a domain without one, so the reference would be resolved by nobody; this role puts
-	domain ``report`` on the reference, and uses its name as the reference's type. So it works as ``:report:tc:`` and
-	as the global ``:tc:``.
+	its domain - ``report``, or the one of a domain derived from :class:`ReportDomain` - on the reference, and uses its
+	name as the reference's type. So it works as ``:report:tc:`` and as the global ``:tc:``.
 	"""
+
+	_domain: str  #: Name of the domain resolving the role's references.
+
+	def __init__(self, *, domain: str = "report", **kwargs: Any) -> None:
+		"""
+		Initializes a role of domain ``report``, or of a domain derived from :class:`ReportDomain`.
+
+		:param domain:      Optional, name of the domain resolving the role's references. Default: ``"report"``.
+		:param kwargs:      The parameters of :class:`~sphinx.roles.XRefRole`, e.g. ``innernodeclass``.
+		:raises ValueError: If parameter 'domain' is None.
+		:raises TypeError:  If parameter 'domain' is not of type :class:`str`.
+		"""
+		super().__init__(**kwargs)
+
+		if domain is None:
+			raise ValueError("Parameter 'domain' is None.")
+		elif not isinstance(domain, str):
+			ex = TypeError("Parameter 'domain' is not of type 'str'.")
+			ex.add_note(f"Got type '{getFullyQualifiedName(domain)}'.")
+			raise ex
+
+		self._domain = domain
 
 	def run(self) -> tuple[list[nodes.Node], list[nodes.system_message]]:
 		"""
@@ -747,9 +769,9 @@ class ReportRole(XRefRole):
 
 		:returns: The nodes and messages a role returns.
 		"""
-		self.refdomain = ReportDomain.name
+		self.refdomain = self._domain
 		self.reftype = self.name.rpartition(":")[2]
-		self.classes = ["xref", ReportDomain.name, f"{ReportDomain.name}-{self.reftype}"]
+		self.classes = ["xref", self._domain, f"{self._domain}-{self.reftype}"]
 
 		if self.disabled:
 			return self.create_non_xref_node()
@@ -768,7 +790,14 @@ class ReportDomain(Domain):
 	testcases -, which the roles of :data:`REPORT_ROLES` refer to, e.g. ``:report:tc:``, also registered as ``:tc:``. A
 	reference names an object by its qualified name, or by a suffix of it, optionally preceded by the report's
 	identifier and a colon; without one, the first report of the role's configuration value is meant.
+
+	A domain of another family of reports - e.g. a build summary of a simulation framework - derives from it: it names
+	its roles in :attr:`_ROLES`, and declares :attr:`name`, :attr:`object_types`, :attr:`initial_data`, :attr:`roles` and
+	:attr:`dangling_warnings` from them, as this domain does from :data:`REPORT_ROLES`. Its roles are
+	:class:`ReportRole` instances naming the domain.
 	"""
+
+	_ROLES: ClassVar[dict[str, ReportRoleDefinition]] = REPORT_ROLES  #: The domain's roles, by role name.
 
 	name =         "report"  #: Name of the domain, the prefix of its directives.
 	label =        "rpt"     #: Name of the domain, as displayed.
@@ -811,7 +840,7 @@ class ReportDomain(Domain):
 		:returns:        The matching entries: none, one, or several if the name is ambiguous.
 		"""
 		reports: dict[str, dict[str, ReportEntry]] = self.data[roleName]
-		configuredReports = list(self.env.config[REPORT_ROLES[roleName].configValue])
+		configuredReports = list(self.env.config[self._ROLES[roleName].configValue])
 
 		reportID, separator, name = target.partition(":")
 		if separator == "" or reportID not in configuredReports:
@@ -832,7 +861,7 @@ class ReportDomain(Domain):
 
 		:param docname: Name of the document.
 		"""
-		for roleName in REPORT_ROLES:
+		for roleName in self._ROLES:
 			for entries in self.data[roleName].values():
 				for qualifiedName in [name for name, entry in entries.items() if entry.docName == docname]:
 					del entries[qualifiedName]
@@ -845,7 +874,7 @@ class ReportDomain(Domain):
 		:param otherdata: The other reader's domain data.
 		"""
 		documents = set(docnames)
-		for roleName in REPORT_ROLES:
+		for roleName in self._ROLES:
 			for reportID, entries in otherdata[roleName].items():
 				ownEntries = self.data[roleName].setdefault(reportID, {})
 				for qualifiedName, entry in entries.items():
@@ -879,11 +908,11 @@ class ReportDomain(Domain):
 		:returns:           The link, the text if the name is ambiguous or the builder doesn't write the page, or
 		                    ``None`` if nothing matches.
 		"""
-		if typ not in REPORT_ROLES:
+		if typ not in self._ROLES:
 			return None
 
 		anchor = line = ""
-		if REPORT_ROLES[typ].lineAnchors and (match := LINE_ANCHOR.search(target)) is not None:
+		if self._ROLES[typ].lineAnchors and (match := LINE_ANCHOR.search(target)) is not None:
 			target, line = target[:match.start()], match[1]
 			anchor = f"L{line}"
 
@@ -893,7 +922,7 @@ class ReportDomain(Domain):
 		elif len(entries) > 1:
 			candidates = ", ".join(sorted(f"{entry.reportID}:{entry.QualifiedName}" for entry in entries))
 			getLogger(__name__).warning(
-				f"{REPORT_ROLES[typ].objectType} '{target}' is ambiguous, candidates: {candidates}",
+				f"{self._ROLES[typ].objectType} '{target}' is ambiguous, candidates: {candidates}",
 				location=node, type="ref", subtype=typ
 			)
 			return contnode
@@ -932,7 +961,7 @@ class ReportDomain(Domain):
 		:returns:           A role and link per kind of object the text names unambiguously.
 		"""
 		results: list[tuple[str, nodes.reference]] = []
-		for roleName in REPORT_ROLES:
+		for roleName in self._ROLES:
 			if len(entries := self.FindEntries(roleName, target)) == 1:
 				entry = entries[0]
 				content = nodes.inline(entry.Name, entry.Name, classes=contnode["classes"])
@@ -950,7 +979,7 @@ class ReportDomain(Domain):
 
 		:returns: A tuple per object: name, display name, type, document, anchor and search priority.
 		"""
-		for roleName, definition in REPORT_ROLES.items():
+		for roleName, definition in self._ROLES.items():
 			priority = 2 if roleName == "tc" else 1
 			for reportID, entries in self.data[roleName].items():
 				for qualifiedName, entry in entries.items():

@@ -224,16 +224,10 @@ class UnittestReportPages(ReportPages["Testsuite | Testcase"]):
 		:returns:        The page's top section.
 		"""
 		page = self._PageSection(testcase)
-		status = testcase._status
 
 		page += (summarySection := nodes.section("", nodes.title("Summary", "Summary"), ids=["summary"]))
 		summarySection += (fieldList := nodes.field_list(classes=["report-unittest-fields"]))
-		symbol = UnittestSummary._ConvertTestcaseStatusToSymbol(status)
-		self._Field(fieldList, "Status", nodes.Text(f"{symbol} {status.name}"))
-		self._Field(fieldList, "Duration", nodes.Text(UnittestSummary._FormatTimedelta(testcase._totalDuration)))
-		if testcase._assertionCount is not None:
-			self._Field(fieldList, "Assertions", nodes.Text(f"{testcase._assertionCount}"))
-		self._Field(fieldList, "Testsuite", self._Reference("ts", testcase._parent, docName))
+		self._TestcaseFields(fieldList, docName, testcase)
 
 		for identifier, title, texts in (
 			("message",         "Message",         (testcase._message, testcase._details)),
@@ -249,6 +243,62 @@ class UnittestReportPages(ReportPages["Testsuite | Testcase"]):
 					section += nodes.literal_block(text, text, language="text", classes=[f"report-unittest-{identifier}"])
 
 		return page
+
+	def _TestcaseFields(self, fieldList: nodes.field_list, docName: str, testcase: Testcase) -> None:
+		"""
+		Add the fields of a testcase's summary: its status, duration, assertions and testsuite.
+
+		A derived class adds fields of its own after them.
+
+		:param fieldList: The summary's field list.
+		:param docName:   Name of the testcase page's document.
+		:param testcase:  The testcase.
+		"""
+		status = testcase._status
+		symbol = UnittestSummary._ConvertTestcaseStatusToSymbol(status)
+		self._Field(fieldList, "Status", nodes.Text(f"{symbol} {status.name}"))
+		self._Field(fieldList, "Duration", nodes.Text(UnittestSummary._FormatTimedelta(testcase._totalDuration)))
+		if testcase._assertionCount is not None:
+			self._Field(fieldList, "Assertions", nodes.Text(f"{testcase._assertionCount}"))
+		self._Field(fieldList, "Testsuite", self._Reference("ts", testcase._parent, docName))
+
+	def _TestcaseColumns(self, withAssertions: bool) -> list[tuple[str, int]]:
+		"""
+		Return the columns of the testcase table of a testsuite's page: the testcase, its status, its duration and - if a
+		testcase of the testsuite counts them - its assertions.
+
+		A derived class adds columns of its own after them, and their cells in :meth:`_TestcaseCells`.
+
+		:param withAssertions: Whether a testcase of the testsuite counts assertions.
+		:returns:              One ``(title, width)`` pair per column.
+		"""
+		columns = [("Testcase", 6), ("Status", 2), ("Duration", 2)]
+		if withAssertions:
+			columns.append(("Assertions", 1))
+
+		return columns
+
+	def _TestcaseCells(self, docName: str, testcase: Testcase, withAssertions: bool) -> list[nodes.entry]:
+		"""
+		Create the cells of a testcase's row in the testcase table of a testsuite's page, one per column of
+		:meth:`_TestcaseColumns`.
+
+		:param docName:        Name of the testsuite page's document.
+		:param testcase:       The testcase.
+		:param withAssertions: Whether a testcase of the testsuite counts assertions.
+		:returns:              The cells.
+		"""
+		symbol = UnittestSummary._ConvertTestcaseStatusToSymbol(testcase._status)
+		cells = [
+			nodes.entry("", nodes.paragraph("", "", self._Reference("tc", testcase, docName))),
+			nodes.entry("", nodes.paragraph("", f"{symbol} {testcase._status.name}")),
+			nodes.entry("", nodes.paragraph("", UnittestSummary._FormatTimedelta(testcase._totalDuration)))
+		]
+		if withAssertions:
+			assertions = "" if testcase._assertionCount is None else f"{testcase._assertionCount}"
+			cells.append(nodes.entry("", nodes.paragraph("", assertions)))
+
+		return cells
 
 	def _TestsuitePage(self, docName: str, testsuite: Testsuite) -> nodes.section:
 		"""
@@ -301,20 +351,12 @@ class UnittestReportPages(ReportPages["Testsuite | Testcase"]):
 
 		if len(testsuite._testcases) > 0:
 			page += (section := nodes.section("", nodes.title("Testcases", "Testcases"), ids=["testcases"]))
-			columns = [("Testcase", 6), ("Status", 2), ("Duration", 2)]
-			if withAssertions:
-				columns.append(("Assertions", 1))
-			table, tableBody = self._Table(columns, ["report-unittest-testcases"])
+			table, tableBody = self._Table(self._TestcaseColumns(withAssertions), ["report-unittest-testcases"])
 			section += table
 			for testcase in sorted(testsuite._testcases.values(), key=lambda item: item._name):
-				symbol = UnittestSummary._ConvertTestcaseStatusToSymbol(testcase._status)
 				tableBody += (row := nodes.row("", classes=[f"testcase-{testcase._status.name.lower()}"]))
-				row += nodes.entry("", nodes.paragraph("", "", self._Reference("tc", testcase, docName)))
-				row += nodes.entry("", nodes.paragraph("", f"{symbol} {testcase._status.name}"))
-				row += nodes.entry("", nodes.paragraph("", UnittestSummary._FormatTimedelta(testcase._totalDuration)))
-				if withAssertions:
-					assertions = "" if testcase._assertionCount is None else f"{testcase._assertionCount}"
-					row += nodes.entry("", nodes.paragraph("", assertions))
+				for cell in self._TestcaseCells(docName, testcase, withAssertions):
+					row += cell
 
 				if (entry := self.Entry(testcase)) is not None:
 					children.append(entry.docName)
