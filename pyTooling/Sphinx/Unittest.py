@@ -74,7 +74,7 @@ from sphinx.config                      import Config
 from sphinx.util.logging                import getLogger
 
 from pyTooling.Common                   import getFullyQualifiedName, getTypeName
-from pyTooling.Decorators               import export, readonly
+from pyTooling.Decorators               import export, notimplemented, readonly
 from pyTooling.MetaClasses              import ExtendedType
 
 from pyTooling.Sphinx                   import BaseDirective, ReportExtensionError, ReportsPackageMissingError, \
@@ -376,16 +376,14 @@ class UnittestSummaryBase(BaseDirective):
 	_showTestcases:        ShowTestcases     #: Which testcases are listed.
 	_testsuite:            TestsuiteSummary  #: The report's testsuite summary.
 
+	@notimplemented("A derived directive implements '_CheckOptions'.")
 	def _CheckOptions(self) -> None:
 		"""
 		Parse all directive options or use default values.
 
 		A derived class sets :attr:`_cssClasses`, :attr:`_reportID`, :attr:`_reportFile`, :attr:`_hideTestsuiteSummary`,
 		:attr:`_testsuiteSummaryName` and :attr:`_showTestcases`.
-
-		:raises NotImplementedError: If a derived class doesn't override it.
 		"""
-		raise NotImplementedError(f"{self.directiveName}: '_CheckOptions' is not implemented.")
 
 	@classmethod
 	def CheckConfiguration(cls, sphinxApplication: Sphinx, sphinxConfiguration: Config) -> None:
@@ -432,15 +430,14 @@ class UnittestSummaryBase(BaseDirective):
 			raise ReportExtensionError(f"{cls._REPORT_KIND} '{reportID}' wasn't read.") from cause
 
 	@classmethod
+	@notimplemented("A derived directive implements '_ReadReport'.")
 	def _ReadReport(cls, reportFile: Path) -> TestsuiteSummary:
 		"""
 		Read a report file.
 
-		:param reportFile:           The report file.
-		:returns:                    The report's testsuite summary, aggregated.
-		:raises NotImplementedError: If a derived class doesn't override it.
+		:param reportFile: The report file.
+		:returns:          The report's testsuite summary, aggregated.
 		"""
-		raise NotImplementedError(f"{cls.__name__}: '_ReadReport' is not implemented.")
 
 	@classmethod
 	def _CheckConfiguration(cls, sphinxConfiguration: Config) -> None:
@@ -484,14 +481,13 @@ class UnittestSummaryBase(BaseDirective):
 				"pages":         pages
 			}
 
+	@notimplemented("A derived directive implements '_Columns'.")
 	def _Columns(self) -> list[Column | ColumnGroup]:
 		"""
 		Return the table's columns after the first one, which names the rows.
 
-		:returns:                    The columns and groups of columns, in their order in the table.
-		:raises NotImplementedError: If a derived class doesn't override it.
+		:returns: The columns and groups of columns, in their order in the table.
 		"""
-		raise NotImplementedError(f"{self.directiveName}: '_Columns' is not implemented.")
 
 	def _Pages(self) -> Nullable[ReportPages[Any]]:
 		"""
@@ -932,7 +928,6 @@ class UnittestSummary(UnittestSummaryBase):
 			raise ReportsPackageMissingError("Reading a unit test report") from cause
 
 		document = JUnitDocument(xmlReport, analyzeAndConvert=True)
-		document.Aggregate()
 		testsuiteSummary = document.ToTestsuiteSummary()
 		testsuiteSummary.Aggregate()
 
