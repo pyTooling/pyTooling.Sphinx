@@ -58,7 +58,7 @@ with WarningCollector() as warnings:
 			pythonVersions=("3.12", "3.13", "3.14", "3.15"),
 			additionalRequirements={
 				"reports": [
-					"pyEDAA.Reports ~= 0.20.0rc1",
+					"pyEDAA.Reports ~= 1.0",
 				],
 				"markdown": [
 					"markdown-it-py ~= 4.2",
