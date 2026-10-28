@@ -90,13 +90,13 @@ installs every extra any statement names.
 
       Whether a version constraint is reduced to its lower bound: ``≥9.1`` instead of ``≥9.1, <10``. Default: ``yes``.
 
-   .. rst:directive:option:: version-format: Major | MajorMinor | MajorMinorPatch | All
+   .. rst:directive:option:: version-format: major | major-minor | major-minor-patch | all
 
-      How many parts of a version number are printed. Default: ``MajorMinor``.
+      How many parts of a version number are printed. Default: ``major-minor``.
 
-   .. rst:directive:option:: dependency-format: Package | PackageVersion | PackageLicense | PackageVersionLicense
+   .. rst:directive:option:: dependency-format: package | package-version | package-license | package-version-license
 
-      What a line of a dependency tree states. Default: ``PackageVersionLicense``.
+      What a line of a dependency tree states. Default: ``package-version-license``.
 
    .. rst:directive:option:: duplicates: expanded | collapsed | reference
 

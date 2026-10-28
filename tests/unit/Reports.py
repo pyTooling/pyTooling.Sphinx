@@ -38,7 +38,7 @@ from sys                              import executable
 from textwrap                         import dedent
 from unittest.mock                    import MagicMock
 
-from pyTooling.Sphinx                 import ReportDomain, ReportRole, setup
+from pyTooling.Sphinx                 import LegendStyle, ReportDomain, ReportRole, setup
 from pyTooling.Sphinx.DependencyTable import ReplaceFoldedDependencies
 from pyTooling.Sphinx.ExternalLink    import AddDownloadSizes, MarkDownloadLinks, MarkExternalLinks, \
                                              MarkIntersphinxLinks
@@ -47,7 +47,7 @@ from pyTooling.Sphinx.Tree            import RemoveTreeLegends
 from pyTooling.Sphinx.UnicodeTable    import RemoveUnicodeGlyphs
 from pyTooling.Sphinx.Unittest        import UnittestSummary
 from pyTooling.Sphinx.Workaround      import FixLatexTableWidths
-from pyTooling.Testing                import testsuite, testcase
+from pyTooling.Testing                import Testcase, testsuite, testcase
 
 from tests.unit.Extension             import Project
 
@@ -440,6 +440,33 @@ class DerivedDomain(Project):
 		with self.assertRaises(TypeError) as context:
 			_ = ReportRole(domain=1)
 		self.assertEqual("Parameter 'domain' is not of type 'str'.", str(context.exception))
+
+
+@testsuite("Coverage legend style")
+class CoverageLegendStyle(Testcase):
+	"""The option ``:style:`` of a coverage legend is read by LegendStyle, spelled as documents write it."""
+
+	@testcase("Default")
+	def Default(self) -> None:
+		"""
+		A legend without the option has a column per level.
+
+		Parses the option without a value and checks the member.
+		"""
+		self.assertIs(LegendStyle.HorizontalTable, LegendStyle.Parse(None))
+
+	@testcase("Values")
+	def Values(self) -> None:
+		"""
+		The values are written with dashes; the old member spelling is rejected, naming the values.
+
+		Parses 'vertical-table' and checks 'vertical_table' is rejected.
+		"""
+		self.assertIs(LegendStyle.VerticalTable, LegendStyle.Parse("vertical-table"))
+		with self.assertRaises(ValueError) as exceptionCapture:
+			LegendStyle.Parse("vertical_table")
+
+		self.assertEqual(["Allowed values: horizontal-table, vertical-table."], exceptionCapture.exception.__notes__)
 
 
 @testsuite("Unit test summary legend")

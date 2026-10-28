@@ -55,8 +55,7 @@ from pyTooling.Sphinx                 import SphinxExtensionError
 from pyTooling.Sphinx.DependencyTable import DependencyFormat, DependencyTable, VersionFormat, \
                                              formatUnresolvedLicenses, DependencyCollector, prepareEntrypoints, \
                                              readEntrypoints, DuplicateFormat, DuplicateMatch, \
-                                             ReplaceFoldedDependencies, DEFAULT_DEPENDENCY_FORMAT, \
-                                             DEFAULT_VERSION_FORMAT, _COLLECTORS, _MergeRequirements
+                                             ReplaceFoldedDependencies, _COLLECTORS, _MergeRequirements
 from pyTooling.Sphinx.Node            import FoldedDependencies
 from pyTooling.Testing                import Testcase, testsuite, testcase
 
@@ -783,9 +782,9 @@ class VersionFormats(Testcase):
 		"""
 		The default version format is 'MajorMinor'.
 
-		Compares DEFAULT_VERSION_FORMAT with the enumeration member.
+		Parses the option without a value and checks the member.
 		"""
-		self.assertIs(VersionFormat.MajorMinor, DEFAULT_VERSION_FORMAT)
+		self.assertIs(VersionFormat.MajorMinor, VersionFormat.Parse(None))
 
 	@testcase("Version parts per format")
 	def Formats(self) -> None:
@@ -837,9 +836,9 @@ class DependencyFormats(Testcase):
 		"""
 		The default dependency format states package, version and license.
 
-		Compares DEFAULT_DEPENDENCY_FORMAT with the enumeration member.
+		Parses the option without a value and checks the member.
 		"""
-		self.assertIs(DependencyFormat.PackageVersionLicense, DEFAULT_DEPENDENCY_FORMAT)
+		self.assertIs(DependencyFormat.PackageVersionLicense, DependencyFormat.Parse(None))
 
 	@testcase("Content per format")
 	def Formats(self) -> None:
@@ -853,15 +852,22 @@ class DependencyFormats(Testcase):
 			[(member.ShowsVersion, member.ShowsLicense) for member in DependencyFormat]
 		)
 
-	@testcase("Spelling of members")
-	def Spelling(self) -> None:
+	@testcase("Option values")
+	def Values(self) -> None:
 		"""
-		A member is written as it is spelled in a document.
+		A document writes a format in lower case with dashes; the member's spelling is rejected, naming the values.
 
-		Converts members of DependencyFormat and VersionFormat to strings and checks their names.
+		Parses 'package-version' and 'major-minor-patch', and checks 'PackageVersionLicense' is rejected.
 		"""
-		self.assertEqual("PackageVersionLicense", str(DependencyFormat.PackageVersionLicense))
-		self.assertEqual("MajorMinor", str(VersionFormat.MajorMinor))
+		self.assertIs(DependencyFormat.PackageVersion, DependencyFormat.Parse("package-version"))
+		self.assertIs(VersionFormat.MajorMinorPatch, VersionFormat.Parse("major-minor-patch"))
+		with self.assertRaises(ValueError) as exceptionCapture:
+			DependencyFormat.Parse("PackageVersionLicense")
+
+		self.assertEqual(
+			["Allowed values: package, package-version, package-license, package-version-license."],
+			exceptionCapture.exception.__notes__
+		)
 
 
 class _Resolved:

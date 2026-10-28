@@ -70,10 +70,9 @@ That still costs real time, so every table reports what it spent, measured with 
 """
 from __future__                        import annotations
 
-from enum                              import Enum, auto
 from pathlib                           import Path
 from typing                            import TYPE_CHECKING, Any, ClassVar, Iterable, Literal, Mapping, \
-                                              Optional as Nullable, TypeVar, cast
+                                              Optional as Nullable, cast
 
 from pyTooling.Common                  import StringEnum, getFullyQualifiedName
 from pyTooling.Decorators              import export, readonly
@@ -119,31 +118,33 @@ DEFAULT_SIMPLIFIED_VERSIONS = True
 
 
 @export
-class VersionFormat(Enum):
-	"""How many parts of a version number a dependency table prints."""
+class VersionFormat(StringEnum):
+	"""
+	How many parts of a version number a dependency table prints, as a ``dependency-table``'s option
+	``:version-format:`` states it.
+	"""
 
-	Major =           auto()  #: The major part alone, ``≥9``.
-	MajorMinor =      auto()  #: Major and minor, ``≥9.1`` - the default.
-	MajorMinorPatch = auto()  #: Major, minor and patch, ``≥9.1.2``.
-	All =             auto()  #: Every part the constraint states, ``≥9.1.2.dev3``.
+	Major =           "major"              #: The major part alone, ``≥9``.
+	MajorMinor =      "major-minor"        #: Major and minor, ``≥9.1``.
+	MajorMinorPatch = "major-minor-patch"  #: Major, minor and patch, ``≥9.1.2``.
+	All =             "all"                #: Every part the constraint states, ``≥9.1.2.dev3``.
 
-	def __str__(self) -> str:
-		"""
-		Return this format's name, as a document writes it.
-
-		:returns: The enum member's name.
-		"""
-		return self.name
+	DEFAULT =         MajorMinor           #: Without the option, a version is printed with major and minor part.
 
 
 @export
-class DependencyFormat(Enum):
-	"""What a line of a dependency tree states about a package."""
+class DependencyFormat(StringEnum):
+	"""
+	What a line of a dependency tree states about a package, as a ``dependency-table``'s option ``:dependency-format:``
+	states it.
+	"""
 
-	Package =               auto()  #: The name alone.
-	PackageVersion =        auto()  #: Name and version constraint.
-	PackageLicense =        auto()  #: Name and license.
-	PackageVersionLicense = auto()  #: Name, version constraint and license - the default.
+	Package =               "package"                  #: The name alone.
+	PackageVersion =        "package-version"          #: Name and version constraint.
+	PackageLicense =        "package-license"          #: Name and license.
+	PackageVersionLicense = "package-version-license"  #: Name, version constraint and license.
+
+	DEFAULT =               PackageVersionLicense      #: Without the option, a line states name, version and license.
 
 	@readonly
 	def ShowsVersion(self) -> bool:
@@ -162,14 +163,6 @@ class DependencyFormat(Enum):
 		:returns: ``True`` if the license is printed.
 		"""
 		return self in (DependencyFormat.PackageLicense, DependencyFormat.PackageVersionLicense)
-
-	def __str__(self) -> str:
-		"""
-		Return this format's name, as a document writes it.
-
-		:returns: The enum member's name.
-		"""
-		return self.name
 
 
 @export
@@ -199,12 +192,6 @@ class DuplicateMatch(StringEnum):
 
 	DEFAULT = Subset   #: Without the option, a line requiring no more extras than the earlier line is a duplicate.
 
-
-DEFAULT_VERSION_FORMAT = VersionFormat.MajorMinor
-"""How many parts of a version number a table prints when the document doesn't say."""
-
-DEFAULT_DEPENDENCY_FORMAT = DependencyFormat.PackageVersionLicense
-"""What a line of a dependency tree states when the document doesn't say."""
 
 OPERATOR_SYMBOLS = (("<=", "≤"), (">=", "≥"), ("!=", "≠"), ("==", "="))
 """Comparison operators as a reader writes them. Order matters - the two-character forms have to be tried first."""
@@ -241,14 +228,11 @@ _ConfigRebuild = Literal["env"]
 
 __all__ = [
 	"DEFAULT_INDEX_URL", "DEFAULT_API_URL", "DEFAULT_DEPTH", "DEFAULT_SIMPLIFIED_VERSIONS", "OPERATOR_SYMBOLS",
-	"TABLE_COLUMNS", "ENTRYPOINT_FIELDS", "CONFIG_PREFIX", "PROJECT_ROOT_CONFIG",
-	"DEFAULT_VERSION_FORMAT", "DEFAULT_DEPENDENCY_FORMAT"
+	"TABLE_COLUMNS", "ENTRYPOINT_FIELDS", "CONFIG_PREFIX", "PROJECT_ROOT_CONFIG"
 ]
 
 _logger = logging.getLogger(__name__)
 
-_FormatType = TypeVar("_FormatType", VersionFormat, DependencyFormat)
-"""The two option enumerations, so one parser serves both."""
 
 
 def _SelectedRelease(resolved: ResolvedRequirement) -> Nullable[Release]:
@@ -924,8 +908,8 @@ class DependencyTable(BaseDirective):
 		"caption":             strip,
 		"depth":               directives.nonnegative_int,
 		"simplified-versions": stripAndNormalize,
-		"version-format":      stripAndNormalize,
-		"dependency-format":   stripAndNormalize,
+		"version-format":      VersionFormat.Parse,
+		"dependency-format":   DependencyFormat.Parse,
 		"duplicates":          DuplicateFormat.Parse,
 		"duplicate-match":     DuplicateMatch.Parse,
 	}
@@ -938,10 +922,8 @@ class DependencyTable(BaseDirective):
 		"""
 		identifier =             self.arguments[0].strip()
 		self._simplify =         self._ParseBooleanOption("simplified-versions", DEFAULT_SIMPLIFIED_VERSIONS)
-		self._versionFormat =    self._ParseFormatOption("version-format", VersionFormat, DEFAULT_VERSION_FORMAT)
-		self._dependencyFormat = self._ParseFormatOption(
-			"dependency-format", DependencyFormat, DEFAULT_DEPENDENCY_FORMAT
-		)
+		self._versionFormat =    self.options.get("version-format", VersionFormat.DEFAULT)
+		self._dependencyFormat = self.options.get("dependency-format", DependencyFormat.DEFAULT)
 		self._duplicateFormat =  self.options.get("duplicates", DuplicateFormat.DEFAULT)
 		self._duplicateMatch =   self.options.get("duplicate-match", DuplicateMatch.DEFAULT)
 
@@ -974,32 +956,6 @@ class DependencyTable(BaseDirective):
 		_logger.info(f"[{self.directiveName}] {identifier}: {len(requirements)} package(s), {seconds:.2f} s")
 
 		return [table]
-
-	def _ParseFormatOption(self, optionName: str, enumType: type[_FormatType], default: _FormatType) -> _FormatType:
-		"""
-		Read an option naming a member of an enumeration, or fall back to its default.
-
-		:attr:`~pyTooling.Sphinx.BaseDirective._ParseEnumOption` requires the option and
-		lower-cases what it reads; these two have a default and are written the way the members are spelled, so a
-		document says ``:version-format: MajorMinor`` rather than ``major_minor``.
-
-		:param optionName:            Name of the option to read.
-		:param enumType:              The enumeration its value names a member of.
-		:param default:               The member to use when the option isn't given.
-		:returns:                     The named member.
-		:raises SphinxExtensionError: If the value names no member.
-		"""
-		if (option := self.options.get(optionName, None)) is None:
-			return default
-
-		for member in enumType:
-			if option.lower() == member.name.lower():
-				return member
-
-		known = ", ".join(member.name for member in enumType)
-		raise SphinxExtensionError(
-			f"{self.directiveName}::{optionName}: '{option}' is not one of: {known}."
-		)
 
 	def _Collector(self) -> DependencyCollector:
 		"""
