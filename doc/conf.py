@@ -350,7 +350,7 @@ pyTooling_Dependency_Requirements = {
 	"markdown":      {"package":   "pyTooling.Sphinx[markdown]"},
 	"unittest":      {"file":      "../tests/unit/requirements.txt"},
 	"documentation": {"file":      "requirements.txt"},
-	"packaging":     {"pyproject": "../pyproject.toml"},
+	"packaging":     {"pyproject": True},
 	"publishing":    {"file":      "../dist/requirements.txt"},
 }
 pyTooling_Dependency_PackageOverrides = "Dependency.PackageOverrides.yaml"
