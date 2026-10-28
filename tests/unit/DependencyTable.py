@@ -56,8 +56,7 @@ from pyTooling.Sphinx.DependencyTable import DependencyFormat, DependencyTable, 
                                              formatUnresolvedLicenses, DependencyCollector, prepareEntrypoints, \
                                              readEntrypoints, DuplicateFormat, DuplicateMatch, \
                                              ReplaceFoldedDependencies, DEFAULT_DEPENDENCY_FORMAT, \
-                                             DEFAULT_VERSION_FORMAT, DEFAULT_DUPLICATE_FORMAT, \
-                                             DEFAULT_DUPLICATE_MATCH, _COLLECTORS, _MergeRequirements
+                                             DEFAULT_VERSION_FORMAT, _COLLECTORS, _MergeRequirements
 from pyTooling.Sphinx.Node            import FoldedDependencies
 from pyTooling.Testing                import Testcase, testsuite, testcase
 
@@ -1041,10 +1040,36 @@ class Duplicates(Testcase):
 		"""
 		Duplicates are collapsed and matched by subset when the document doesn't say.
 
-		Checks both defaults.
+		Parses both options without a value and checks the members.
 		"""
-		self.assertIs(DuplicateFormat.Collapsed, DEFAULT_DUPLICATE_FORMAT)
-		self.assertIs(DuplicateMatch.Subset, DEFAULT_DUPLICATE_MATCH)
+		self.assertIs(DuplicateFormat.Collapsed, DuplicateFormat.Parse(None))
+		self.assertIs(DuplicateMatch.Subset, DuplicateMatch.Parse(None))
+
+	@testcase("Option values")
+	def Values(self) -> None:
+		"""
+		The options take their members' values; another value is rejected with the values allowed.
+
+		Parses 'reference' and 'name', and checks 'Collapsed' is rejected, as values are lower case.
+		"""
+		self.assertIs(DuplicateFormat.Reference, DuplicateFormat.Parse("reference"))
+		self.assertIs(DuplicateMatch.Name, DuplicateMatch.Parse("name"))
+		with self.assertRaises(ValueError) as exceptionCapture:
+			DuplicateFormat.Parse("Collapsed")
+
+		self.assertEqual(["Allowed values: expanded, collapsed, reference."], exceptionCapture.exception.__notes__)
+
+	@testcase("Compact lists")
+	def Compact(self) -> None:
+		"""
+		Every list of a tree is compact, also one holding folded dependencies, so HTML spaces its lines alike.
+
+		Renders the tree of 'autodoc' collapsed and checks every bullet list carries the class 'compact'.
+		"""
+		rows = self._Sphinx()
+		bulletList = self._Table(rows)._CreateBulletList(list(rows[0].Dependencies))
+
+		self.assertTrue(all("compact" in node["classes"] for node in bulletList.findall(nodes.bullet_list)))
 
 	@testcase("Expanded")
 	def Expanded(self) -> None:

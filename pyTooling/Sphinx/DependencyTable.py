@@ -75,7 +75,7 @@ from pathlib                           import Path
 from typing                            import TYPE_CHECKING, Any, ClassVar, Iterable, Literal, Mapping, \
                                               Optional as Nullable, TypeVar, cast
 
-from pyTooling.Common                  import getFullyQualifiedName
+from pyTooling.Common                  import StringEnum, getFullyQualifiedName
 from pyTooling.Decorators              import export, readonly
 from pyTooling.Dependency              import DependencyError, UnknownLicenseWarning
 from pyTooling.Exceptions              import ConfigurationError, MissingDependencyError
@@ -173,37 +173,31 @@ class DependencyFormat(Enum):
 
 
 @export
-class DuplicateFormat(Enum):
-	"""How a dependency tree shows the dependencies of a package, which an earlier line of the table already shows."""
+class DuplicateFormat(StringEnum):
+	"""
+	How a dependency tree shows the dependencies of a package, which an earlier line of the table already shows, as a
+	``dependency-table``'s option ``:duplicates:`` states it.
+	"""
 
-	Expanded =  auto()  #: Shown again, as at the earlier line.
-	Collapsed = auto()  #: Folded below a marker linking to the earlier line; HTML unfolds them on a click - the default.
-	Reference = auto()  #: Replaced by a marker linking to the earlier line.
+	Expanded =  "expanded"   #: Shown again, as at the earlier line.
+	Collapsed = "collapsed"  #: Folded below a marker linking to the earlier line; HTML unfolds them on a click.
+	Reference = "reference"  #: Replaced by a marker linking to the earlier line.
 
-	def __str__(self) -> str:
-		"""
-		Return this format's name, as a document writes it.
-
-		:returns: The enum member's name.
-		"""
-		return self.name
+	DEFAULT =   Collapsed    #: Without the option, a duplicate's dependencies are folded.
 
 
 @export
-class DuplicateMatch(Enum):
-	"""When a package's line in a dependency tree is a duplicate of an earlier line of the same package."""
+class DuplicateMatch(StringEnum):
+	"""
+	When a package's line in a dependency tree is a duplicate of an earlier line of the same package, as a
+	``dependency-table``'s option ``:duplicate-match:`` states it.
+	"""
 
-	Exact =  auto()  #: The same release with the same extras.
-	Subset = auto()  #: The same release with the earlier line's extras or fewer - the default.
-	Name =   auto()  #: Any release with any extras.
+	Exact =  "exact"   #: The same release with the same extras.
+	Subset = "subset"  #: The same release with the earlier line's extras or fewer.
+	Name =   "name"    #: Any release with any extras.
 
-	def __str__(self) -> str:
-		"""
-		Return this match's name, as a document writes it.
-
-		:returns: The enum member's name.
-		"""
-		return self.name
+	DEFAULT = Subset   #: Without the option, a line requiring no more extras than the earlier line is a duplicate.
 
 
 DEFAULT_VERSION_FORMAT = VersionFormat.MajorMinor
@@ -211,12 +205,6 @@ DEFAULT_VERSION_FORMAT = VersionFormat.MajorMinor
 
 DEFAULT_DEPENDENCY_FORMAT = DependencyFormat.PackageVersionLicense
 """What a line of a dependency tree states when the document doesn't say."""
-
-DEFAULT_DUPLICATE_FORMAT = DuplicateFormat.Collapsed
-"""How a dependency tree shows a duplicate's dependencies when the document doesn't say."""
-
-DEFAULT_DUPLICATE_MATCH = DuplicateMatch.Subset
-"""When a line of a dependency tree is a duplicate when the document doesn't say."""
 
 OPERATOR_SYMBOLS = (("<=", "≤"), (">=", "≥"), ("!=", "≠"), ("==", "="))
 """Comparison operators as a reader writes them. Order matters - the two-character forms have to be tried first."""
@@ -254,13 +242,13 @@ _ConfigRebuild = Literal["env"]
 __all__ = [
 	"DEFAULT_INDEX_URL", "DEFAULT_API_URL", "DEFAULT_DEPTH", "DEFAULT_SIMPLIFIED_VERSIONS", "OPERATOR_SYMBOLS",
 	"TABLE_COLUMNS", "ENTRYPOINT_FIELDS", "CONFIG_PREFIX", "PROJECT_ROOT_CONFIG",
-	"DEFAULT_VERSION_FORMAT", "DEFAULT_DEPENDENCY_FORMAT", "DEFAULT_DUPLICATE_FORMAT", "DEFAULT_DUPLICATE_MATCH"
+	"DEFAULT_VERSION_FORMAT", "DEFAULT_DEPENDENCY_FORMAT"
 ]
 
 _logger = logging.getLogger(__name__)
 
-_FormatType = TypeVar("_FormatType", VersionFormat, DependencyFormat, DuplicateFormat, DuplicateMatch)
-"""The option enumerations, so one parser serves all of them."""
+_FormatType = TypeVar("_FormatType", VersionFormat, DependencyFormat)
+"""The two option enumerations, so one parser serves both."""
 
 
 def _SelectedRelease(resolved: ResolvedRequirement) -> Nullable[Release]:
@@ -937,8 +925,8 @@ class DependencyTable(BaseDirective):
 		"simplified-versions": stripAndNormalize,
 		"version-format":      stripAndNormalize,
 		"dependency-format":   stripAndNormalize,
-		"duplicates":          stripAndNormalize,
-		"duplicate-match":     stripAndNormalize,
+		"duplicates":          DuplicateFormat.Parse,
+		"duplicate-match":     DuplicateMatch.Parse,
 	}
 
 	def run(self) -> list[nodes.Node]:
@@ -953,8 +941,8 @@ class DependencyTable(BaseDirective):
 		self._dependencyFormat = self._ParseFormatOption(
 			"dependency-format", DependencyFormat, DEFAULT_DEPENDENCY_FORMAT
 		)
-		self._duplicateFormat =  self._ParseFormatOption("duplicates", DuplicateFormat, DEFAULT_DUPLICATE_FORMAT)
-		self._duplicateMatch =   self._ParseFormatOption("duplicate-match", DuplicateMatch, DEFAULT_DUPLICATE_MATCH)
+		self._duplicateFormat =  self.options.get("duplicates", DuplicateFormat.DEFAULT)
+		self._duplicateMatch =   self.options.get("duplicate-match", DuplicateMatch.DEFAULT)
 
 		# ':depth: 0' - and the default - means expand until the tree ends, which is the resolver's 'None'
 		depth = self.options.get("depth", DEFAULT_DEPTH)
@@ -1406,14 +1394,15 @@ class DependencyTable(BaseDirective):
 
 		An item whose own dependencies the depth limit cuts off gets a marker saying how many weren't expanded. An item
 		:meth:`_FindDuplicates` found to be a duplicate gets a marker linking to its original instead, and - if duplicates
-		are collapsed - its dependencies folded below that marker.
+		are collapsed - its dependencies folded below that marker. The list is ``compact``, so its lines are spaced like
+		those of a simple list, also next to folded dependencies.
 
 		:param dependencies: The resolved requirements to list.
 		:returns:            The bullet list.
 		"""
 		from pyTooling.Dependency.Resolver import ResolutionStatus
 
-		bulletList = nodes.bullet_list()
+		bulletList = nodes.bullet_list("", classes=["compact"])
 
 		for dependency in self._SortedByName(dependencies):
 			item = nodes.list_item()
@@ -1445,7 +1434,7 @@ class DependencyTable(BaseDirective):
 		"""
 		text = f"… {count} more {'dependency' if count == 1 else 'dependencies'} not expanded"
 
-		bulletList = nodes.bullet_list()
+		bulletList = nodes.bullet_list("", classes=["compact"])
 		bulletList += nodes.list_item("", nodes.paragraph("", "", nodes.emphasis(text=text)), classes=["dependency-limit"])
 
 		return bulletList
@@ -1474,7 +1463,7 @@ class DependencyTable(BaseDirective):
 		marker = nodes.emphasis("", f"… {count} {'dependency' if count == 1 else 'dependencies'}, listed at ", reference)
 
 		if self._duplicateFormat is DuplicateFormat.Reference:
-			bulletList = nodes.bullet_list()
+			bulletList = nodes.bullet_list("", classes=["compact"])
 			bulletList += nodes.list_item("", nodes.paragraph("", "", marker), classes=["dependency-duplicate"])
 
 			return bulletList

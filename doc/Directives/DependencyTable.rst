@@ -98,17 +98,17 @@ installs every extra any statement names.
 
       What a line of a dependency tree states. Default: ``PackageVersionLicense``.
 
-   .. rst:directive:option:: duplicates: Expanded | Collapsed | Reference
+   .. rst:directive:option:: duplicates: expanded | collapsed | reference
 
       How a tree shows the dependencies of a **duplicate**, a package whose dependencies an earlier line of the table
-      already shows. Default: ``Collapsed``.
+      already shows. Default: ``collapsed``.
 
-      ``Expanded``
+      ``expanded``
          |rarr| shown again, as at the earlier line.
-      ``Collapsed``
+      ``collapsed``
          |rarr| folded below a marker, e.g. *… 12 dependencies, listed at sphinx*, which links to the earlier line. In
          HTML, a click on the marker unfolds them; LaTeX, text, manual pages and Texinfo show the marker alone.
-      ``Reference``
+      ``reference``
          |rarr| replaced by the marker.
 
       Every package of the table's first column is an original, so a dependency the table lists in a row of its own
@@ -116,16 +116,16 @@ installs every extra any statement names.
       share, several levels down. The duplicate's own line keeps its version constraint and license, as these differ
       by what requires the package. A line whose dependencies the ``:depth:`` limit cut off is no original.
 
-   .. rst:directive:option:: duplicate-match: Exact | Subset | Name
+   .. rst:directive:option:: duplicate-match: exact | subset | name
 
-      When a line is a duplicate of an earlier line of the same package. Default: ``Subset``.
+      When a line is a duplicate of an earlier line of the same package. Default: ``subset``.
 
-      ``Exact``
+      ``exact``
          |rarr| the same release with the same extras.
-      ``Subset``
+      ``subset``
          |rarr| the same release with the earlier line's extras or fewer: ``pyTooling`` is a duplicate of
          ``pyTooling[dependencies]``, as everything it requires is shown there; ``pyTooling[yaml]`` is not.
-      ``Name``
+      ``name``
          |rarr| any release with any extras.
 
    .. rst:directive:option:: caption: <text>
