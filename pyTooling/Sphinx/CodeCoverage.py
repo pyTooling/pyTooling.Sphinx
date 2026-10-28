@@ -84,8 +84,9 @@ from sphinx.util.logging              import getLogger
 from pyTooling.Common                 import getFullyQualifiedName, getTypeName
 from pyTooling.Decorators             import export
 
-from pyTooling.Sphinx                 import BaseDirective, LegendStyle, ReportExtensionError
-from pyTooling.Sphinx                 import ReportsPackageMissingError, SphinxExtensionError, strip, stripAndNormalize
+from pyTooling.Sphinx                 import BaseDirective, LegendStyle, ReportExtensionError, \
+                                             ReportsPackageMissingError, SphinxExtensionError, strip, \
+                                             stripAndNormalize
 from pyTooling.Sphinx.Node            import Landscape, ReportIndentation
 from pyTooling.Sphinx.Pages           import ReportPages
 
@@ -96,14 +97,14 @@ if TYPE_CHECKING:  # pragma: no cover
 
 __all__ = ["CONFIG_PREFIX", "REPORT_KEYS"]
 
-#: Prefix every configuration value of the code coverage directives carries in :file:`conf.py`.
 CONFIG_PREFIX = "pyTooling_CodeCoverage"
+"""Prefix every configuration value of the code coverage directives carries in :file:`conf.py`."""
 
-#: The keys of a report's configuration naming its file, and the report format each stands for.
 REPORT_KEYS = {
 	"xml_report":  "Cobertura",
 	"json_report": "coverage.py",
 }
+"""The keys of a report's configuration naming its file, and the report format each stands for."""
 
 
 @export

@@ -117,7 +117,7 @@ __author__ =            "Patrick Lehmann"
 __email__ =             "Paebbels@gmail.com"
 __copyright__ =         "2026-2026, Patrick Lehmann"
 __license__ =           "Apache License, Version 2.0"
-__version__ =           "0.1.0rc6"
+__version__ =           "0.1.0rc7"
 __keywords__ =          ["Sphinx", "Sphinx Extension", "Documentation", "Directive", "Role", "Domain", "docutils"]
 __project_url__ =       "https://github.com/pyTooling/pyTooling.Sphinx"
 __documentation_url__ = "https://pyTooling.github.io/pyTooling.Sphinx"
@@ -127,7 +127,7 @@ from enum                    import Enum, Flag
 from hashlib                 import md5
 from pathlib                 import Path
 from re                      import compile as re_compile, match as re_match
-from typing                  import Any, Iterable, Iterator, NamedTuple, Optional as Nullable, TypeVar
+from typing                  import Any, ClassVar, Iterable, Iterator, NamedTuple, Optional as Nullable, TypeVar
 
 from docutils                import nodes
 from sphinx.addnodes         import pending_xref
@@ -142,50 +142,50 @@ from sphinx.roles            import XRefRole
 from sphinx.util.logging     import getLogger
 from sphinx.util.nodes       import make_refnode
 
-from pyTooling.Common        import getTypeName, readResourceFile
+from pyTooling.Common        import getFullyQualifiedName, getTypeName, readResourceFile
 from pyTooling.Decorators    import export, readonly
 from pyTooling.Documentation import DocumentationError
 
 from pyTooling.Sphinx        import Resources as SphinxResources
-from pyTooling.Sphinx.HTML   import translateLandscape as translateLandscapeAsHTML
-from pyTooling.Sphinx.HTML   import translateCoverageListing as translateCoverageListingAsHTML
-from pyTooling.Sphinx.HTML   import translateDocCoverageListing as translateDocCoverageListingAsHTML
-from pyTooling.Sphinx.HTML   import translateAbbreviation, translateTreeItem, translateTreeLabel, translateTreeSeparator
-from pyTooling.Sphinx.HTML   import translateTreeDescription, translateTreeLegend, translateTreeLegendItem
-from pyTooling.Sphinx.HTML   import translateCopyButton, translateEmoji
-from pyTooling.Sphinx.HTML   import translateLineBreak as translateLineBreakAsHTML
-from pyTooling.Sphinx.HTML   import translateReportIndentation as translateReportIndentationAsHTML
-from pyTooling.Sphinx.HTML   import translateTaskListCheckbox as translateTaskListCheckboxAsHTML
-from pyTooling.Sphinx.LaTeX  import translateLandscape as translateLandscapeAsLaTeX
-from pyTooling.Sphinx.LaTeX  import translateCoverageListing as translateCoverageListingAsLaTeX
-from pyTooling.Sphinx.LaTeX  import translateDocCoverageListing as translateDocCoverageListingAsLaTeX
-from pyTooling.Sphinx.LaTeX  import translateLineBreak as translateLineBreakAsLaTeX
-from pyTooling.Sphinx.LaTeX  import translateReportIndentation as translateReportIndentationAsLaTeX
-from pyTooling.Sphinx.LaTeX  import translateTaskListCheckbox as translateTaskListCheckboxAsLaTeX
-from pyTooling.Sphinx.Node   import Abbreviation, Landscape, RegisteredNode, TreeItem, TreeLabel, TreeSeparator
-from pyTooling.Sphinx.Node   import CopyButton, CoverageListing, DocCoverageListing, TreeDescription, TreeLegend
-from pyTooling.Sphinx.Node   import Emoji, LineBreak, ReportIndentation, TaskListCheckbox, TreeLegendItem
+from pyTooling.Sphinx.HTML   import translateLandscape as translateLandscapeAsHTML, \
+                                    translateCoverageListing as translateCoverageListingAsHTML, \
+                                    translateDocCoverageListing as translateDocCoverageListingAsHTML, \
+                                    translateAbbreviation, translateTreeItem, translateTreeLabel, \
+                                    translateTreeSeparator, translateTreeDescription, translateTreeLegend, \
+                                    translateTreeLegendItem, translateCopyButton, translateEmoji, \
+                                    translateLineBreak as translateLineBreakAsHTML, \
+                                    translateReportIndentation as translateReportIndentationAsHTML, \
+                                    translateTaskListCheckbox as translateTaskListCheckboxAsHTML
+from pyTooling.Sphinx.LaTeX  import translateLandscape as translateLandscapeAsLaTeX, \
+                                    translateCoverageListing as translateCoverageListingAsLaTeX, \
+                                    translateDocCoverageListing as translateDocCoverageListingAsLaTeX, \
+                                    translateLineBreak as translateLineBreakAsLaTeX, \
+                                    translateReportIndentation as translateReportIndentationAsLaTeX, \
+                                    translateTaskListCheckbox as translateTaskListCheckboxAsLaTeX
+from pyTooling.Sphinx.Node   import Abbreviation, Landscape, RegisteredNode, TreeItem, TreeLabel, TreeSeparator, \
+                                    CopyButton, CoverageListing, DocCoverageListing, TreeDescription, TreeLegend, \
+                                    Emoji, LineBreak, ReportIndentation, TaskListCheckbox, TreeLegendItem
 
 
 __all__ = [
 	"STYLESHEET", "SCRIPT", "LATEX_PACKAGE", "SUBSTITUTIONS", "NODES", "LINE_ANCHOR", "REPORT_ROLES"
 ]
 
-#: Name of the stylesheet, in :mod:`pyTooling.Sphinx.Resources`.
 STYLESHEET = "pyTooling.css"
+"""Name of the stylesheet, in :mod:`pyTooling.Sphinx.Resources`."""
 
-#: Name of the script, in :mod:`pyTooling.Sphinx.Resources`: it gives the copy buttons of the ``unicode-table``
-#: directive their function.
 SCRIPT = "pyTooling.js"
+"""
+Name of the script, in :mod:`pyTooling.Sphinx.Resources`: it gives the copy buttons of the ``unicode-table``
+directive their function.
+"""
 
-#: Name of the LaTeX package, whose file :file:`pyTooling.Sphinx.sty` is in :mod:`pyTooling.Sphinx.Resources`: it
-#: defines the commands LaTeX writes for the style roles ``:strike:`` and ``:underline:``.
 LATEX_PACKAGE = "pyTooling.Sphinx"
+"""
+Name of the LaTeX package, whose file :file:`pyTooling.Sphinx.sty` is in :mod:`pyTooling.Sphinx.Resources`: it
+defines the commands LaTeX writes for the style roles ``:strike:`` and ``:underline:``.
+"""
 
-#: Substitutions that have to stay substitutions, because ``|br|`` is written as one in every project.
-#:
-#: ``|br|`` and ``|hr|`` delegate to the ``:br:`` and ``:hr:`` roles rather than writing HTML themselves, so they
-#: reach every output format instead of only HTML - see :func:`~pyTooling.Sphinx.Roles.breakRole`.
 SUBSTITUTIONS = """
 .. |degree| unicode:: U+00B0
    :trim:
@@ -194,11 +194,13 @@ SUBSTITUTIONS = """
 
 .. |hr| replace:: :hr:`.`
 """
+"""
+Substitutions that have to stay substitutions, because ``|br|`` is written as one in every project.
 
-#: The nodes the extension registers, each with its visitors per output format.
-#:
-#: A format without visitors of its own - e.g. LaTeX for the tree's nodes - writes a node with the visitors of its
-#: base-class.
+``|br|`` and ``|hr|`` delegate to the ``:br:`` and ``:hr:`` roles rather than writing HTML themselves, so they
+reach every output format instead of only HTML - see :func:`~pyTooling.Sphinx.Roles.breakRole`.
+"""
+
 NODES: tuple[RegisteredNode, ...] = (
 	{"name": "TreeItem",           "node": TreeItem,           "html": translateTreeItem},
 	{"name": "TreeLabel",          "node": TreeLabel,          "html": translateTreeLabel},
@@ -222,6 +224,12 @@ NODES: tuple[RegisteredNode, ...] = (
 	{"name": "ReportIndentation",  "node": ReportIndentation,  "html": translateReportIndentationAsHTML,
 	 "latex": translateReportIndentationAsLaTeX},
 )
+"""
+The nodes the extension registers, each with its visitors per output format.
+
+A format without visitors of its own - e.g. LaTeX for the tree's nodes - writes a node with the visitors of its
+base-class.
+"""
 
 
 _EnumType = TypeVar("_EnumType", bound=Enum)
@@ -709,16 +717,16 @@ class ReportRoleDefinition(NamedTuple):
 	lineAnchors: bool = False  #: Whether a target may end in ``#<line number>``, linking to the line on the page.
 
 
-#: The line number a target of a role with line anchors may end in, e.g. ``#12`` of ``src/Counter.vhdl#12``.
 LINE_ANCHOR = re_compile(r"#(\d+)$")
+"""The line number a target of a role with line anchors may end in, e.g. ``#12`` of ``src/Counter.vhdl#12``."""
 
-#: The roles referring to the objects of reports with pages, by role name.
 REPORT_ROLES = {
 	"tc":     ReportRoleDefinition("testcase",  "pyTooling_Unittest_Testsuites",   "unit test reports"),
 	"ts":     ReportRoleDefinition("testsuite", "pyTooling_Unittest_Testsuites",   "unit test reports"),
 	"cov":    ReportRoleDefinition("source",    "pyTooling_CodeCoverage_Packages", "code coverage reports", True),
 	"doccov": ReportRoleDefinition("module",    "pyTooling_DocCoverage_Packages",  "documentation coverage reports"),
 }
+"""The roles referring to the objects of reports with pages, by role name."""
 
 
 @export
@@ -729,9 +737,31 @@ class ReportRole(XRefRole):
 	Role ``tc`` refers to a testcase, ``ts`` to a testsuite.
 
 	Sphinx registers a role outside a domain without one, so the reference would be resolved by nobody; this role puts
-	domain ``report`` on the reference, and uses its name as the reference's type. So it works as ``:report:tc:`` and
-	as the global ``:tc:``.
+	its domain - ``report``, or the one of a domain derived from :class:`ReportDomain` - on the reference, and uses its
+	name as the reference's type. So it works as ``:report:tc:`` and as the global ``:tc:``.
 	"""
+
+	_domain: str  #: Name of the domain resolving the role's references.
+
+	def __init__(self, *, domain: str = "report", **kwargs: Any) -> None:
+		"""
+		Initializes a role of domain ``report``, or of a domain derived from :class:`ReportDomain`.
+
+		:param domain:      Optional, name of the domain resolving the role's references. Default: ``"report"``.
+		:param kwargs:      The parameters of :class:`~sphinx.roles.XRefRole`, e.g. ``innernodeclass``.
+		:raises ValueError: If parameter 'domain' is None.
+		:raises TypeError:  If parameter 'domain' is not of type :class:`str`.
+		"""
+		super().__init__(**kwargs)
+
+		if domain is None:
+			raise ValueError("Parameter 'domain' is None.")
+		elif not isinstance(domain, str):
+			ex = TypeError("Parameter 'domain' is not of type 'str'.")
+			ex.add_note(f"Got type '{getFullyQualifiedName(domain)}'.")
+			raise ex
+
+		self._domain = domain
 
 	def run(self) -> tuple[list[nodes.Node], list[nodes.system_message]]:
 		"""
@@ -739,9 +769,9 @@ class ReportRole(XRefRole):
 
 		:returns: The nodes and messages a role returns.
 		"""
-		self.refdomain = ReportDomain.name
+		self.refdomain = self._domain
 		self.reftype = self.name.rpartition(":")[2]
-		self.classes = ["xref", ReportDomain.name, f"{ReportDomain.name}-{self.reftype}"]
+		self.classes = ["xref", self._domain, f"{self._domain}-{self.reftype}"]
 
 		if self.disabled:
 			return self.create_non_xref_node()
@@ -760,7 +790,14 @@ class ReportDomain(Domain):
 	testcases -, which the roles of :data:`REPORT_ROLES` refer to, e.g. ``:report:tc:``, also registered as ``:tc:``. A
 	reference names an object by its qualified name, or by a suffix of it, optionally preceded by the report's
 	identifier and a colon; without one, the first report of the role's configuration value is meant.
+
+	A domain of another family of reports - e.g. a build summary of a simulation framework - derives from it: it names
+	its roles in :attr:`_ROLES`, and declares :attr:`name`, :attr:`object_types`, :attr:`initial_data`, :attr:`roles` and
+	:attr:`dangling_warnings` from them, as this domain does from :data:`REPORT_ROLES`. Its roles are
+	:class:`ReportRole` instances naming the domain.
 	"""
+
+	_ROLES: ClassVar[dict[str, ReportRoleDefinition]] = REPORT_ROLES  #: The domain's roles, by role name.
 
 	name =         "report"  #: Name of the domain, the prefix of its directives.
 	label =        "rpt"     #: Name of the domain, as displayed.
@@ -803,7 +840,7 @@ class ReportDomain(Domain):
 		:returns:        The matching entries: none, one, or several if the name is ambiguous.
 		"""
 		reports: dict[str, dict[str, ReportEntry]] = self.data[roleName]
-		configuredReports = list(self.env.config[REPORT_ROLES[roleName].configValue])
+		configuredReports = list(self.env.config[self._ROLES[roleName].configValue])
 
 		reportID, separator, name = target.partition(":")
 		if separator == "" or reportID not in configuredReports:
@@ -824,7 +861,7 @@ class ReportDomain(Domain):
 
 		:param docname: Name of the document.
 		"""
-		for roleName in REPORT_ROLES:
+		for roleName in self._ROLES:
 			for entries in self.data[roleName].values():
 				for qualifiedName in [name for name, entry in entries.items() if entry.docName == docname]:
 					del entries[qualifiedName]
@@ -837,7 +874,7 @@ class ReportDomain(Domain):
 		:param otherdata: The other reader's domain data.
 		"""
 		documents = set(docnames)
-		for roleName in REPORT_ROLES:
+		for roleName in self._ROLES:
 			for reportID, entries in otherdata[roleName].items():
 				ownEntries = self.data[roleName].setdefault(reportID, {})
 				for qualifiedName, entry in entries.items():
@@ -871,11 +908,11 @@ class ReportDomain(Domain):
 		:returns:           The link, the text if the name is ambiguous or the builder doesn't write the page, or
 		                    ``None`` if nothing matches.
 		"""
-		if typ not in REPORT_ROLES:
+		if typ not in self._ROLES:
 			return None
 
 		anchor = line = ""
-		if REPORT_ROLES[typ].lineAnchors and (match := LINE_ANCHOR.search(target)) is not None:
+		if self._ROLES[typ].lineAnchors and (match := LINE_ANCHOR.search(target)) is not None:
 			target, line = target[:match.start()], match[1]
 			anchor = f"L{line}"
 
@@ -885,7 +922,7 @@ class ReportDomain(Domain):
 		elif len(entries) > 1:
 			candidates = ", ".join(sorted(f"{entry.reportID}:{entry.QualifiedName}" for entry in entries))
 			getLogger(__name__).warning(
-				f"{REPORT_ROLES[typ].objectType} '{target}' is ambiguous, candidates: {candidates}",
+				f"{self._ROLES[typ].objectType} '{target}' is ambiguous, candidates: {candidates}",
 				location=node, type="ref", subtype=typ
 			)
 			return contnode
@@ -924,7 +961,7 @@ class ReportDomain(Domain):
 		:returns:           A role and link per kind of object the text names unambiguously.
 		"""
 		results: list[tuple[str, nodes.reference]] = []
-		for roleName in REPORT_ROLES:
+		for roleName in self._ROLES:
 			if len(entries := self.FindEntries(roleName, target)) == 1:
 				entry = entries[0]
 				content = nodes.inline(entry.Name, entry.Name, classes=contnode["classes"])
@@ -942,7 +979,7 @@ class ReportDomain(Domain):
 
 		:returns: A tuple per object: name, display name, type, document, anchor and search priority.
 		"""
-		for roleName, definition in REPORT_ROLES.items():
+		for roleName, definition in self._ROLES.items():
 			priority = 2 if roleName == "tc" else 1
 			for reportID, entries in self.data[roleName].items():
 				for qualifiedName, entry in entries.items():
@@ -1012,28 +1049,25 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	:param sphinx: The Sphinx application to register with.
 	:returns:      The extension's metadata.
 	"""
-	from pyTooling.Sphinx.Abbreviation      import CONFIG_PREFIX as ABBREVIATION_PREFIX
-	from pyTooling.Sphinx.Abbreviation      import ROLES as ABBREVIATION_ROLES, AbbreviationDomain, AbbreviationRole
-	from pyTooling.Sphinx.Abbreviation      import Abbreviations
-	from pyTooling.Sphinx.CodeCoverage      import CONFIG_PREFIX as CODE_COVERAGE_PREFIX
-	from pyTooling.Sphinx.CodeCoverage      import CodeCoverage, CodeCoverageBase, CodeCoverageLegend, FileCoverage
+	from pyTooling.Sphinx.Abbreviation      import CONFIG_PREFIX as ABBREVIATION_PREFIX, ROLES as ABBREVIATION_ROLES, \
+	                                               AbbreviationDomain, AbbreviationRole, Abbreviations
+	from pyTooling.Sphinx.CodeCoverage      import CONFIG_PREFIX as CODE_COVERAGE_PREFIX, CodeCoverage, \
+	                                               CodeCoverageBase, CodeCoverageLegend, FileCoverage
 	from pyTooling.Sphinx.CodeCoveragePages import CodeCoverageReportPages
 	from pyTooling.Sphinx.CondensedClass    import CondensedClass
 	from pyTooling.Sphinx.DependencyTable   import CONFIG_PREFIX, DependencyTable, prepareEntrypoints, reportBuildTime
-	from pyTooling.Sphinx.DocCoverage       import CONFIG_PREFIX as DOC_COVERAGE_PREFIX
-	from pyTooling.Sphinx.DocCoverage       import DocCoverageBase, DocCoverageLegend, DocCoverageReportPages
-	from pyTooling.Sphinx.DocCoverage       import DocStrCoverage
-	from pyTooling.Sphinx.ExternalLink      import CONFIG_PREFIX as EXTERNAL_LINK_PREFIX, BaseExternalLinkTransform
-	from pyTooling.Sphinx.ExternalLink      import MarkDownloadLinks, MarkExternalLinks, MarkIntersphinxLinks
-	from pyTooling.Sphinx.ExternalLink      import AddDownloadSizes, checkExternalLinkConfiguration
+	from pyTooling.Sphinx.DocCoverage       import CONFIG_PREFIX as DOC_COVERAGE_PREFIX, DocCoverageBase, \
+	                                               DocCoverageLegend, DocCoverageReportPages, DocStrCoverage
+	from pyTooling.Sphinx.ExternalLink      import CONFIG_PREFIX as EXTERNAL_LINK_PREFIX, BaseExternalLinkTransform, \
+	                                               MarkDownloadLinks, MarkExternalLinks, MarkIntersphinxLinks, \
+	                                               AddDownloadSizes, checkExternalLinkConfiguration
 	from pyTooling.Sphinx.GitHubMarkdown    import RasterizeShieldsBadges
-	from pyTooling.Sphinx.Roles             import BREAK_ROLES, PYTHON_CODE_ROLE, STYLE_ROLES
-	from pyTooling.Sphinx.Roles             import breakRole, pythonCodeRole, styleRole
+	from pyTooling.Sphinx.Roles             import BREAK_ROLES, PYTHON_CODE_ROLE, STYLE_ROLES, breakRole, \
+	                                               pythonCodeRole, styleRole
 	from pyTooling.Sphinx.Shields           import Shields
 	from pyTooling.Sphinx.Tree              import RemoveTreeLegends, Tree
 	from pyTooling.Sphinx.UnicodeTable      import RemoveUnicodeGlyphs, UnicodeTable
-	from pyTooling.Sphinx.Unittest          import CONFIG_PREFIX as UNITTEST_PREFIX
-	from pyTooling.Sphinx.Unittest          import UnittestSummary
+	from pyTooling.Sphinx.Unittest          import CONFIG_PREFIX as UNITTEST_PREFIX, UnittestSummary
 	from pyTooling.Sphinx.UnittestPages     import UnittestReportPages
 	from pyTooling.Sphinx.Workaround        import FixLatexTableWidths
 	from pyTooling.Sphinx.XMLSchemaGraph    import XMLSchemaGraph

@@ -41,8 +41,9 @@ from pygments.formatters.latex import escape_tex
 from sphinx.writers.latex      import LaTeXTranslator
 
 from pyTooling.Decorators      import export
-from pyTooling.Sphinx.Node     import COVERAGE_STATES, DOCUMENTATION_STATES, CoverageListing, DocCoverageListing
-from pyTooling.Sphinx.Node     import Landscape, LineBreak, ReportIndentation, TaskListCheckbox, visitFunc, departFunc
+from pyTooling.Sphinx.Node     import COVERAGE_STATES, DOCUMENTATION_STATES, CoverageListing, DocCoverageListing, \
+                                      Landscape, LineBreak, ReportIndentation, TaskListCheckbox, visitFunc, \
+                                      departFunc
 
 
 __all__ = [
@@ -50,7 +51,6 @@ __all__ = [
 	"translateTaskListCheckbox", "translateLineBreak", "COVERAGE_MARKERS", "DOCUMENTATION_MARKERS", "TAB_WIDTH"
 ]
 
-#: Per coverage state of a line, the color of its number - an ``xcolor`` expression - and the marker behind it.
 COVERAGE_MARKERS = {
 	"covered":   ("green!50!black", "+"),
 	"partial":   ("orange",         "~"),
@@ -58,8 +58,8 @@ COVERAGE_MARKERS = {
 	"excluded":  ("gray",           "x"),
 	"":          ("gray",           " "),
 }
+"""Per coverage state of a line, the color of its number - an ``xcolor`` expression - and the marker behind it."""
 
-#: Per documentation state of a line, the color of its number - an ``xcolor`` expression - and the marker behind it.
 DOCUMENTATION_MARKERS = {
 	"documented":   ("green!50!black", "+"),
 	"undocumented": ("red",            "-"),
@@ -67,8 +67,10 @@ DOCUMENTATION_MARKERS = {
 	"excluded":     ("gray",           "x"),
 	"":             ("gray",           " "),
 }
+"""Per documentation state of a line, the color of its number - an ``xcolor`` expression - and the marker behind it."""
 
-TAB_WIDTH = 4  #: Number of columns a tab advances to, as LaTeX doesn't expand tabs in a listing.
+TAB_WIDTH = 4
+"""Number of columns a tab advances to, as LaTeX doesn't expand tabs in a listing."""
 
 
 @export

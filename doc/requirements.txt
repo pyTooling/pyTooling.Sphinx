@@ -4,6 +4,9 @@
 sphinx ~= 9.1
 docutils_stubs ~= 0.0.22
 
+# Package override file of the dependency tables: pyTooling's extra 'yaml'
+ruamel.yaml ~= 0.19
+
 # ReadTheDocs Theme
 sphinx_rtd_theme ~= 3.1
 
@@ -12,7 +15,7 @@ sphinxcontrib-mermaid ~= 2.1
 autoapi >= 2.0.1
 sphinx_design ~= 0.7.0
 sphinx-copybutton >= 0.5.2
-sphinx_autodoc_typehints ~= 3.13
+sphinx_autodoc_typehints ~= 3.17
 
 # Domain 'report': extra 'reports'
 pyEDAA.Reports @ git+https://github.com/edaa-org/pyEDAA.Reports.git@dev

@@ -81,8 +81,6 @@ if TYPE_CHECKING:  # pragma: no cover
 
 __all__ = ["LINE_STATES"]
 
-#: The state a listing marks a line with, by the name of the line's
-#: :class:`~pyEDAA.Reports.CodeCoverage.LineCoverageStatus`.
 LINE_STATES = {
 	"Covered":          "covered",
 	"PartiallyCovered": "partial",
@@ -90,6 +88,10 @@ LINE_STATES = {
 	"Excluded":         "excluded",
 	"Unknown":          "",
 }
+"""
+The state a listing marks a line with, by the name of the line's
+:class:`~pyEDAA.Reports.CodeCoverage.LineCoverageStatus`.
+"""
 
 
 @export
@@ -181,13 +183,13 @@ def createListing(file: File, sources: Path, anchors: bool) -> Union[CoverageLis
 
 
 @export
-class CodeCoverageReportPages(ReportPages):
+class CodeCoverageReportPages(ReportPages["BaseWithPath"]):
 	"""
 	The pages of one code coverage report: a page per directory and per source file.
 	"""
 
-	_pages:     ClassVar[dict[str, ReportPages]] = {}  #: The pages of every code coverage report with pages, by ID.
-	_separator: ClassVar[str] = "/"                    #: Separator of the names in a path.
+	_pages:     ClassVar[dict[str, CodeCoverageReportPages]] = {}  #: The pages of every code coverage report, by ID.
+	_separator: ClassVar[str] = "/"                                #: Separator of the names in a path.
 
 	_sources: Path                                   #: Directory the report's file paths are relative to.
 	_levels:  dict[Union[int, str], dict[str, str]]  #: The report's coverage levels, coloring the tables.

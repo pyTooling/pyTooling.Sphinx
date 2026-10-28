@@ -85,8 +85,8 @@ from __future__                                    import annotations
 
 from pathlib                                       import Path
 from tokenize                                      import open as tokenize_open
-from typing                                        import TYPE_CHECKING, Any, ClassVar, Iterable, Optional as Nullable
-from typing                                        import TypedDict, Union
+from typing                                        import TYPE_CHECKING, Any, ClassVar, Iterable, \
+                                                          Optional as Nullable, TypedDict, Union
 
 from docutils                                      import nodes
 from sphinx.application                            import Sphinx
@@ -97,9 +97,9 @@ from pyTooling.Common                              import getFullyQualifiedName,
 from pyTooling.Decorators                          import export
 from pyTooling.Warning                             import WarningCollector
 
-from pyTooling.Sphinx                              import BaseDirective, LegendStyle, ReportExtensionError
-from pyTooling.Sphinx                              import ReportsPackageMissingError, SphinxExtensionError, strip
-from pyTooling.Sphinx                              import stripAndNormalize
+from pyTooling.Sphinx                              import BaseDirective, LegendStyle, ReportExtensionError, \
+                                                          ReportsPackageMissingError, SphinxExtensionError, strip, \
+                                                          stripAndNormalize
 from pyTooling.Sphinx.CodeCoveragePages            import tokenizeSource
 from pyTooling.Sphinx.CondensedSource              import CondensedSource, documentationState
 from pyTooling.Sphinx.Node                         import DOCUMENTATION_STATES, DocCoverageListing, ReportIndentation
@@ -112,8 +112,8 @@ if TYPE_CHECKING:  # pragma: no cover
 
 __all__ = ["CONFIG_PREFIX"]
 
-#: Prefix every configuration value of the documentation coverage directives carries in :file:`conf.py`.
 CONFIG_PREFIX = "pyTooling_DocCoverage"
+"""Prefix every configuration value of the documentation coverage directives carries in :file:`conf.py`."""
 
 
 @export
@@ -834,13 +834,13 @@ class DocCoverageLegend(DocCoverageBase):
 
 
 @export
-class DocCoverageReportPages(ReportPages):
+class DocCoverageReportPages(ReportPages["Item"]):
 	"""
 	The pages of one package's documentation coverage: a page per package and per module.
 	"""
 
-	_pages:     ClassVar[dict[str, ReportPages]] = {}  #: The pages of every analyzed package with pages, by report ID.
-	_separator: ClassVar[str] = "."                    #: Separator of the names in a dotted name.
+	_pages:     ClassVar[dict[str, DocCoverageReportPages]] = {}  #: The pages of every analyzed package, by report ID.
+	_separator: ClassVar[str] = "."                               #: Separator of the names in a dotted name.
 
 	_directory: Path                                   #: The package's source directory.
 	_levels:    dict[Union[int, str], dict[str, str]]  #: The package's coverage levels, coloring the tables.

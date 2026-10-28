@@ -36,7 +36,9 @@ from pathlib                          import Path
 from sys                              import platform as sys_platform
 from tempfile                         import TemporaryDirectory
 from textwrap                         import dedent
+from types                            import SimpleNamespace
 from typing                           import Optional as Nullable
+from unittest.mock                    import patch
 
 from docutils                         import nodes
 from packaging.requirements           import Requirement
@@ -44,10 +46,14 @@ from packaging.specifiers             import SpecifierSet
 from pytest                           import mark
 
 from pyTooling.Dependency             import BrokenRequirementWarning, UnknownLicenseWarning, UnsupportedVersionWarning
+from pyTooling.Dependency.Python      import LicenseOverrides
 from pyTooling.Dependency.Resolver    import ResolutionStatus
+from pyTooling.Exceptions             import MissingDependencyError
+from pyTooling.Versioning             import SemanticVersion
 from pyTooling.Sphinx                 import SphinxExtensionError
-from pyTooling.Sphinx.DependencyTable import DependencyFormat, DependencyTable, VersionFormat, formatUnresolvedLicenses
-from pyTooling.Sphinx.DependencyTable import DependencyCollector, readEntrypoints
+from pyTooling.Sphinx.DependencyTable import DependencyFormat, DependencyTable, VersionFormat, \
+                                             formatUnresolvedLicenses, DependencyCollector, prepareEntrypoints, \
+                                             readEntrypoints, DEFAULT_DEPENDENCY_FORMAT, DEFAULT_VERSION_FORMAT
 from pyTooling.Testing                import Testcase, testsuite, testcase
 
 
@@ -59,6 +65,37 @@ if __name__ == "__main__":  # pragma: no cover
 	print("ERROR: you called a testcase declaration file as an executable module.")
 	print("Use: 'python -m unittest <testcase module>'")
 	exit(1)
+
+
+@testsuite("License override file")
+class PackageOverrides(Testcase):
+	"""``pyTooling_Dependency_PackageOverrides`` is read while :file:`conf.py` is processed; its errors end the build."""
+
+	@testcase("YAML extra missing")
+	def YAMLExtraMissing(self) -> None:
+		"""
+		An override file without pyTooling's 'yaml' extra ends the build with a message naming the extra.
+
+		Lets reading the override file raise the MissingDependencyError pyTooling raises without ruamel.yaml and checks the
+		SphinxExtensionError's message and cause.
+		"""
+		sphinx = SimpleNamespace(confdir=".")
+		config = SimpleNamespace(
+			pyTooling_Dependency_Requirements={"unittest": {"file": "requirements.txt"}},
+			pyTooling_Dependency_PackageOverrides="Dependency.PackageOverrides.yaml"
+		)
+		missing = MissingDependencyError(dependency="ruamel.yaml", extra="yaml")
+
+		with patch.object(LicenseOverrides, "FromFile", side_effect=missing):
+			with self.assertRaises(SphinxExtensionError) as context:
+				prepareEntrypoints(sphinx, config)
+
+		self.assertEqual(
+			"conf.py: pyTooling_Dependency_PackageOverrides: Reading the override file needs the 'yaml' extra: "
+			"pip install pyTooling[yaml]",
+			str(context.exception)
+		)
+		self.assertIs(missing, context.exception.__cause__)
 
 
 @testsuite("Dependency entrypoints")
@@ -450,8 +487,6 @@ class VersionFormats(Testcase):
 
 		Compares DEFAULT_VERSION_FORMAT with the enumeration member.
 		"""
-		from pyTooling.Sphinx.DependencyTable import DEFAULT_VERSION_FORMAT
-
 		self.assertIs(VersionFormat.MajorMinor, DEFAULT_VERSION_FORMAT)
 
 	@testcase("Version parts per format")
@@ -506,8 +541,6 @@ class DependencyFormats(Testcase):
 
 		Compares DEFAULT_DEPENDENCY_FORMAT with the enumeration member.
 		"""
-		from pyTooling.Sphinx.DependencyTable import DEFAULT_DEPENDENCY_FORMAT
-
 		self.assertIs(DependencyFormat.PackageVersionLicense, DEFAULT_DEPENDENCY_FORMAT)
 
 	@testcase("Content per format")
@@ -649,7 +682,11 @@ class DependencyTrees(Testcase):
 
 
 def _licenseWarning(name: str) -> UnknownLicenseWarning:
-	warning = UnknownLicenseWarning(f"License of '{name}' 1.0 couldn't be resolved.", projectName=name)
+	warning = UnknownLicenseWarning(
+		f"License of '{name}' 1.0 couldn't be resolved.",
+		projectName=name,
+		version=SemanticVersion(1, 0)
+	)
 	warning.add_note("license: BSD")
 
 	return warning
@@ -673,27 +710,6 @@ class UnresolvedLicenseCollection(Testcase):
 			collector._ReportWarnings([_licenseWarning("Sphinx_RTD_Theme"), _licenseWarning("sphinx-rtd-theme")])
 
 		self.assertEqual({"sphinx-rtd-theme": ("license: BSD",)}, collector.UnresolvedLicenses)
-
-	@testcase("Unnamed project")
-	def Unnamed(self) -> None:
-		"""
-		A warning about an unknown license that doesn't name its project is reported as a Sphinx warning.
-
-		Reports a warning without a project name and checks it and its note are logged, and nothing is recorded.
-		"""
-		collector = DependencyCollector({}, "https://pypi.org", "https://pypi.org/pypi", None)
-		warning = UnknownLicenseWarning("License of 'pyTooling' 1.0 couldn't be resolved.")
-		warning.add_note("license: BSD")
-
-		with self.assertLogs(LOGGER_NAME, level="WARNING") as logCapture:
-			collector._ReportWarnings([warning])
-
-		self.assertEqual(1, len(logCapture.records))
-		self.assertEqual(
-			"[dependency-table] License of 'pyTooling' 1.0 couldn't be resolved.\n  license: BSD",
-			logCapture.records[0].getMessage()
-		)
-		self.assertEqual({}, collector.UnresolvedLicenses)
 
 
 @testsuite("Reporting warnings")
@@ -734,7 +750,13 @@ class WarningReport(Testcase):
 		collector = DependencyCollector({}, "https://pypi.org", "https://pypi.org/pypi", None)
 
 		with self.assertLogs(LOGGER_NAME, level="WARNING") as logCapture:
-			collector._ReportWarnings([UnsupportedVersionWarning("Skipping release '2004d' of package 'pytz'.")])
+			collector._ReportWarnings([
+				UnsupportedVersionWarning(
+					"Skipping release '2004d' of package 'pytz'.",
+					projectName="pytz",
+					version="2004d"
+				)
+			])
 
 		self.assertEqual(1, len(logCapture.records))
 		self.assertEqual(

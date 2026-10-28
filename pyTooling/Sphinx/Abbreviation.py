@@ -80,13 +80,12 @@ from pyTooling.Sphinx.Node   import Abbreviation
 
 __all__ = ["DOMAIN_NAME", "CONFIG_PREFIX", "ROLES", "FIELDS"]
 
-#: Name of the domain collecting the abbreviations of all documents.
 DOMAIN_NAME = "abbreviation"
+"""Name of the domain collecting the abbreviations of all documents."""
 
-#: Prefix of the configuration values the directive adds to :file:`conf.py`.
 CONFIG_PREFIX = "pyTooling_Abbreviation"
+"""Prefix of the configuration values the directive adds to :file:`conf.py`."""
 
-#: The roles, mapping a role's name to the form it writes and whether it is the plural.
 ROLES = {
 	"ac":   ("short", False),
 	"acs":  ("short", False),
@@ -97,13 +96,14 @@ ROLES = {
 	"aclp": ("long",  True),
 	"acfp": ("full",  True),
 }
+"""The roles, mapping a role's name to the form it writes and whether it is the plural."""
 
-#: The fields an abbreviation states its forms in, and whether one is required.
 FIELDS = {
 	"long":        True,
 	"plural":      False,
 	"long-plural": False,
 }
+"""The fields an abbreviation states its forms in, and whether one is required."""
 
 
 @export

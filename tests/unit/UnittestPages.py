@@ -574,3 +574,63 @@ class Configuration(Project):
 			],
 			self._check(1)
 		)
+
+
+@testsuite("Derived pages")
+class DerivedPages(PagesProject):
+	"""Pages derived from 'UnittestReportPages', adding a field to a testcase's summary and a column to its table."""
+
+	_conf = dedent("""\
+		from docutils                       import nodes
+		from pyTooling.Sphinx.Unittest      import UnittestSummary
+		from pyTooling.Sphinx.UnittestPages import UnittestReportPages
+
+		class OwnPages(UnittestReportPages):
+			def _TestcaseFields(self, fieldList, docName, testcase):
+				super()._TestcaseFields(fieldList, docName, testcase)
+				self._Field(fieldList, "Name length", nodes.Text(f"{len(testcase.Name)} characters"))
+
+			def _TestcaseColumns(self, withAssertions):
+				return [*super()._TestcaseColumns(withAssertions), ("Name length", 1)]
+
+			def _TestcaseCells(self, docName, testcase, withAssertions):
+				cell = nodes.entry("", nodes.paragraph("", f"{len(testcase.Name)} characters"))
+				return [*super()._TestcaseCells(docName, testcase, withAssertions), cell]
+
+		def replacePages(app):
+			for reportID, pages in list(UnittestReportPages._pages.items()):
+				prefix = UnittestSummary._testSummaries[reportID]["pages"]
+				UnittestReportPages._pages[reportID] = OwnPages(reportID, prefix, pages._source, pages._summary)
+
+		def setup(app):
+			app.connect("builder-inited", replacePages, priority=900)
+	""")
+
+	@testcase("Testcase field")
+	def TestcaseField(self) -> None:
+		"""
+		A field a derived class adds follows the testcase's own fields.
+
+		Builds the project and checks the order of the fields on a testcase's page.
+		"""
+		self._buildPages("Index\n#####\n", conf=self._conf)
+
+		self.assertEqual([], self._warningLines())
+		body = self._body(f"{JUNIT_PAGES}/Division/test_ByZero")
+		self.assertLess(body.index("Testsuite"), body.index("Name length"))
+		self.assertIn("11 characters", body)
+
+	@testcase("Testcase column")
+	def TestcaseColumn(self) -> None:
+		"""
+		A column a derived class adds follows the testcase table's own columns, with a cell in every row.
+
+		Builds the project and checks the table on a testsuite's page.
+		"""
+		self._buildPages("Index\n#####\n", conf=self._conf)
+
+		self.assertEqual([], self._warningLines())
+		body = self._body(f"{JUNIT_PAGES}/Division")
+		table = body[body.index("<h2>Testcases"):]
+		self.assertLess(table.index("Duration"), table.index("Name length"))
+		self.assertEqual(3, table.count(" characters</p></td>"))

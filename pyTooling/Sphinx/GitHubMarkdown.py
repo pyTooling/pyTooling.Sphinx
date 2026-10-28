@@ -100,29 +100,31 @@ if TYPE_CHECKING:  # pragma: no cover
 
 __all__ = ["EMOJI_FILE", "OWNER_PATTERN", "REPOSITORY_NAME_PATTERN", "REPOSITORY_PATTERN", "REFERENCE_PATTERN"]
 
-#: Name of the emoji table in :mod:`pyTooling.Sphinx.Resources`: a line per emoji, its code points and its shortcodes,
-#: generated from github/gemoji (MIT license, Copyright (c) 2019 GitHub, Inc.).
 EMOJI_FILE = "GitHubEmoji.txt"
+"""
+Name of the emoji table in :mod:`pyTooling.Sphinx.Resources`: a line per emoji, its code points and its shortcodes,
+generated from github/gemoji (MIT license, Copyright (c) 2019 GitHub, Inc.).
+"""
 
-#: A GitHub owner - a user or an organization: ASCII letters, digits and single hyphens, not starting with a hyphen.
 OWNER_PATTERN = re_compile(r"[A-Za-z0-9](?:-?[A-Za-z0-9])*")
+"""A GitHub owner - a user or an organization: ASCII letters, digits and single hyphens, not starting with a hyphen."""
 
-#: A GitHub repository's name: ASCII letters, digits, ``.``, ``_`` and ``-``.
 REPOSITORY_NAME_PATTERN = re_compile(r"[A-Za-z0-9._-]+")
+"""A GitHub repository's name: ASCII letters, digits, ``.``, ``_`` and ``-``."""
 
-#: A GitHub repository with its owner, as a reference writes it: ``<owner>/<name>``.
 REPOSITORY_PATTERN = re_compile(rf"{OWNER_PATTERN.pattern}/{REPOSITORY_NAME_PATTERN.pattern}")
+"""A GitHub repository with its owner, as a reference writes it: ``<owner>/<name>``."""
 
 _BEFORE = r"(?<![\w/@#.-])"
 """What can't precede a reference: a word character, or a character continuing a path, a reference or a URL."""
 
-#: An emoji's shortcode, or one of GitHub's references: an issue or pull request, a commit, or a user.
 REFERENCE_PATTERN = re_compile(
 	r":(?P<shortcode>[a-z0-9_+-]+):"
 	rf"|{_BEFORE}(?:(?P<issueRepository>{REPOSITORY_PATTERN.pattern})#|GH-|#)(?P<issue>[0-9]+)(?![\w-])"
 	rf"|{_BEFORE}(?:(?P<commitRepository>{REPOSITORY_PATTERN.pattern})@)?(?P<sha>[0-9a-f]{{7,40}})(?![\w-])"
 	rf"|{_BEFORE}@(?P<user>{OWNER_PATTERN.pattern})(?![\w/-])"
 )
+"""An emoji's shortcode, or one of GitHub's references: an issue or pull request, a commit, or a user."""
 
 
 @export

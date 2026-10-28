@@ -10,7 +10,8 @@ report:unittest-summary
 
       The ``report:unittest-summary`` directive renders a unit test report as a table: a row per testsuite and
       testcase, with the counts of testcases, skipped, errored, failed and passed ones, the assertions and the runtime.
-      The hierarchy of testsuites is shown by indentation, a status by a symbol and a CSS class.
+      The hierarchy of testsuites is shown by indentation, a status by a symbol and a CSS class. A
+      :ref:`legend <DIR/UnittestSummary/Legend>` below the table explains the symbols.
 
       The report is read by `pyEDAA.Reports <https://edaa-org.github.io/pyEDAA.Reports/>`__ in the *Any JUnit* XML
       format, so the reports of pytest, OSVVM and other JUnit dialects are accepted, or in
@@ -224,6 +225,39 @@ The testsuites and testcases are objects of domain ``report``, named ``<report I
 documentation's inventory (:file:`objects.inv`), so another documentation refers to them with ``intersphinx``.
 
 
+.. _DIR/UnittestSummary/Legend:
+
+Legend
+******
+
+A status is shown by a symbol, the same for a testsuite and a testcase. The legend below the table names each symbol
+with its status; option :rst:dir:`report:unittest-summary:legend` draws it above the table instead, or leaves it out,
+e.g. when the page explains the symbols once for several tables.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 10 90
+
+   * - Symbol
+     - Status
+   * - ✅
+     - passed; a testcase failing as expected
+   * - ❌
+     - failed; a testcase passing unexpectedly, and a status without a symbol of its own
+   * - ⚠️
+     - skipped
+   * - ➖
+     - excluded
+   * - ❗
+     - errored
+   * - ⛔
+     - setup error
+   * - 🚫
+     - aborted
+   * - ❓
+     - unknown
+
+
 .. _DIR/UnittestSummary/Options:
 
 Options
@@ -253,6 +287,11 @@ Options
 
       Leaves out the row summarizing all testsuites above the testsuites.
 
+   .. rst:directive:option:: legend: top | bottom | none
+
+      Where the :ref:`legend <DIR/UnittestSummary/Legend>` of the status symbols is drawn: above the table, below it,
+      or not at all. Default: ``bottom``, also for the option without a value.
+
    .. rst:directive:option:: class: <CSS classes>
 
       Additional CSS classes on the table.
@@ -265,8 +304,10 @@ Styling
 
 The table carries the classes ``report-unittest-table`` and ``report-unittest-<identifier>``. A row carries its kind -
 ``report-testsuitesummary``, ``report-testsuite``, ``report-testcase`` or ``report-summary`` - and its status, e.g.
-``testcase-failed``. The stylesheet of :mod:`pyTooling.Sphinx` colours the rows by status; a project overrides these
-rules in a stylesheet of its own, listed in ``html_css_files``:
+``testcase-failed``. The legend is a paragraph with the classes ``report-unittest-legend`` and
+``report-unittest-legend-<position>``, each of its items an inline with the class ``report-unittest-legend-item``. The
+stylesheet of :mod:`pyTooling.Sphinx` colours the rows by status; a project overrides these rules in a stylesheet of its
+own, listed in ``html_css_files``:
 
 .. code-block:: CSS
 
@@ -275,6 +316,49 @@ rules in a stylesheet of its own, listed in ``html_css_files``:
    }
 
 A name is indented by its depth, two steps per level, as in the :ref:`code coverage tables <DIR/CodeCoverage/Styling>`.
+
+
+.. _DIR/UnittestSummary/Deriving:
+
+Deriving a table
+****************
+
+A project reading a test report of its own - e.g. a simulation framework's build summary with alert counts and
+functional coverage - derives its directive from :class:`~pyTooling.Sphinx.Unittest.UnittestSummaryBase`, the base-class
+of :rst:dir:`report:unittest-summary`. The base-class renders the rows - a testsuite summary, its testsuites and its
+listed testcases, indented by depth, the first column linked to the pages -, the derived class names the other columns:
+
+.. code-block:: Python
+
+   from pyTooling.Sphinx.Unittest import Column, ColumnGroup, UnittestSummary
+
+   class AssertionSummary(UnittestSummary):
+     directiveName = "assertion-summary"
+
+     def _Columns(self):
+       return [
+         Column("Testcases", 1, testsuite=lambda testsuite: f"{testsuite.TestcaseCount}"),
+         ColumnGroup("Assertions", [
+           Column("Passed", 1, testcase=lambda testcase: f"{testcase.PassedAssertionCount}"),
+           Column("Total",  1, testcase=lambda testcase: f"{testcase.AssertionCount}")
+         ])
+       ]
+
+A :class:`~pyTooling.Sphinx.Unittest.Column` names a function per kind of row - ``testsuite`` for a testsuite's and
+the testsuite summary's rows, ``testcase`` for a testcase's row -, which returns the cell's content: a text, a node, or
+the cell itself, e.g. to give it a CSS class. A :class:`~pyTooling.Sphinx.Unittest.ColumnGroup` puts columns under a
+common title, in a second header row.
+
+A directive reading another kind of report derives from :class:`~pyTooling.Sphinx.Unittest.UnittestSummaryBase` itself:
+it reads its options in ``_CheckOptions``, its reports into its own class variables ``_reports`` and ``_readErrors``,
+and returns its pages by ``_Pages``. Its pages derive from :class:`~pyTooling.Sphinx.UnittestPages.UnittestReportPages`,
+which adds fields to a testcase's summary by ``_TestcaseFields``, and columns to the testcase table of a testsuite's
+page by ``_TestcaseColumns`` and ``_TestcaseCells``. A domain of its own, with roles of its own, derives from
+:class:`~pyTooling.Sphinx.ReportDomain` and names its roles in ``_ROLES``.
+
+A derived table gets the :ref:`legend <DIR/UnittestSummary/Legend>` below it. It accepts option ``:legend:`` by adding
+``"legend": LegendPosition.Parse`` (:class:`~pyTooling.Sphinx.Tree.LegendPosition`) to its ``option_spec``; a table
+showing other symbols overrides the class variable ``_LEGEND``, a tuple of ``(symbol, text)`` pairs.
 
 
 .. _DIR/UnittestSummary/Errors:

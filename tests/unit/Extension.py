@@ -47,8 +47,8 @@ from sphinx.util.console           import strip_colors
 from pyTooling.Common              import readResourceFile
 from pyTooling.Testing             import Testcase, testsuite, testcase
 
-from pyTooling.Sphinx              import __version__, LATEX_PACKAGE, NODES, REPORT_ROLES, SUBSTITUTIONS, setup
-from pyTooling.Sphinx              import HTML, LaTeX, Resources
+from pyTooling.Sphinx              import __version__, LATEX_PACKAGE, NODES, REPORT_ROLES, SUBSTITUTIONS, setup, HTML, \
+                                          LaTeX, Resources
 from pyTooling.Sphinx.Abbreviation import ROLES as ABBREVIATION_ROLES, AbbreviationDomain
 from pyTooling.Sphinx.Node         import Landscape
 from pyTooling.Sphinx.Roles        import BREAK_ROLES, PYTHON_CODE_ROLE, STYLE_ROLES

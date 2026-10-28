@@ -95,14 +95,14 @@ from pyTooling.Sphinx      import BaseDirective, SphinxExtensionError, strip
 
 __all__ = ["SHIELDS_SERVICE_SVG", "SHIELDS_SERVICE_PNG", "BADGE_HEIGHT", "SHIELDS"]
 
-#: Host serving a badge as SVG, which is what an HTML build embeds.
 SHIELDS_SERVICE_SVG = "https://img.shields.io"
+"""Host serving a badge as SVG, which is what an HTML build embeds."""
 
-#: Host serving the same badge rasterized, which is what a LaTeX build needs - a PDF cannot embed the SVG.
 SHIELDS_SERVICE_PNG = "https://raster.shields.io"
+"""Host serving the same badge rasterized, which is what a LaTeX build needs - a PDF cannot embed the SVG."""
 
-#: Height every badge is scaled to, in pixels.
 BADGE_HEIGHT = 22
+"""Height every badge is scaled to, in pixels."""
 
 
 @export
@@ -135,8 +135,11 @@ class Shield(metaclass=ExtendedType, slots=True):
 		:param path:            Path and query on the badge host, with placeholders to format.
 		:param target:          Optional, what the badge links to.
 		:param options:         Optional, names of the directive's options the badge is made of.
-		:raises ValueError:     If parameter 'alternativeText' or 'path' is None.
-		:raises TypeError:      If parameter 'alternativeText', 'path' or 'target' is not a string.
+		:raises ValueError:     If parameter 'alternativeText' is None.
+		:raises TypeError:      If parameter 'alternativeText' is not a string.
+		:raises ValueError:     If parameter 'path' is None.
+		:raises TypeError:      If parameter 'path' is not a string.
+		:raises TypeError:      If parameter 'target' is not a string.
 		"""
 		if alternativeText is None:
 			raise ValueError("Parameter 'alternativeText' is None.")
@@ -205,7 +208,6 @@ class Shield(metaclass=ExtendedType, slots=True):
 		return self._target.format_map(settings)
 
 
-#: Every badge the directive knows, keyed by the identifier its content names.
 SHIELDS: dict[str, Shield] = {
 	"github": Shield(
 		"Sourcecode on GitHub",
@@ -312,6 +314,7 @@ SHIELDS: dict[str, Shield] = {
 		("gitter",)
 	),
 }
+"""Every badge the directive knows, keyed by the identifier its content names."""
 
 
 @export

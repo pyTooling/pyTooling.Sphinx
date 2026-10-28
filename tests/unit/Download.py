@@ -38,8 +38,8 @@ from time                          import sleep
 from unittest.mock                 import patch
 
 from pyTooling.Sphinx              import SphinxExtensionError
-from pyTooling.Sphinx.ExternalLink import ARCHIVE_FORMATS, HOST_ICONS, AddDownloadSizes, LinkIcon, getArchiveExtension
-from pyTooling.Sphinx.ExternalLink import checkExternalLinkConfiguration
+from pyTooling.Sphinx.ExternalLink import ARCHIVE_FORMATS, HOST_ICONS, AddDownloadSizes, LinkIcon, \
+                                          getArchiveExtension, checkExternalLinkConfiguration
 from pyTooling.Testing             import Testcase, testsuite, testcase
 
 from tests.unit.Extension          import Project

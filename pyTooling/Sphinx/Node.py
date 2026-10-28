@@ -44,8 +44,6 @@ from pyTooling.Decorators import export
 
 __all__ = ["visitFunc", "departFunc", "COVERAGE_STATES", "DOCUMENTATION_STATES"]
 
-#: The coverage states of a listing's lines, as the listing's legend names them, by state; ``""`` for a line, which
-#: isn't executable.
 COVERAGE_STATES = {
 	"covered":   "covered",
 	"partial":   "partial",
@@ -53,9 +51,11 @@ COVERAGE_STATES = {
 	"excluded":  "excluded",
 	"":          "not executable",
 }
+"""
+The coverage states of a listing's lines, as the listing's legend names them, by state; ``""`` for a line, which
+isn't executable.
+"""
 
-#: The documentation states of a condensed listing's lines, as the listing's legend names them, by state; ``""`` for a
-#: line, whose documentation isn't counted.
 DOCUMENTATION_STATES = {
 	"documented":   "documented",
 	"undocumented": "undocumented",
@@ -63,6 +63,10 @@ DOCUMENTATION_STATES = {
 	"excluded":     "excluded",
 	"":             "not counted",
 }
+"""
+The documentation states of a condensed listing's lines, as the listing's legend names them, by state; ``""`` for a
+line, whose documentation isn't counted.
+"""
 
 type visitFunc =  Callable[[Any, Any], Any]
 """A function writing the start of a node: called with the translator and the node."""

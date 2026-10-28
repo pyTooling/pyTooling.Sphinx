@@ -36,8 +36,8 @@ Written by hand it is wrong within a release or two: pyTooling's own documentati
 packages :file:`doc/requirements.txt` requires, listed one that isn't required at all, and called Sphinx BSD-3-Clause
 when it is BSD-2-Clause.
 
-**The entrypoints are declared in** :file:`conf.py` **and named by the documents**, the way
-:mod:`sphinx_reports` declares its reports:
+**The entrypoints are declared in** :file:`conf.py` **and named by the documents**, the way the domain ``report``
+declares its reports:
 
 .. code-block:: Python
 
@@ -68,13 +68,14 @@ from __future__                      import annotations
 
 from enum                            import Enum, auto
 from pathlib                         import Path
-from typing                          import TYPE_CHECKING, Any, ClassVar, Iterable, Literal, Mapping
-from typing                          import Optional as Nullable, TypeVar, cast
+from typing                          import TYPE_CHECKING, Any, ClassVar, Iterable, Literal, Mapping, \
+                                            Optional as Nullable, TypeVar, cast
 
 from pyTooling.Common                import getFullyQualifiedName
 from pyTooling.Decorators            import export, readonly
-from pyTooling.Dependency            import UnknownLicenseWarning
+from pyTooling.Dependency            import DependencyError, UnknownLicenseWarning
 from pyTooling.Exceptions            import ConfigurationError, MissingDependencyError
+from pyTooling.Licensing             import SPDXLicense, UnknownLicense
 from pyTooling.MetaClasses           import ExtendedType
 from pyTooling.Stopwatch             import Stopwatch
 from pyTooling.Warning               import WarningCollector
@@ -87,29 +88,28 @@ from sphinx.util                     import logging
 if TYPE_CHECKING:  # pragma: no cover
 	# Only this directive needs a package index, so the model is imported when the configuration declares an
 	# entrypoint rather than when the extension is loaded - otherwise every documentation build using any of these
-	# roles would need the 'pypi' extra.
+	# roles would need the 'dependencies' extra.
 	from sphinx.config                 import Config
 	from packaging.requirements        import Requirement
 	from packaging.specifiers          import SpecifierSet
-	from pyTooling.Dependency.Python   import LicenseOverrides, Project, PythonPackageDependencyGraph
-	from pyTooling.Dependency.Python   import PythonPackageIndex, Release, RequirementsFile
+	from pyTooling.Dependency.Python   import LicenseOverrides, Project, PythonPackageDependencyGraph, \
+	                                          PythonPackageIndex, Release, RequirementsFile
 	from pyTooling.Dependency.Resolver import Resolution, ResolvedRequirement
 
-from pyTooling.Sphinx                import BaseDirective, SphinxExtensionError, strip
-from pyTooling.Sphinx                import stripAndNormalize
+from pyTooling.Sphinx                import BaseDirective, SphinxExtensionError, strip, stripAndNormalize
 
 
-#: URL of the package index the tables are built from, unless :file:`conf.py` names another.
 DEFAULT_INDEX_URL = "https://pypi.org"
+"""URL of the package index the tables are built from, unless :file:`conf.py` names another."""
 
-#: URL of that index's JSON API.
 DEFAULT_API_URL = "https://pypi.org/pypi/"
+"""URL of that index's JSON API."""
 
-#: Levels of sub-dependencies rendered when nothing says otherwise; ``0`` expands until the tree ends.
 DEFAULT_DEPTH = 0
+"""Levels of sub-dependencies rendered when nothing says otherwise; ``0`` expands until the tree ends."""
 
-#: Whether a version constraint is reduced to its lower bound when the document doesn't say.
 DEFAULT_SIMPLIFIED_VERSIONS = True
+"""Whether a version constraint is reduced to its lower bound when the document doesn't say."""
 
 
 @export
@@ -166,32 +166,34 @@ class DependencyFormat(Enum):
 		return self.name
 
 
-#: How many parts of a version number a table prints when the document doesn't say.
 DEFAULT_VERSION_FORMAT = VersionFormat.MajorMinor
+"""How many parts of a version number a table prints when the document doesn't say."""
 
-#: What a line of a dependency tree states when the document doesn't say.
 DEFAULT_DEPENDENCY_FORMAT = DependencyFormat.PackageVersionLicense
+"""What a line of a dependency tree states when the document doesn't say."""
 
-#: Comparison operators as a reader writes them. Order matters - the two-character forms have to be tried first.
 OPERATOR_SYMBOLS = (("<=", "≤"), (">=", "≥"), ("!=", "≠"), ("==", "="))
+"""Comparison operators as a reader writes them. Order matters - the two-character forms have to be tried first."""
 
-#: Operators a simplified constraint drops: an upper bound and an exclusion say what is *not* required.
 _DROPPED_OPERATORS = ("<", "<=", "!=")
+"""Operators a simplified constraint drops: an upper bound and an exclusion say what is *not* required."""
 
-#: The table's columns, as ``(title, relative width)``.
 TABLE_COLUMNS = (("Package", 3), ("Version", 1), ("License", 2), ("Dependencies", 4))
+"""The table's columns, as ``(title, relative width)``."""
 
-#: The fields one entrypoint may state in :file:`conf.py`, exactly one of them.
-#:
-#: The singular forms take a string and the plural forms an iterable of strings; they are otherwise the same
-#: statement, and a project writes whichever reads better where it stands.
 ENTRYPOINT_FIELDS = ("file", "files", "package", "packages")
+"""
+The fields one entrypoint may state in :file:`conf.py`, exactly one of them.
 
-#: Prefix every configuration value of this extension carries in :file:`conf.py`.
+The singular forms take a string and the plural forms an iterable of strings; they are otherwise the same
+statement, and a project writes whichever reads better where it stands.
+"""
+
 CONFIG_PREFIX = "pyTooling_Dependency"
+"""Prefix every configuration value of this extension carries in :file:`conf.py`."""
 
-#: What Sphinx accepts as the rebuild condition of a configuration value - the one this extension uses.
 _ConfigRebuild = Literal["env"]
+"""What Sphinx accepts as the rebuild condition of a configuration value - the one this extension uses."""
 
 __all__ = [
 	"DEFAULT_INDEX_URL", "DEFAULT_API_URL", "DEFAULT_DEPTH", "DEFAULT_SIMPLIFIED_VERSIONS", "OPERATOR_SYMBOLS",
@@ -201,8 +203,8 @@ __all__ = [
 
 _logger = logging.getLogger(__name__)
 
-#: The two option enumerations, so one parser serves both.
 _FormatType = TypeVar("_FormatType", VersionFormat, DependencyFormat)
+"""The two option enumerations, so one parser serves both."""
 
 
 def _SelectedRelease(resolved: ResolvedRequirement) -> Nullable[Release]:
@@ -235,11 +237,13 @@ def _ReportWarning(prefix: str, warning: BaseException) -> None:
 	_logger.warning("\n".join(lines))
 
 
-#: The collector of each running build, by the id of its Sphinx application.
-#:
-#: It can't live on the build environment, which Sphinx pickles between runs - an open HTTP session and the locks
-#: guarding lazy loading are not picklable, and a cached view of a package index would be stale anyway.
 _COLLECTORS: dict[int, "DependencyCollector"] = {}
+"""
+The collector of each running build, by the id of its Sphinx application.
+
+It can't live on the build environment, which Sphinx pickles between runs - an open HTTP session and the locks
+guarding lazy loading are not picklable, and a cached view of a package index would be stale anyway.
+"""
 
 
 @export
@@ -464,7 +468,7 @@ class DependencyCollector(metaclass=ExtendedType, slots=True):
 		:param requirements:            The requirements to resolve.
 		:param limit:                   Number of levels resolved below the requirements, or ``None`` for unlimited.
 		:returns:                       The resolution.
-		:raises MissingDependencyError: If the 'pypi' extra isn't installed.
+		:raises MissingDependencyError: If the 'dependencies' extra isn't installed.
 		"""
 		from pyTooling.Dependency.Resolver import ResolutionStrategy, Resolver
 
@@ -486,7 +490,7 @@ class DependencyCollector(metaclass=ExtendedType, slots=True):
 		:param packages:                Pairs of a package name and an extra's name, or ``None`` for the package's own
 		                                requirements.
 		:returns:                       The requirements, flattened in the order the packages are given.
-		:raises MissingDependencyError: If the 'pypi' extra isn't installed.
+		:raises MissingDependencyError: If the 'dependencies' extra isn't installed.
 		:raises SphinxExtensionError:   If the index doesn't know a package, can't describe its latest release, or the
 		                                package has no such extra.
 		"""
@@ -495,7 +499,6 @@ class DependencyCollector(metaclass=ExtendedType, slots=True):
 		except ImportError as ex:  # pragma: no cover
 			raise MissingDependencyError(dependency="requests", extra="pypi") from ex
 
-		from pyTooling.Dependency          import DependencyError
 		from pyTooling.Dependency.Resolver import Resolver
 
 		warnings: list[BaseException] = []
@@ -513,16 +516,16 @@ class DependencyCollector(metaclass=ExtendedType, slots=True):
 		"""
 		Record or report the warnings collected while resolving.
 
-		An :class:`~pyTooling.Dependency.UnknownLicenseWarning` naming its project is recorded in
-		:attr:`UnresolvedLicenses`. Every other warning, e.g. a :class:`~pyTooling.Dependency.BrokenRequirementWarning`
-		for a requirement naming an extra its release doesn't declare, is reported as a Sphinx warning.
+		An :class:`~pyTooling.Dependency.UnknownLicenseWarning` is recorded in :attr:`UnresolvedLicenses`. Every other
+		warning, e.g. a :class:`~pyTooling.Dependency.BrokenRequirementWarning` for a requirement naming an extra its
+		release doesn't declare, is reported as a Sphinx warning.
 
 		:param warnings: The collected warnings.
 		"""
 		from packaging.utils import canonicalize_name
 
 		for warning in warnings:
-			if isinstance(warning, UnknownLicenseWarning) and warning.ProjectName is not None:
+			if isinstance(warning, UnknownLicenseWarning):
 				# the warning's notes are what the index published, which is the reason an override is needed; keyed by the
 				# canonical name, which is the override file's spelling, so two spellings of one package are one entry
 				self._unresolved[canonicalize_name(warning.ProjectName)] = warning.Notes
@@ -542,7 +545,7 @@ def readEntrypoints(configuration: Any, confDirectory: Path) -> dict[str, Entryp
 	:param configuration:           Value of ``pyTooling_Dependency_Requirements``.
 	:param confDirectory:           Directory :file:`conf.py` lives in; relative paths are resolved against it.
 	:returns:                       Every declared entrypoint, by its identifier.
-	:raises MissingDependencyError: If the 'pypi' extra isn't installed.
+	:raises MissingDependencyError: If the 'dependencies' extra isn't installed.
 	:raises SphinxExtensionError:   If the configuration is malformed, or a requirements file can't be read.
 	"""
 	if not isinstance(configuration, dict):
@@ -629,7 +632,7 @@ def _FileEntrypoint(
 	:param files:                   The declared paths.
 	:param confDirectory:           Directory relative paths resolve against.
 	:returns:                       The entrypoint, with its requirements read.
-	:raises MissingDependencyError: If the 'pypi' extra isn't installed.
+	:raises MissingDependencyError: If the 'dependencies' extra isn't installed.
 	:raises SphinxExtensionError:   If a file can't be read.
 	"""
 	try:
@@ -637,7 +640,6 @@ def _FileEntrypoint(
 	except ImportError as ex:  # pragma: no cover
 		raise MissingDependencyError(dependency="packaging", extra="pypi") from ex
 
-	from pyTooling.Dependency        import DependencyError
 	from pyTooling.Dependency.Python import RequirementsFile
 
 	readFiles: list[Path] = []
@@ -693,6 +695,8 @@ def prepareEntrypoints(sphinx: Sphinx, config: Config) -> None:
 	:param config:                The configuration, after :file:`conf.py` was read.
 	:raises SphinxExtensionError: If the configuration is malformed, or a
 	  requirements or license override file can't be read.
+	:raises SphinxExtensionError: If a license override file is configured, but pyTooling's ``yaml`` extra isn't
+	                              installed.
 	"""
 	if len(declarations := getattr(config, f"{CONFIG_PREFIX}_Requirements", {})) == 0:
 		return
@@ -700,12 +704,11 @@ def prepareEntrypoints(sphinx: Sphinx, config: Config) -> None:
 	confDirectory = Path(sphinx.confdir)
 
 	try:
-		from pyTooling.Dependency        import DependencyError
 		from pyTooling.Dependency.Python import LicenseOverrides
 	except MissingDependencyError as cause:  # pragma: no cover
 		raise SphinxExtensionError(
-			f"conf.py: {CONFIG_PREFIX}_Requirements: Querying a package index needs the 'pypi' extra: "
-			f"pip install pyTooling[pypi]"
+			f"conf.py: {CONFIG_PREFIX}_Requirements: Querying a package index needs the 'dependencies' extra: "
+			"pip install pyTooling[dependencies]"
 		) from cause
 
 	overrides = LicenseOverrides()
@@ -716,6 +719,11 @@ def prepareEntrypoints(sphinx: Sphinx, config: Config) -> None:
 
 		try:
 			overrides = LicenseOverrides.FromFile(path)
+		except MissingDependencyError as cause:
+			raise SphinxExtensionError(
+				f"conf.py: {CONFIG_PREFIX}_PackageOverrides: Reading the override file needs the 'yaml' extra: "
+				f"pip install pyTooling[yaml]"
+			) from cause
 		except (DependencyError, ConfigurationError, OSError) as cause:
 			raise SphinxExtensionError(
 				f"conf.py: {CONFIG_PREFIX}_PackageOverrides: Override file '{path}' can't be read: {cause}"
@@ -865,7 +873,7 @@ class DependencyTable(BaseDirective):
 		:param identifier:              Identifier the document names.
 		:param collector:               The build's collector.
 		:returns:                       Every required package, by its canonical name.
-		:raises MissingDependencyError: If the 'pypi' extra isn't installed.
+		:raises MissingDependencyError: If the 'dependencies' extra isn't installed.
 		:raises SphinxExtensionError:   If the identifier is unknown, or the package index can't answer for the
 		                                entrypoint's packages.
 		"""
@@ -1110,8 +1118,6 @@ class DependencyTable(BaseDirective):
 		:param release: The release to name the license of, or ``None``.
 		:returns:       The license' name, or ``None`` if nothing resolved.
 		"""
-		from pyTooling.Licensing import UnknownLicense
-
 		if release is None:
 			return None
 
@@ -1152,8 +1158,6 @@ class DependencyTable(BaseDirective):
 		:param release: The release to link the license of, or ``None``.
 		:returns:       The URL to link to, or ``None`` if nothing published this license.
 		"""
-		from pyTooling.Licensing import SPDXLicense
-
 		if release is None:
 			return None
 
