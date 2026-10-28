@@ -7,18 +7,19 @@ See :gh:`pyTooling.Sphinx Release Pages <pyTooling/pyTooling.Sphinx/releases>` f
 notes on every release.
 
 
-Version 0.x (2026)
+Version 1.x (2026)
 ******************
 
-.. topic:: :gh:`v0.1.0 - unreleased <pyTooling/pyTooling.Sphinx/releases/v0.1.0>`
+.. topic:: :gh:`v1.0.0 - unreleased <pyTooling/pyTooling.Sphinx/releases/v1.0.0>`
 
    .. rubric:: New Features
 
    * First release: pyTooling's Sphinx extension :mod:`pyTooling.Sphinx` becomes a package of its own. It was
      developed in the ``dev`` branch of :doc:`pyTooling <pyTool:index>` and moved here before any pyTooling release
-     contained it.
-   * Python 3.12 to 3.15 (Sphinx 9.1 requires Python 3.12); the extras :ref:`reports <DEP/reports>` and
-     :ref:`markdown <DEP/markdown>` install the optional requirements.
+     contained it. The first release is v1.0.0, a stable one (Production/Stable).
+   * Python 3.12 to 3.15 (Sphinx 9.1 requires Python 3.12) and pyTooling 10.1; the extras
+     :ref:`reports <DEP/reports>` (pyEDAA.Reports 1.0) and :ref:`markdown <DEP/markdown>` install the optional
+     requirements.
    * Roles: :ref:`style roles <ROLE/Style>`, :ref:`inline Python code <ROLE/PythonCode>`, and
      :ref:`line break and horizontal rule <ROLE/Breaks>` in HTML and LaTeX.
    * Directives: :ref:`condensed-class <DIR/CondensedClass>`,
