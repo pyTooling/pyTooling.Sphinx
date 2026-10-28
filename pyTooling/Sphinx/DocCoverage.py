@@ -725,7 +725,7 @@ class DocCoverageLegend(DocCoverageBase):
 	optional_arguments = DocCoverageBase.optional_arguments + 1  #: Number of optional arguments.
 
 	option_spec: dict[str, Any] = DocCoverageBase.option_spec | {  # type: ignore[misc]
-		"style": stripAndNormalize
+		"style": LegendStyle.Parse
 	}  #: Mapping of option names to validator functions.
 
 	_style: LegendStyle  #: How the legend is laid out.
@@ -734,12 +734,11 @@ class DocCoverageLegend(DocCoverageBase):
 		"""
 		Parse all directive options or use default values.
 
-		:raises SphinxExtensionError: If option ``:style:`` names no :class:`~pyTooling.Sphinx.LegendStyle`.
-		:raises KeyError:             If ``pyTooling_DocCoverage_Packages`` has no entry for the report ID.
+		:raises KeyError: If ``pyTooling_DocCoverage_Packages`` has no entry for the report ID.
 		"""
 		super()._CheckOptions()
 
-		self._style = self._ParseEnumOption("style", LegendStyle, LegendStyle.horizontal_table)
+		self._style = self.options.get("style", LegendStyle.DEFAULT)
 
 		packageConfiguration = self._packageConfigurations[self._reportID]
 		self._levels = packageConfiguration["levels"]
@@ -816,17 +815,14 @@ class DocCoverageLegend(DocCoverageBase):
 			message = f"Caught {getTypeName(ex)} when checking options for directive '{self.directiveName}'."
 			return self._internalError(container, __name__, message, ex)
 
-		if LegendStyle.Table in self._style:
-			if LegendStyle.Horizontal in self._style:
-				container += self._CreateHorizontalLegendTable(
-					identifier=f"{self._reportID}-legend", classes=["report-doccov-legend"]
-				)
-			elif LegendStyle.Vertical in self._style:
-				container += self._CreateVerticalLegendTable(
-					identifier=f"{self._reportID}-legend", classes=["report-doccov-legend"]
-				)
-			else:
-				container += nodes.paragraph(text="Unsupported legend style.")
+		if self._style is LegendStyle.HorizontalTable:
+			container += self._CreateHorizontalLegendTable(
+				identifier=f"{self._reportID}-legend", classes=["report-doccov-legend"]
+			)
+		elif self._style is LegendStyle.VerticalTable:
+			container += self._CreateVerticalLegendTable(
+				identifier=f"{self._reportID}-legend", classes=["report-doccov-legend"]
+			)
 		else:
 			container += nodes.paragraph(text="Unsupported legend style.")
 

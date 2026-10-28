@@ -142,7 +142,7 @@ from sphinx.roles            import XRefRole
 from sphinx.util.logging     import getLogger
 from sphinx.util.nodes       import make_refnode
 
-from pyTooling.Common        import getFullyQualifiedName, getTypeName, readResourceFile
+from pyTooling.Common        import StringEnum, getFullyQualifiedName, getTypeName, readResourceFile
 from pyTooling.Decorators    import export, readonly
 from pyTooling.Documentation import DocumentationError
 
@@ -280,19 +280,15 @@ class ReportsPackageMissingError(ReportExtensionError):
 
 
 @export
-class LegendStyle(Flag):
+class LegendStyle(StringEnum):
 	"""
-	How a legend directive of domain ``report`` lays out the coverage levels; a document writes the names with dashes.
+	How a legend directive of domain ``report`` lays out the coverage levels, as its option ``:style:`` states it.
 	"""
 
-	Default =    0     #: No style.
-	Table =      1     #: A table.
+	HorizontalTable = "horizontal-table"  #: A table with a column per level.
+	VerticalTable =   "vertical-table"    #: A table with a row per level.
 
-	Horizontal = 1024  #: A column per level.
-	Vertical =   2048  #: A row per level.
-
-	horizontal_table = Table | Horizontal  #: A table with a column per level, written ``horizontal-table``.
-	vertical_table =   Table | Vertical    #: A table with a row per level, written ``vertical-table``.
+	DEFAULT =         HorizontalTable     #: Without the option, a legend has a column per level.
 
 
 @export
