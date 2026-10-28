@@ -330,6 +330,143 @@ class Entrypoints(Testcase):
 
 		self.assertIn("[unittest]", str(exceptionCapture.exception))
 
+	@testcase("pyproject.toml file")
+	def PyProject(self) -> None:
+		"""
+		A pyproject entrypoint is read when the configuration is read: the build requirements and the file path.
+
+		Writes a 'pyproject.toml' file with two build requirements, reads the entrypoint, and checks both requirements by
+		their canonical name and the file path are known right away.
+		"""
+		with TemporaryDirectory() as directory:
+			root = Path(directory).resolve()
+			self._write(root, "pyproject.toml", """
+				[build-system]
+				requires = [
+				  "setuptools >= 84.2.1",
+				  "pyTooling >= 10.1.0, < 11.0"
+				]
+				build-backend = "setuptools.build_meta"
+			""")
+
+			entrypoints = readEntrypoints({"packaging": {"pyproject": "pyproject.toml"}}, root)
+
+		requirements = entrypoints["packaging"].Requirements
+		self.assertEqual({"pytooling", "setuptools"}, set(requirements))
+		self.assertEqual("<11.0,>=10.1.0", str(requirements["pytooling"].specifier))
+		self.assertEqual((root / "pyproject.toml",), entrypoints["packaging"].Files)
+		self.assertEqual((), entrypoints["packaging"].Packages)
+
+	@testcase("pyproject.toml file without build-system table")
+	def PyProject_NoBuildSystem(self) -> None:
+		"""
+		A 'pyproject.toml' file without a '[build-system]' table has no build requirements.
+
+		Writes a file with a '[tool.pytest]' table only, reads the entrypoint, and checks its requirements are empty.
+		"""
+		with TemporaryDirectory() as directory:
+			root = Path(directory).resolve()
+			self._write(root, "pyproject.toml", """
+				[tool.pytest]
+				junit_xml = "report/unit/unittest.xml"
+			""")
+
+			entrypoints = readEntrypoints({"packaging": {"pyproject": "pyproject.toml"}}, root)
+
+		self.assertEqual({}, entrypoints["packaging"].Requirements)
+
+	@testcase("Unparsable build requirement")
+	def PyProject_UnparsableRequirement(self) -> None:
+		"""
+		A build requirement that can't be parsed is reported as a Sphinx warning; the other requirements are read.
+
+		Writes a file of two build requirements with a broken one between them, reads the entrypoint, and checks the
+		warning names the entrypoint, the requirement and the file, and both packages are known.
+		"""
+		with TemporaryDirectory() as directory:
+			root = Path(directory).resolve()
+			self._write(root, "pyproject.toml", """
+				[build-system]
+				requires = ["setuptools >= 84.2.1", "not a requirement", "pyTooling >= 10.1.0"]
+			""")
+
+			with self.assertLogs(LOGGER_NAME, level="WARNING") as logCapture:
+				entrypoints = readEntrypoints({"packaging": {"pyproject": "pyproject.toml"}}, root)
+
+		self.assertEqual(1, len(logCapture.records))
+		message = logCapture.records[0].getMessage()
+		self.assertIn("[packaging].pyproject:", message)
+		self.assertIn(f"Build requirement 'not a requirement' in '{root / 'pyproject.toml'}' can't be parsed.", message)
+		self.assertEqual({"pytooling", "setuptools"}, set(entrypoints["packaging"].Requirements))
+
+	@testcase("Missing pyproject.toml file")
+	def PyProject_Missing(self) -> None:
+		"""
+		A missing 'pyproject.toml' file is reported with the entrypoint's identifier and the path.
+
+		Declares a file that doesn't exist and checks the error names '[packaging].pyproject' and the path, and is caused
+		by pyTooling's PyProjectFileNotFoundError.
+		"""
+		from pyTooling.Dependency import PyProjectFileNotFoundError
+
+		with TemporaryDirectory() as directory:
+			root = Path(directory).resolve()
+			with self.assertRaises(SphinxExtensionError) as exceptionCapture:
+				readEntrypoints({"packaging": {"pyproject": "pyproject.toml"}}, root)
+
+		message = str(exceptionCapture.exception)
+		self.assertIn("[packaging].pyproject: Project file", message)
+		self.assertIn(str(root / "pyproject.toml"), message)
+		self.assertIsInstance(exceptionCapture.exception.__cause__, PyProjectFileNotFoundError)
+
+	@testcase("Invalid pyproject.toml file")
+	def PyProject_InvalidTOML(self) -> None:
+		"""
+		A 'pyproject.toml' file that isn't valid TOML ends the build with a message naming the entrypoint.
+
+		Writes a file with an unterminated table header and checks the SphinxExtensionError names '[packaging]'.
+		"""
+		with TemporaryDirectory() as directory:
+			root = Path(directory).resolve()
+			self._write(root, "pyproject.toml", "[build-system\n")
+
+			with self.assertRaises(SphinxExtensionError) as exceptionCapture:
+				readEntrypoints({"packaging": {"pyproject": "pyproject.toml"}}, root)
+
+		self.assertIn("[packaging].pyproject:", str(exceptionCapture.exception))
+		self.assertIn("is not valid TOML.", str(exceptionCapture.exception))
+
+	@testcase("build-system table without requires")
+	def PyProject_NoRequires(self) -> None:
+		"""
+		A '[build-system]' table without the key 'requires' ends the build, as PEP 518 makes the key mandatory.
+
+		Writes a table with 'build-backend' only and checks the SphinxExtensionError names the missing key.
+		"""
+		with TemporaryDirectory() as directory:
+			root = Path(directory).resolve()
+			self._write(root, "pyproject.toml", """
+				[build-system]
+				build-backend = "setuptools.build_meta"
+			""")
+
+			with self.assertRaises(SphinxExtensionError) as exceptionCapture:
+				readEntrypoints({"packaging": {"pyproject": "pyproject.toml"}}, root)
+
+		self.assertIn("has no key 'requires'.", str(exceptionCapture.exception))
+
+	@testcase("pyproject field with a list")
+	def PyProject_Iterable(self) -> None:
+		"""
+		The field 'pyproject' takes one path; it has no plural form and rejects an iterable.
+
+		Declares 'pyproject' as a list and checks the error says a string is expected.
+		"""
+		with self.assertRaises(SphinxExtensionError) as exceptionCapture:
+			readEntrypoints({"packaging": {"pyproject": ["pyproject.toml"]}}, Path("."))
+
+		self.assertIn("[packaging].pyproject: Expected a string", str(exceptionCapture.exception))
+
 	@testcase("Neither file nor package")
 	def NoField(self) -> None:
 		"""
