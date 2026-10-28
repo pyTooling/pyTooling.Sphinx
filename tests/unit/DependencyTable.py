@@ -1096,7 +1096,10 @@ class Duplicates(Testcase):
 		table = self._Table(rows)
 
 		self.assertIs(rows[1], table._duplicateOf[rows[0].Dependencies[0]])
-		self.assertEqual(["sphinx", "… 1 dependency, listed at sphinx", "docutils"], self._Lines(table, rows[0]))
+		self.assertEqual(
+			["sphinx", "… same 1 dependency as listed at sphinx", "docutils"],
+			self._Lines(table, rows[0])
+		)
 		bulletList = table._CreateBulletList(list(rows[0].Dependencies))
 		self.assertEqual(1, len(list(bulletList.findall(FoldedDependencies))))
 
@@ -1110,7 +1113,7 @@ class Duplicates(Testcase):
 		rows = self._Sphinx()
 		table = self._Table(rows, DuplicateFormat.Reference)
 
-		self.assertEqual(["sphinx", "… 1 dependency, listed at sphinx"], self._Lines(table, rows[0]))
+		self.assertEqual(["sphinx", "… same 1 dependency as listed at sphinx"], self._Lines(table, rows[0]))
 		bulletList = table._CreateBulletList(list(rows[0].Dependencies))
 		self.assertEqual(0, len(list(bulletList.findall(FoldedDependencies))))
 
@@ -1132,7 +1135,7 @@ class Duplicates(Testcase):
 
 		self.assertEqual({second: first}, table._duplicateOf)
 		self.assertEqual(["x", "pydantic", "core"], self._Lines(table, rows[0]))
-		self.assertEqual(["y", "pydantic", "… 1 dependency, listed at pydantic"], self._Lines(table, rows[1]))
+		self.assertEqual(["y", "pydantic", "… same 1 dependency as listed at pydantic"], self._Lines(table, rows[1]))
 
 		[(reference, original)] = table._pendingReferences
 		self.assertIs(first, original)
@@ -1239,7 +1242,7 @@ class Duplicates(Testcase):
 		self.assertEqual(0, len(list(document.findall(FoldedDependencies))))
 		self.assertEqual(0, len(list(document.findall(nodes.reference))))
 		self.assertEqual(
-			["sphinx", "… 1 dependency, listed at sphinx"],
+			["sphinx", "… same 1 dependency as listed at sphinx"],
 			[node.astext() for node in document.findall(nodes.paragraph)]
 		)
 		self.assertEqual(("latex", "text", "man", "texinfo"), ReplaceFoldedDependencies.formats)

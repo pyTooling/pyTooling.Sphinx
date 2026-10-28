@@ -1460,7 +1460,8 @@ class DependencyTable(BaseDirective):
 
 		reference = nodes.reference("", name, internal=True)
 		self._pendingReferences.append((reference, original))
-		marker = nodes.emphasis("", f"… {count} {'dependency' if count == 1 else 'dependencies'}, listed at ", reference)
+		text =   f"… same {count} {'dependency' if count == 1 else 'dependencies'} as listed at "
+		marker = nodes.emphasis("", text, reference)
 
 		if self._duplicateFormat is DuplicateFormat.Reference:
 			bulletList = nodes.bullet_list("", classes=["compact"])

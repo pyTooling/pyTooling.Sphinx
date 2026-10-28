@@ -106,8 +106,8 @@ installs every extra any statement names.
       ``expanded``
          |rarr| shown again, as at the earlier line.
       ``collapsed``
-         |rarr| folded below a marker, e.g. *… 12 dependencies, listed at sphinx*, which links to the earlier line. In
-         HTML, a click on the marker unfolds them; LaTeX, text, manual pages and Texinfo show the marker alone.
+         |rarr| folded below a marker, e.g. *… same 12 dependencies as listed at sphinx*, which links to the earlier
+         line. In HTML, a click on the marker unfolds them; LaTeX, text, manual pages and Texinfo show the marker alone.
       ``reference``
          |rarr| replaced by the marker.
 
