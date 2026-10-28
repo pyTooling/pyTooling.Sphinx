@@ -117,17 +117,16 @@ __author__ =            "Patrick Lehmann"
 __email__ =             "Paebbels@gmail.com"
 __copyright__ =         "2026-2026, Patrick Lehmann"
 __license__ =           "Apache License, Version 2.0"
-__version__ =           "0.1.0rc7"
+__version__ =           "1.0.0"
 __keywords__ =          ["Sphinx", "Sphinx Extension", "Documentation", "Directive", "Role", "Domain", "docutils"]
 __project_url__ =       "https://github.com/pyTooling/pyTooling.Sphinx"
 __documentation_url__ = "https://pyTooling.github.io/pyTooling.Sphinx"
 __issue_tracker_url__ = "https://GitHub.com/pyTooling/pyTooling.Sphinx/issues"
 
-from enum                    import Enum, Flag
 from hashlib                 import md5
 from pathlib                 import Path
 from re                      import compile as re_compile, match as re_match
-from typing                  import Any, ClassVar, Iterable, Iterator, NamedTuple, Optional as Nullable, TypeVar
+from typing                  import Any, ClassVar, Iterable, Iterator, NamedTuple, Optional as Nullable
 
 from docutils                import nodes
 from sphinx.addnodes         import pending_xref
@@ -142,7 +141,7 @@ from sphinx.roles            import XRefRole
 from sphinx.util.logging     import getLogger
 from sphinx.util.nodes       import make_refnode
 
-from pyTooling.Common        import getFullyQualifiedName, getTypeName, readResourceFile
+from pyTooling.Common        import StringEnum, getFullyQualifiedName, getTypeName, readResourceFile
 from pyTooling.Decorators    import export, readonly
 from pyTooling.Documentation import DocumentationError
 
@@ -155,7 +154,8 @@ from pyTooling.Sphinx.HTML   import translateLandscape as translateLandscapeAsHT
                                     translateTreeLegendItem, translateCopyButton, translateEmoji, \
                                     translateLineBreak as translateLineBreakAsHTML, \
                                     translateReportIndentation as translateReportIndentationAsHTML, \
-                                    translateTaskListCheckbox as translateTaskListCheckboxAsHTML
+                                    translateTaskListCheckbox as translateTaskListCheckboxAsHTML, \
+                                    translateFoldedDependencies, translateFoldedSummary
 from pyTooling.Sphinx.LaTeX  import translateLandscape as translateLandscapeAsLaTeX, \
                                     translateCoverageListing as translateCoverageListingAsLaTeX, \
                                     translateDocCoverageListing as translateDocCoverageListingAsLaTeX, \
@@ -164,7 +164,8 @@ from pyTooling.Sphinx.LaTeX  import translateLandscape as translateLandscapeAsLa
                                     translateTaskListCheckbox as translateTaskListCheckboxAsLaTeX
 from pyTooling.Sphinx.Node   import Abbreviation, Landscape, RegisteredNode, TreeItem, TreeLabel, TreeSeparator, \
                                     CopyButton, CoverageListing, DocCoverageListing, TreeDescription, TreeLegend, \
-                                    Emoji, LineBreak, ReportIndentation, TaskListCheckbox, TreeLegendItem
+                                    Emoji, LineBreak, ReportIndentation, TaskListCheckbox, TreeLegendItem, \
+                                    FoldedDependencies, FoldedSummary
 
 
 __all__ = [
@@ -223,6 +224,8 @@ NODES: tuple[RegisteredNode, ...] = (
 	 "latex": translateLineBreakAsLaTeX},
 	{"name": "ReportIndentation",  "node": ReportIndentation,  "html": translateReportIndentationAsHTML,
 	 "latex": translateReportIndentationAsLaTeX},
+	{"name": "FoldedDependencies", "node": FoldedDependencies, "html": translateFoldedDependencies},
+	{"name": "FoldedSummary",      "node": FoldedSummary,      "html": translateFoldedSummary},
 )
 """
 The nodes the extension registers, each with its visitors per output format.
@@ -230,10 +233,6 @@ The nodes the extension registers, each with its visitors per output format.
 A format without visitors of its own - e.g. LaTeX for the tree's nodes - writes a node with the visitors of its
 base-class.
 """
-
-
-_EnumType = TypeVar("_EnumType", bound=Enum)
-"""Type of an enumeration read from a directive's options."""
 
 
 @export
@@ -276,19 +275,15 @@ class ReportsPackageMissingError(ReportExtensionError):
 
 
 @export
-class LegendStyle(Flag):
+class LegendStyle(StringEnum):
 	"""
-	How a legend directive of domain ``report`` lays out the coverage levels; a document writes the names with dashes.
+	How a legend directive of domain ``report`` lays out the coverage levels, as its option ``:style:`` states it.
 	"""
 
-	Default =    0     #: No style.
-	Table =      1     #: A table.
+	HorizontalTable = "horizontal-table"  #: A table with a column per level.
+	VerticalTable =   "vertical-table"    #: A table with a row per level.
 
-	Horizontal = 1024  #: A column per level.
-	Vertical =   2048  #: A row per level.
-
-	horizontal_table = Table | Horizontal  #: A table with a column per level, written ``horizontal-table``.
-	vertical_table =   Table | Vertical    #: A table with a row per level, written ``vertical-table``.
+	DEFAULT =         HorizontalTable     #: Without the option, a legend has a column per level.
 
 
 @export
@@ -391,46 +386,6 @@ class BaseDirective(ObjectDescription[str]):
 		raise SphinxExtensionError(
 			f"{self.directiveName}::{optionName}: '{option}' not an accepted value for regexp '{regexp}'."
 		)
-
-	def _ParseEnumOption(
-		self,
-		optionName: str,
-		enumType: type[_EnumType],
-		default: Nullable[_EnumType] = None
-	) -> _EnumType:
-		"""
-		Read an option naming a member of an enumeration.
-
-		The written value is lowered and its dashes become underscores, so ``horizontal-table`` in a document selects
-		the ``horizontal_table`` member - a document reads in the spelling documents use, and the enumeration keeps
-		the spelling Python uses.
-
-		:param optionName:             Name of the option to read.
-		:param enumType:               The enumeration whose members the value is looked up in.
-		:param default:                Optional, the member to return when the option wasn't given.
-		:returns:                      The named member of the enumeration.
-		:raises SphinxExtensionError:  If the option wasn't given and has no default.
-		:raises SphinxExtensionError:  If the value names no member of the enumeration.
-		"""
-		try:
-			option: str = self.options[optionName]
-		except KeyError as cause:
-			if default is not None:
-				return default
-
-			raise SphinxExtensionError(
-				f"{self.directiveName}: Required option '{optionName}' not found for directive."
-			) from cause
-
-		identifier = option.lower().replace("-", "_")
-
-		try:
-			return enumType[identifier]
-		except KeyError as cause:
-			raise SphinxExtensionError(
-				f"{self.directiveName}::{optionName}: Value '{option}' (transformed: '{identifier}') is not a valid "
-				f"member of '{enumType.__name__}'."
-			) from cause
 
 	def _CreateSingleRowTableHeader(
 		self,
@@ -1055,7 +1010,8 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	                                               CodeCoverageBase, CodeCoverageLegend, FileCoverage
 	from pyTooling.Sphinx.CodeCoveragePages import CodeCoverageReportPages
 	from pyTooling.Sphinx.CondensedClass    import CondensedClass
-	from pyTooling.Sphinx.DependencyTable   import CONFIG_PREFIX, DependencyTable, prepareEntrypoints, reportBuildTime
+	from pyTooling.Sphinx.DependencyTable   import CONFIG_PREFIX, PROJECT_ROOT_CONFIG, DependencyTable, \
+	                                               ReplaceFoldedDependencies, prepareEntrypoints, reportBuildTime
 	from pyTooling.Sphinx.DocCoverage       import CONFIG_PREFIX as DOC_COVERAGE_PREFIX, DocCoverageBase, \
 	                                               DocCoverageLegend, DocCoverageReportPages, DocStrCoverage
 	from pyTooling.Sphinx.ExternalLink      import CONFIG_PREFIX as EXTERNAL_LINK_PREFIX, BaseExternalLinkTransform, \
@@ -1122,6 +1078,7 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	sphinx.add_latex_package(LATEX_PACKAGE)
 	sphinx.add_post_transform(FixLatexTableWidths)
 	sphinx.add_post_transform(RemoveTreeLegends)
+	sphinx.add_post_transform(ReplaceFoldedDependencies)
 	sphinx.add_post_transform(RemoveUnicodeGlyphs)
 	sphinx.add_post_transform(RasterizeShieldsBadges)
 
@@ -1140,6 +1097,8 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 
 	for configName, (default, rebuild, types) in Abbreviations.configValues.items():
 		sphinx.add_config_value(f"{ABBREVIATION_PREFIX}_{configName}", default, rebuild, types)
+
+	sphinx.add_config_value(PROJECT_ROOT_CONFIG, None, "env", (str, Path))
 
 	# HTML only: the first marks the links written with their URI, the second the links resolved in between
 	sphinx.add_post_transform(MarkExternalLinks)

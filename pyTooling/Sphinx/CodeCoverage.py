@@ -304,7 +304,7 @@ class CodeCoverageBase(BaseDirective):
 			else:
 				from pyEDAA.Reports.CodeCoverage.CoveragePy import Document
 		except ImportError as cause:
-			raise ReportsPackageMissingError("Reading a code coverage report", "'pyEDAA.Reports' >= 0.20") from cause
+			raise ReportsPackageMissingError("Reading a code coverage report", "'pyEDAA.Reports' >= 1.0") from cause
 
 		return Document(packageConfiguration["report"], analyzeAndConvert=True).ToCoverageSummary()
 
@@ -710,7 +710,7 @@ class CodeCoverageLegend(CodeCoverageBase):
 	optional_arguments = CodeCoverageBase.optional_arguments + 1  #: Number of optional arguments.
 
 	option_spec: dict[str, Any] = CodeCoverageBase.option_spec | {  # type: ignore[misc]
-		"style": stripAndNormalize
+		"style": LegendStyle.Parse
 	}  #: Mapping of option names to validator functions.
 
 	_style: LegendStyle  #: How the legend is laid out.
@@ -719,12 +719,11 @@ class CodeCoverageLegend(CodeCoverageBase):
 		"""
 		Parse all directive options or use default values.
 
-		:raises SphinxExtensionError: If option ``:style:`` names no :class:`~pyTooling.Sphinx.LegendStyle`.
 		:raises ReportExtensionError: If ``pyTooling_CodeCoverage_Packages`` has no entry for the report ID.
 		"""
 		super()._CheckOptions()
 
-		self._style = self._ParseEnumOption("style", LegendStyle, LegendStyle.horizontal_table)
+		self._style = self.options.get("style", LegendStyle.DEFAULT)
 
 		try:
 			packageConfiguration = self._packageConfigurations[self._reportID]
@@ -805,17 +804,14 @@ class CodeCoverageLegend(CodeCoverageBase):
 			message = f"Caught {getTypeName(ex)} when checking options for directive '{self.directiveName}'."
 			return self._internalError(container, __name__, message, ex)
 
-		if LegendStyle.Table in self._style:
-			if LegendStyle.Horizontal in self._style:
-				container += self._CreateHorizontalLegendTable(
-					identifier=f"{self._reportID}-legend", classes=["report-codecov-legend"]
-				)
-			elif LegendStyle.Vertical in self._style:
-				container += self._CreateVerticalLegendTable(
-					identifier=f"{self._reportID}-legend", classes=["report-codecov-legend"]
-				)
-			else:
-				container += nodes.paragraph(text="Unsupported legend style.")
+		if self._style is LegendStyle.HorizontalTable:
+			container += self._CreateHorizontalLegendTable(
+				identifier=f"{self._reportID}-legend", classes=["report-codecov-legend"]
+			)
+		elif self._style is LegendStyle.VerticalTable:
+			container += self._CreateVerticalLegendTable(
+				identifier=f"{self._reportID}-legend", classes=["report-codecov-legend"]
+			)
 		else:
 			container += nodes.paragraph(text="Unsupported legend style.")
 

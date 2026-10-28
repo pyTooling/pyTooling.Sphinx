@@ -44,9 +44,10 @@ declares its reports:
    # doc/conf.py
    pyTooling_Dependency_PackageOverrides = "Dependency.PackageOverrides.yaml"
    pyTooling_Dependency_Requirements = {
-     "package":       {"file":    "../requirements.txt"},
-     "documentation": {"file":    "requirements.txt"},
-     "yaml":          {"package": "pyTooling[yaml]"}
+     "package":       {"file":      "../requirements.txt"},
+     "documentation": {"file":      "requirements.txt"},
+     "yaml":          {"package":   "pyTooling[yaml]"},
+     "packaging":     {"pyproject": True}
    }
 
 .. code-block:: rest
@@ -55,7 +56,10 @@ declares its reports:
       :caption: Documentation dependencies
 
 A requirements file is read - with its ``-r`` includes followed - while :file:`conf.py` is being processed, so a
-path that doesn't exist ends the build with one clear message instead of an error box in the middle of a page.
+path that doesn't exist ends the build with one clear message instead of an error box in the middle of a page. A
+:file:`pyproject.toml` file is read at the same time; its entrypoint stands for the build requirements of the
+``[build-system]`` table. ``True`` names the file in the project's root directory - ``pyTooling_ProjectRoot``,
+relative to :file:`conf.py`, by default the parent of the directory :file:`conf.py` is in.
 
 **The data is fetched live** from the package index, once per build and shared between every table of that build:
 :file:`requirements.txt`, :file:`tests/requirements.txt` and :file:`doc/requirements.txt` overlap heavily, and a
@@ -64,39 +68,40 @@ package they share is downloaded once. The requirements are resolved by pyToolin
 That still costs real time, so every table reports what it spent, measured with a
 :class:`~pyTooling.Stopwatch.Stopwatch`, and the build ends with the total.
 """
-from __future__                      import annotations
+from __future__                        import annotations
 
-from enum                            import Enum, auto
-from pathlib                         import Path
-from typing                          import TYPE_CHECKING, Any, ClassVar, Iterable, Literal, Mapping, \
-                                            Optional as Nullable, TypeVar, cast
+from pathlib                           import Path
+from typing                            import TYPE_CHECKING, Any, ClassVar, Iterable, Literal, Mapping, \
+                                              Optional as Nullable, cast
 
-from pyTooling.Common                import getFullyQualifiedName
-from pyTooling.Decorators            import export, readonly
-from pyTooling.Dependency            import DependencyError, UnknownLicenseWarning
-from pyTooling.Exceptions            import ConfigurationError, MissingDependencyError
-from pyTooling.Licensing             import SPDXLicense, UnknownLicense
-from pyTooling.MetaClasses           import ExtendedType
-from pyTooling.Stopwatch             import Stopwatch
-from pyTooling.Warning               import WarningCollector
+from pyTooling.Common                  import StringEnum, getFullyQualifiedName
+from pyTooling.Decorators              import export, readonly
+from pyTooling.Dependency              import DependencyError, UnknownLicenseWarning
+from pyTooling.Exceptions              import ConfigurationError, MissingDependencyError
+from pyTooling.Licensing               import SPDXLicense, UnknownLicense
+from pyTooling.MetaClasses             import ExtendedType
+from pyTooling.Stopwatch               import Stopwatch
+from pyTooling.Warning                 import WarningCollector
 
-from docutils                        import nodes
-from docutils.parsers.rst            import directives
-from sphinx.application              import Sphinx
-from sphinx.util                     import logging
+from docutils                          import nodes
+from docutils.parsers.rst              import directives
+from sphinx.application                import Sphinx
+from sphinx.transforms.post_transforms import SphinxPostTransform
+from sphinx.util                       import logging
 
 if TYPE_CHECKING:  # pragma: no cover
 	# Only this directive needs a package index, so the model is imported when the configuration declares an
 	# entrypoint rather than when the extension is loaded - otherwise every documentation build using any of these
 	# roles would need the 'dependencies' extra.
-	from sphinx.config                 import Config
-	from packaging.requirements        import Requirement
-	from packaging.specifiers          import SpecifierSet
-	from pyTooling.Dependency.Python   import LicenseOverrides, Project, PythonPackageDependencyGraph, \
-	                                          PythonPackageIndex, Release, RequirementsFile
-	from pyTooling.Dependency.Resolver import Resolution, ResolvedRequirement
+	from sphinx.config                   import Config
+	from packaging.requirements          import Requirement
+	from packaging.specifiers            import SpecifierSet
+	from pyTooling.Dependency.Python     import LicenseOverrides, Project, PythonPackageDependencyGraph, \
+	                                            PythonPackageIndex, Release, RequirementsFile
+	from pyTooling.Dependency.Resolver   import Resolution, ResolvedRequirement
 
-from pyTooling.Sphinx                import BaseDirective, SphinxExtensionError, strip, stripAndNormalize
+from pyTooling.Sphinx                  import BaseDirective, SphinxExtensionError, strip, stripAndNormalize
+from pyTooling.Sphinx.Node             import FoldedDependencies, FoldedSummary
 
 
 DEFAULT_INDEX_URL = "https://pypi.org"
@@ -113,31 +118,33 @@ DEFAULT_SIMPLIFIED_VERSIONS = True
 
 
 @export
-class VersionFormat(Enum):
-	"""How many parts of a version number a dependency table prints."""
+class VersionFormat(StringEnum):
+	"""
+	How many parts of a version number a dependency table prints, as a ``dependency-table``'s option
+	``:version-format:`` states it.
+	"""
 
-	Major =           auto()  #: The major part alone, ``≥9``.
-	MajorMinor =      auto()  #: Major and minor, ``≥9.1`` - the default.
-	MajorMinorPatch = auto()  #: Major, minor and patch, ``≥9.1.2``.
-	All =             auto()  #: Every part the constraint states, ``≥9.1.2.dev3``.
+	Major =           "major"              #: The major part alone, ``≥9``.
+	MajorMinor =      "major-minor"        #: Major and minor, ``≥9.1``.
+	MajorMinorPatch = "major-minor-patch"  #: Major, minor and patch, ``≥9.1.2``.
+	All =             "all"                #: Every part the constraint states, ``≥9.1.2.dev3``.
 
-	def __str__(self) -> str:
-		"""
-		Return this format's name, as a document writes it.
-
-		:returns: The enum member's name.
-		"""
-		return self.name
+	DEFAULT =         MajorMinor           #: Without the option, a version is printed with major and minor part.
 
 
 @export
-class DependencyFormat(Enum):
-	"""What a line of a dependency tree states about a package."""
+class DependencyFormat(StringEnum):
+	"""
+	What a line of a dependency tree states about a package, as a ``dependency-table``'s option ``:dependency-format:``
+	states it.
+	"""
 
-	Package =               auto()  #: The name alone.
-	PackageVersion =        auto()  #: Name and version constraint.
-	PackageLicense =        auto()  #: Name and license.
-	PackageVersionLicense = auto()  #: Name, version constraint and license - the default.
+	Package =               "package"                  #: The name alone.
+	PackageVersion =        "package-version"          #: Name and version constraint.
+	PackageLicense =        "package-license"          #: Name and license.
+	PackageVersionLicense = "package-version-license"  #: Name, version constraint and license.
+
+	DEFAULT =               PackageVersionLicense      #: Without the option, a line states name, version and license.
 
 	@readonly
 	def ShowsVersion(self) -> bool:
@@ -157,20 +164,34 @@ class DependencyFormat(Enum):
 		"""
 		return self in (DependencyFormat.PackageLicense, DependencyFormat.PackageVersionLicense)
 
-	def __str__(self) -> str:
-		"""
-		Return this format's name, as a document writes it.
 
-		:returns: The enum member's name.
-		"""
-		return self.name
+@export
+class DuplicateFormat(StringEnum):
+	"""
+	How a dependency tree shows the dependencies of a package, which an earlier line of the table already shows, as a
+	``dependency-table``'s option ``:duplicates:`` states it.
+	"""
+
+	Expanded =  "expanded"   #: Shown again, as at the earlier line.
+	Collapsed = "collapsed"  #: Folded below a marker linking to the earlier line; HTML unfolds them on a click.
+	Reference = "reference"  #: Replaced by a marker linking to the earlier line.
+
+	DEFAULT =   Collapsed    #: Without the option, a duplicate's dependencies are folded.
 
 
-DEFAULT_VERSION_FORMAT = VersionFormat.MajorMinor
-"""How many parts of a version number a table prints when the document doesn't say."""
+@export
+class DuplicateMatch(StringEnum):
+	"""
+	When a package's line in a dependency tree is a duplicate of an earlier line of the same package, as a
+	``dependency-table``'s option ``:duplicate-match:`` states it.
+	"""
 
-DEFAULT_DEPENDENCY_FORMAT = DependencyFormat.PackageVersionLicense
-"""What a line of a dependency tree states when the document doesn't say."""
+	Exact =  "exact"   #: The same release with the same extras.
+	Subset = "subset"  #: The same release with the earlier line's extras or fewer.
+	Name =   "name"    #: Any release with any extras.
+
+	DEFAULT = Subset   #: Without the option, a line requiring no more extras than the earlier line is a duplicate.
+
 
 OPERATOR_SYMBOLS = (("<=", "≤"), (">=", "≥"), ("!=", "≠"), ("==", "="))
 """Comparison operators as a reader writes them. Order matters - the two-character forms have to be tried first."""
@@ -181,12 +202,22 @@ _DROPPED_OPERATORS = ("<", "<=", "!=")
 TABLE_COLUMNS = (("Package", 3), ("Version", 1), ("License", 2), ("Dependencies", 4))
 """The table's columns, as ``(title, relative width)``."""
 
-ENTRYPOINT_FIELDS = ("file", "files", "package", "packages")
+ENTRYPOINT_FIELDS = ("file", "files", "package", "packages", "pyproject")
 """
 The fields one entrypoint may state in :file:`conf.py`, exactly one of them.
 
 The singular forms take a string and the plural forms an iterable of strings; they are otherwise the same
-statement, and a project writes whichever reads better where it stands.
+statement, and a project writes whichever reads better where it stands. ``pyproject`` names a project's
+:file:`pyproject.toml` file - ``True`` for the one in the project's root directory, a path relative to that directory,
+or ``None`` for a project without one; a project has one such file, so the field has no plural form.
+"""
+
+PROJECT_ROOT_CONFIG = "pyTooling_ProjectRoot"
+"""
+Configuration value naming the project's root directory, relative to :file:`conf.py`.
+
+Unset, the root is the parent of the directory :file:`conf.py` is in - :file:`doc/conf.py` in a project's root
+directory. A ``pyproject`` entrypoint's path is relative to it.
 """
 
 CONFIG_PREFIX = "pyTooling_Dependency"
@@ -197,14 +228,11 @@ _ConfigRebuild = Literal["env"]
 
 __all__ = [
 	"DEFAULT_INDEX_URL", "DEFAULT_API_URL", "DEFAULT_DEPTH", "DEFAULT_SIMPLIFIED_VERSIONS", "OPERATOR_SYMBOLS",
-	"TABLE_COLUMNS", "ENTRYPOINT_FIELDS", "CONFIG_PREFIX",
-	"DEFAULT_VERSION_FORMAT", "DEFAULT_DEPENDENCY_FORMAT"
+	"TABLE_COLUMNS", "ENTRYPOINT_FIELDS", "CONFIG_PREFIX", "PROJECT_ROOT_CONFIG"
 ]
 
 _logger = logging.getLogger(__name__)
 
-_FormatType = TypeVar("_FormatType", VersionFormat, DependencyFormat)
-"""The two option enumerations, so one parser serves both."""
 
 
 def _SelectedRelease(resolved: ResolvedRequirement) -> Nullable[Release]:
@@ -251,13 +279,13 @@ class Entrypoint(metaclass=ExtendedType, slots=True):
 	"""
 	One entry of ``pyTooling_Dependency_Requirements``: an identifier and the requirements it stands for.
 
-	A file entrypoint is read while :file:`conf.py` is being processed and carries its requirements from then on.
-	A package entrypoint can only be resolved by asking the package index, so it carries the package's name and
-	extra and is resolved the first time a table names it.
+	A file entrypoint - a requirements file or a :file:`pyproject.toml` file - is read while :file:`conf.py` is being
+	processed and carries its requirements from then on. A package entrypoint can only be resolved by asking the
+	package index, so it carries the package's name and extra and is resolved the first time a table names it.
 	"""
 
 	_identifier:   str                                    #: Name the documents refer to this entrypoint by.
-	_files:        tuple[Path, ...]                       #: Every requirements file read, references included.
+	_files:        tuple[Path, ...]                       #: Every file read, a requirements file's references included.
 	_packages:     tuple[tuple[str, Nullable[str]], ...]  #: The packages to read, as name and extra.
 	_requirements: Nullable[dict[str, Requirement]]       #: The resolved requirements, by canonical package name.
 
@@ -272,7 +300,7 @@ class Entrypoint(metaclass=ExtendedType, slots=True):
 		Describe one entrypoint.
 
 		:param identifier:   Name the documents refer to this entrypoint by.
-		:param files:        Optional, every requirements file read, for a file entrypoint. Default: ``()``.
+		:param files:        Optional, every file read, for a file entrypoint. Default: ``()``.
 		:param packages:     Optional, the packages and their extras, for a package entrypoint. Default: ``()``.
 		:param requirements: Optional, the requirements, if they are known already. Default: ``None``.
 		"""
@@ -293,7 +321,7 @@ class Entrypoint(metaclass=ExtendedType, slots=True):
 	@readonly
 	def Files(self) -> tuple[Path, ...]:
 		"""
-		The requirements file and every file it includes.
+		The requirements file and every file it includes, or the :file:`pyproject.toml` file.
 
 		:returns: The files this entrypoint was read from; empty for a package entrypoint.
 		"""
@@ -497,7 +525,7 @@ class DependencyCollector(metaclass=ExtendedType, slots=True):
 		try:
 			from requests import RequestException
 		except ImportError as ex:  # pragma: no cover
-			raise MissingDependencyError(dependency="requests", extra="pypi") from ex
+			raise MissingDependencyError(dependency="requests", extra="dependencies") from ex
 
 		from pyTooling.Dependency.Resolver import Resolver
 
@@ -534,19 +562,23 @@ class DependencyCollector(metaclass=ExtendedType, slots=True):
 
 
 @export
-def readEntrypoints(configuration: Any, confDirectory: Path) -> dict[str, Entrypoint]:
+def readEntrypoints(configuration: Any, confDirectory: Path, projectRoot: Path) -> dict[str, Entrypoint]:
 	"""
-	Turn ``pyTooling_Dependency_Requirements`` into entrypoints, reading every requirements file it names.
+	Turn ``pyTooling_Dependency_Requirements`` into entrypoints, reading every file it names.
 
-	A requirements file is read here rather than when a table is built, so a path that doesn't exist ends the build
-	with one message naming the identifier instead of an error box in the middle of a page - and so two tables
-	naming the same file read it once.
+	A requirements file or :file:`pyproject.toml` file is read here rather than when a table is built, so a path that
+	doesn't exist ends the build with one message naming the identifier instead of an error box in the middle of a
+	page - and so two tables naming the same file read it once.
 
 	:param configuration:           Value of ``pyTooling_Dependency_Requirements``.
-	:param confDirectory:           Directory :file:`conf.py` lives in; relative paths are resolved against it.
+	:param confDirectory:           Directory :file:`conf.py` lives in; a requirements file's relative path is resolved
+	                                against it.
+	:param projectRoot:             The project's root directory; a ``pyproject`` entrypoint's relative path is resolved
+	                                against it.
 	:returns:                       Every declared entrypoint, by its identifier.
 	:raises MissingDependencyError: If the 'dependencies' extra isn't installed.
-	:raises SphinxExtensionError:   If the configuration is malformed, or a requirements file can't be read.
+	:raises SphinxExtensionError:   If the configuration is malformed, or a requirements file or
+	                                :file:`pyproject.toml` file can't be read.
 	"""
 	if not isinstance(configuration, dict):
 		raise SphinxExtensionError(
@@ -580,7 +612,14 @@ def readEntrypoints(configuration: Any, confDirectory: Path) -> dict[str, Entryp
 		fieldLocation = f"{location}.{field}"
 		value = declaration[field]
 
-		if field in ("file", "package"):
+		if field == "pyproject":
+			if value is not None and value is not True and not isinstance(value, str):
+				raise SphinxExtensionError(
+					f"{fieldLocation}: Expected None, True or a string, got '{getFullyQualifiedName(value)}'."
+				)
+			elif value == "":
+				raise SphinxExtensionError(f"{fieldLocation}: Path is empty. Use True for the project root's file.")
+		elif field in ("file", "package"):
 			if not isinstance(value, str):
 				raise SphinxExtensionError(
 					f"{fieldLocation}: Expected a string, got '{getFullyQualifiedName(value)}'."
@@ -606,6 +645,8 @@ def readEntrypoints(configuration: Any, confDirectory: Path) -> dict[str, Entryp
 
 		if field in ("file", "files"):
 			entrypoints[identifier] = _FileEntrypoint(identifier, fieldLocation, values, confDirectory)
+		elif field == "pyproject":
+			entrypoints[identifier] = _PyProjectEntrypoint(identifier, fieldLocation, value, projectRoot)
 		else:
 			entrypoints[identifier] = _PackageEntrypoint(identifier, values)
 
@@ -635,15 +676,10 @@ def _FileEntrypoint(
 	:raises MissingDependencyError: If the 'dependencies' extra isn't installed.
 	:raises SphinxExtensionError:   If a file can't be read.
 	"""
-	try:
-		from packaging.utils import canonicalize_name
-	except ImportError as ex:  # pragma: no cover
-		raise MissingDependencyError(dependency="packaging", extra="pypi") from ex
-
 	from pyTooling.Dependency.Python import RequirementsFile
 
 	readFiles: list[Path] = []
-	requirements: dict[str, Requirement] = {}
+	stated: list[Requirement] = []
 
 	for file in files:
 		path = Path(file)
@@ -662,9 +698,55 @@ def _FileEntrypoint(
 
 		# the tree knows every file it was read from; walking it here would be a second answer to one question
 		readFiles.extend(requirementsFile.AnalyzedRequirementFiles)
-		requirements.update({canonicalize_name(req.name): req for req in requirementsFile.AllRequirements})
+		stated.extend(requirementsFile.AllRequirements)
 
-	return Entrypoint(identifier, files=tuple(readFiles), requirements=requirements)
+	return Entrypoint(identifier, files=tuple(readFiles), requirements=_MergeRequirements(stated))
+
+
+def _PyProjectEntrypoint(identifier: str, location: str, file: Nullable[bool | str], projectRoot: Path) -> Entrypoint:
+	"""
+	Read the build requirements of one entrypoint's :file:`pyproject.toml` file.
+
+	The requirements are the ``requires`` key of the ``[build-system]`` table (:pep:`518`), read by pyTooling's
+	:meth:`PyProjectFile.Parse <pyTooling.Dependency.Python.PyProjectFile.Parse>`. A file without a ``[build-system]``
+	table has no build requirements, and neither has a project declaring ``None``, which has no such file. A requirement
+	that can't be parsed - an :class:`~pyTooling.Dependency.UnparsableRequirementWarning` - is reported as a Sphinx
+	warning naming the file; the file's other requirements are read.
+
+	:param identifier:              Identifier of the entrypoint.
+	:param location:                Where in :file:`conf.py` this came from.
+	:param file:                    ``True`` for :file:`pyproject.toml` in the project's root directory, a path relative
+	                                to that directory, or ``None`` if the project has no such file.
+	:param projectRoot:             The project's root directory.
+	:returns:                       The entrypoint, with its requirements read.
+	:raises MissingDependencyError: If the 'dependencies' extra isn't installed.
+	:raises SphinxExtensionError:   If the file can't be read, isn't valid TOML, or its ``[build-system]`` table
+	                                states no list of requirements.
+	"""
+	from pyTooling.Dependency.Python import PyProjectFile
+
+	if file is None:
+		return Entrypoint(identifier, requirements={})
+	elif file is True:
+		path = projectRoot / "pyproject.toml"
+	else:
+		path = Path(file)
+		if not path.is_absolute():
+			path = projectRoot / path
+
+	warnings: list[BaseException] = []
+	try:
+		with WarningCollector(warnings):
+			pyProjectFile = PyProjectFile.Parse(path)
+	except (DependencyError, OSError, UnicodeDecodeError) as cause:
+		raise SphinxExtensionError(f"{location}: Project file '{path}' can't be read: {cause}") from cause
+
+	for warning in warnings:
+		_ReportWarning(f"{location}:", warning)
+
+	requirements = _MergeRequirements(pyProjectFile.BuildRequirements)
+
+	return Entrypoint(identifier, files=(pyProjectFile.Path,), requirements=requirements)
 
 
 def _PackageEntrypoint(identifier: str, packages: tuple[str, ...]) -> Entrypoint:
@@ -683,18 +765,52 @@ def _PackageEntrypoint(identifier: str, packages: tuple[str, ...]) -> Entrypoint
 	return Entrypoint(identifier, packages=tuple(requested))
 
 
+def _MergeRequirements(requirements: Iterable[Requirement]) -> dict[str, Requirement]:
+	"""
+	Index requirements by their canonical package name; a later statement of a package wins, but keeps earlier extras.
+
+	pip installs every extra any statement of a package names, so a later ``pyTooling`` doesn't drop the extra of an
+	earlier ``pyTooling[yaml]``: the later statement's version constraint and marker are kept, and its extras are
+	extended by the earlier ones. The requirements given are not changed; an extended one is a copy.
+
+	:param requirements:            The requirements, in the order they are stated.
+	:returns:                       Every required package, by its canonical name.
+	:raises MissingDependencyError: If the 'dependencies' extra isn't installed.
+	"""
+	try:
+		from packaging.requirements import Requirement
+		from packaging.utils        import canonicalize_name
+	except ImportError as ex:  # pragma: no cover
+		raise MissingDependencyError(dependency="packaging", extra="dependencies") from ex
+
+	merged: dict[str, Requirement] = {}
+	for requirement in requirements:
+		name = canonicalize_name(requirement.name)
+		if (earlier := merged.get(name, None)) is not None and not earlier.extras <= requirement.extras:
+			extended = Requirement(str(requirement))
+			extended.extras = requirement.extras | earlier.extras
+			requirement = extended
+
+		merged[name] = requirement
+
+	return merged
+
+
 @export
 def prepareEntrypoints(sphinx: Sphinx, config: Config) -> None:
 	"""
 	Call-back for Sphinx' ``config-inited`` event, reading the entrypoints and the license overrides.
 
+	A ``pyproject`` entrypoint is resolved against the project's root directory, :data:`PROJECT_ROOT_CONFIG` relative to
+	:file:`conf.py`, or the parent of :file:`conf.py`'s directory if it isn't set.
+
 	A build declaring no entrypoint does nothing here - not even import :mod:`pyTooling.Dependency.Python`, so a
-	project using only this extension's roles doesn't need the ``pypi`` extra.
+	project using only this extension's roles doesn't need the ``dependencies`` extra.
 
 	:param sphinx:                The Sphinx application.
 	:param config:                The configuration, after :file:`conf.py` was read.
-	:raises SphinxExtensionError: If the configuration is malformed, or a
-	  requirements or license override file can't be read.
+	:raises SphinxExtensionError: If the configuration is malformed, or a requirements file, :file:`pyproject.toml`
+	                              file or license override file can't be read.
 	:raises SphinxExtensionError: If a license override file is configured, but pyTooling's ``yaml`` extra isn't
 	                              installed.
 	"""
@@ -702,6 +818,12 @@ def prepareEntrypoints(sphinx: Sphinx, config: Config) -> None:
 		return
 
 	confDirectory = Path(sphinx.confdir)
+	if (projectRootSetting := getattr(config, PROJECT_ROOT_CONFIG, None)) is None:
+		projectRoot = confDirectory.parent
+	else:
+		projectRoot = Path(projectRootSetting)
+		if not projectRoot.is_absolute():
+			projectRoot = confDirectory / projectRoot
 
 	try:
 		from pyTooling.Dependency.Python import LicenseOverrides
@@ -730,7 +852,7 @@ def prepareEntrypoints(sphinx: Sphinx, config: Config) -> None:
 			) from cause
 
 	_COLLECTORS[id(sphinx)] = DependencyCollector(
-		readEntrypoints(declarations, confDirectory),
+		readEntrypoints(declarations, confDirectory, projectRoot),
 		getattr(config, f"{CONFIG_PREFIX}_IndexURL", DEFAULT_INDEX_URL),
 		getattr(config, f"{CONFIG_PREFIX}_APIURL", DEFAULT_API_URL),
 		overrides
@@ -753,9 +875,9 @@ class DependencyTable(BaseDirective):
 	#: The configuration values this directive adds to :file:`conf.py`, as ``name: (default, rebuild, types)``. Each is
 	#: registered with :data:`CONFIG_PREFIX` as prefix, e.g. ``pyTooling_Dependency_Requirements``.
 	#:
-	#: ``Requirements`` maps an identifier to what it names - a file, files, a package or packages. The other three are
-	#: build-wide, because one package index is queried per build and one override file answers for it. All four are
-	#: ``"env"``-rebuilt: changing any of them changes every table.
+	#: ``Requirements`` maps an identifier to what it names - a file, files, a package, packages or a
+	#: :file:`pyproject.toml` file. The other three are build-wide, because one package index is queried per build and
+	#: one override file answers for it. All four are ``"env"``-rebuilt: changing any of them changes every table.
 	configValues: ClassVar[dict[str, tuple[Any, _ConfigRebuild, Any]]] = {
 		"Requirements":     ({},                "env", dict),
 		"PackageOverrides": (None,              "env", (str, Path)),
@@ -766,6 +888,14 @@ class DependencyTable(BaseDirective):
 	_simplify:         bool               #: Whether this table's version constraints are reduced to their lower bound.
 	_versionFormat:    VersionFormat      #: How many parts of a version number this table prints.
 	_dependencyFormat: DependencyFormat   #: What a line of this table's dependency trees states.
+	_duplicateFormat:  DuplicateFormat    #: How this table's dependency trees show a duplicate's dependencies.
+	_duplicateMatch:   DuplicateMatch     #: When a line of this table's dependency trees is a duplicate.
+
+	_identifier:        str                                                #: The entrypoint this table renders.
+	_duplicateOf:       dict[ResolvedRequirement, ResolvedRequirement]     #: Each duplicate, mapped to its original.
+	_originals:         set[ResolvedRequirement]                           #: The originals duplicates link to.
+	_anchors:           dict[ResolvedRequirement, str]                     #: The ID of each original's line.
+	_pendingReferences: list[tuple[nodes.reference, ResolvedRequirement]]  #: Links waiting for their original's ID.
 
 	has_content =               False  #: A boolean; ``True`` if content is allowed.
 	required_arguments =        1      #: Number of required directive arguments: the entrypoint's identifier.
@@ -778,8 +908,10 @@ class DependencyTable(BaseDirective):
 		"caption":             strip,
 		"depth":               directives.nonnegative_int,
 		"simplified-versions": stripAndNormalize,
-		"version-format":      stripAndNormalize,
-		"dependency-format":   stripAndNormalize,
+		"version-format":      VersionFormat.Parse,
+		"dependency-format":   DependencyFormat.Parse,
+		"duplicates":          DuplicateFormat.Parse,
+		"duplicate-match":     DuplicateMatch.Parse,
 	}
 
 	def run(self) -> list[nodes.Node]:
@@ -790,10 +922,10 @@ class DependencyTable(BaseDirective):
 		"""
 		identifier =             self.arguments[0].strip()
 		self._simplify =         self._ParseBooleanOption("simplified-versions", DEFAULT_SIMPLIFIED_VERSIONS)
-		self._versionFormat =    self._ParseFormatOption("version-format", VersionFormat, DEFAULT_VERSION_FORMAT)
-		self._dependencyFormat = self._ParseFormatOption(
-			"dependency-format", DependencyFormat, DEFAULT_DEPENDENCY_FORMAT
-		)
+		self._versionFormat =    self.options.get("version-format", VersionFormat.DEFAULT)
+		self._dependencyFormat = self.options.get("dependency-format", DependencyFormat.DEFAULT)
+		self._duplicateFormat =  self.options.get("duplicates", DuplicateFormat.DEFAULT)
+		self._duplicateMatch =   self.options.get("duplicate-match", DuplicateMatch.DEFAULT)
 
 		# ':depth: 0' - and the default - means expand until the tree ends, which is the resolver's 'None'
 		depth = self.options.get("depth", DEFAULT_DEPTH)
@@ -804,7 +936,14 @@ class DependencyTable(BaseDirective):
 				collector = self._Collector()
 				requirements = self._Requirements(identifier, collector)
 				resolution = collector.Resolve(requirements.values(), limit)
+				self._identifier =        identifier
+				self._duplicateOf =       self._FindDuplicates(resolution)
+				self._originals =         set(self._duplicateOf.values())
+				self._anchors =           {}
+				self._pendingReferences = []
 				table = self._CreateTable(identifier, resolution)
+				for reference, original in self._pendingReferences:
+					reference["refid"] = self._anchors[original]
 			except SphinxExtensionError as cause:
 				return [self.state.document.reporter.error(
 					f"{self.directiveName}: {cause}", line=self.lineno
@@ -817,32 +956,6 @@ class DependencyTable(BaseDirective):
 		_logger.info(f"[{self.directiveName}] {identifier}: {len(requirements)} package(s), {seconds:.2f} s")
 
 		return [table]
-
-	def _ParseFormatOption(self, optionName: str, enumType: type[_FormatType], default: _FormatType) -> _FormatType:
-		"""
-		Read an option naming a member of an enumeration, or fall back to its default.
-
-		:attr:`~pyTooling.Sphinx.BaseDirective._ParseEnumOption` requires the option and
-		lower-cases what it reads; these two have a default and are written the way the members are spelled, so a
-		document says ``:version-format: MajorMinor`` rather than ``major_minor``.
-
-		:param optionName:            Name of the option to read.
-		:param enumType:              The enumeration its value names a member of.
-		:param default:               The member to use when the option isn't given.
-		:returns:                     The named member.
-		:raises SphinxExtensionError: If the value names no member.
-		"""
-		if (option := self.options.get(optionName, None)) is None:
-			return default
-
-		for member in enumType:
-			if option.lower() == member.name.lower():
-				return member
-
-		known = ", ".join(member.name for member in enumType)
-		raise SphinxExtensionError(
-			f"{self.directiveName}::{optionName}: '{option}' is not one of: {known}."
-		)
 
 	def _Collector(self) -> DependencyCollector:
 		"""
@@ -877,11 +990,6 @@ class DependencyTable(BaseDirective):
 		:raises SphinxExtensionError:   If the identifier is unknown, or the package index can't answer for the
 		                                entrypoint's packages.
 		"""
-		try:
-			from packaging.utils import canonicalize_name
-		except ImportError as ex:  # pragma: no cover
-			raise MissingDependencyError(dependency="packaging", extra="pypi") from ex
-
 		if (entrypoint := collector.Entrypoints.get(identifier, None)) is None:
 			known = ", ".join(sorted(collector.Entrypoints)) or "none"
 			raise SphinxExtensionError(
@@ -896,10 +1004,7 @@ class DependencyTable(BaseDirective):
 			return requirements
 
 		# several packages flatten in the order they are declared, the rule a file's '-r' references already follow
-		requirements = {}
-		for requirement in collector.PublishedRequirements(entrypoint.Packages):
-			requirements[canonicalize_name(requirement.name)] = requirement
-
+		requirements = _MergeRequirements(collector.PublishedRequirements(entrypoint.Packages))
 		entrypoint.CacheRequirements(requirements)
 
 		return requirements
@@ -912,8 +1017,6 @@ class DependencyTable(BaseDirective):
 		:param resolution: The entrypoint's requirements, resolved.
 		:returns:          The finished table.
 		"""
-		from packaging.utils import canonicalize_name
-
 		tableGroup = self._CreateSingleRowTableHeader(
 			columns=list(TABLE_COLUMNS),
 			identifier=identifier,
@@ -924,7 +1027,7 @@ class DependencyTable(BaseDirective):
 		if resolution.RequirementCount == 0:
 			tableBody += self._CreateEmptyRow(len(TABLE_COLUMNS))
 		else:
-			for resolved in sorted(resolution.Requirements, key=lambda item: canonicalize_name(item.Requirement.name)):
+			for resolved in self._SortedRequirements(resolution):
 				tableBody += self._CreateRow(resolved)
 
 		table = cast(nodes.table, tableGroup.parent)
@@ -966,6 +1069,8 @@ class DependencyTable(BaseDirective):
 		:returns:        The table row.
 		"""
 		tableRow = nodes.row("", classes=["dependency-table-row"])
+		if resolved in self._originals:
+			self._SetAnchor(tableRow, resolved)
 
 		requirement = resolved.Requirement
 		release =     _SelectedRelease(resolved)
@@ -1072,14 +1177,45 @@ class DependencyTable(BaseDirective):
 		:returns:           The table entry.
 		"""
 		entry = nodes.entry()
-		name = project.Name if project is not None else requirement.name
+		entry += (paragraph := nodes.paragraph())
 
+		name = cls._PackageName(requirement, project)
 		if (url := cls._PackageURL(project)) is not None:
-			entry += nodes.paragraph("", "", nodes.reference("", name, refuri=url))
+			paragraph += nodes.reference("", name, refuri=url)
 		else:
-			entry += nodes.paragraph(text=name)
+			paragraph += nodes.Text(name)
+
+		if (extras := cls._ExtrasText(requirement)) != "":
+			paragraph += nodes.Text(extras)
 
 		return entry
+
+	@staticmethod
+	def _PackageName(requirement: Requirement, project: Nullable[Project]) -> str:
+		"""
+		Return a package's name as its project spells it, or as the requirement does if the index doesn't know it.
+
+		:param requirement: The requirement naming the package.
+		:param project:     The project, or ``None`` if the index doesn't know it.
+		:returns:           The package's name.
+		"""
+		return project.Name if project is not None else requirement.name
+
+	@staticmethod
+	def _ExtrasText(requirement: Requirement) -> str:
+		"""
+		Return the extras a requirement names, as they follow the package's name: ``[console,packaging,yaml]``.
+
+		The extras are sorted, so the same requirement reads the same in every line. Two lines of one package with
+		different extras require different dependencies, and only the extras tell them apart.
+
+		:param requirement: The requirement.
+		:returns:           The extras in brackets, or an empty string if the requirement names none.
+		"""
+		if len(requirement.extras) == 0:
+			return ""
+
+		return f"[{','.join(sorted(requirement.extras))}]"
 
 	@staticmethod
 	def _LicenseEntry(release: Nullable[Release]) -> nodes.entry:
@@ -1213,21 +1349,29 @@ class DependencyTable(BaseDirective):
 		"""
 		Render resolved requirements as a bullet list, each item followed by its own dependencies.
 
-		An item whose own dependencies the depth limit cuts off gets a marker saying how many weren't expanded.
+		An item whose own dependencies the depth limit cuts off gets a marker saying how many weren't expanded. An item
+		:meth:`_FindDuplicates` found to be a duplicate gets a marker linking to its original instead, and - if duplicates
+		are collapsed - its dependencies folded below that marker. The list is ``compact``, so its lines are spaced like
+		those of a simple list, also next to folded dependencies.
 
 		:param dependencies: The resolved requirements to list.
 		:returns:            The bullet list.
 		"""
 		from pyTooling.Dependency.Resolver import ResolutionStatus
 
-		bulletList = nodes.bullet_list()
+		bulletList = nodes.bullet_list("", classes=["compact"])
 
-		for dependency in sorted(dependencies, key=lambda item: item.Requirement.name.lower()):
+		for dependency in self._SortedByName(dependencies):
 			item = nodes.list_item()
+			if dependency in self._originals:
+				self._SetAnchor(item, dependency)
+
 			item += self._RequirementParagraph(dependency.Requirement, dependency.Project, _SelectedRelease(dependency))
 
 			if len(nested := self._Dependencies(dependency)) > 0:
-				if any(nestedDependency.Status is ResolutionStatus.LimitReached for nestedDependency in nested):
+				if (original := self._duplicateOf.get(dependency, None)) is not None:
+					item += self._CreateDuplicateMarker(nested, original)
+				elif any(nestedDependency.Status is ResolutionStatus.LimitReached for nestedDependency in nested):
 					item += self._CreateLimitMarker(len(nested))
 				else:
 					item += self._CreateBulletList(nested)
@@ -1246,10 +1390,168 @@ class DependencyTable(BaseDirective):
 		"""
 		text = f"… {count} more {'dependency' if count == 1 else 'dependencies'} not expanded"
 
-		bulletList = nodes.bullet_list()
+		bulletList = nodes.bullet_list("", classes=["compact"])
 		bulletList += nodes.list_item("", nodes.paragraph("", "", nodes.emphasis(text=text)), classes=["dependency-limit"])
 
 		return bulletList
+
+	def _CreateDuplicateMarker(
+		self,
+		dependencies: list[ResolvedRequirement],
+		original: ResolvedRequirement
+	) -> nodes.Element:
+		"""
+		Render the marker of a duplicate: how many dependencies it has, and a link to the line of its original.
+
+		Collapsed duplicates fold their dependencies below the marker, which HTML unfolds on a click; referenced
+		duplicates get the marker alone. The link's target is set once the table is complete, because the original may
+		be a row further down: :meth:`run` resolves every link of :attr:`_pendingReferences`.
+
+		:param dependencies: The duplicate's dependencies.
+		:param original:     The line the duplicate's dependencies are shown at.
+		:returns:            A :class:`~pyTooling.Sphinx.Node.FoldedDependencies` node, or a bullet list with one item.
+		"""
+		count = len(dependencies)
+		name = f"{self._PackageName(original.Requirement, original.Project)}{self._ExtrasText(original.Requirement)}"
+
+		reference = nodes.reference("", name, internal=True)
+		self._pendingReferences.append((reference, original))
+		text =   f"… same {count} {'dependency' if count == 1 else 'dependencies'} as listed at "
+		marker = nodes.emphasis("", text, reference)
+
+		if self._duplicateFormat is DuplicateFormat.Reference:
+			bulletList = nodes.bullet_list("", classes=["compact"])
+			bulletList += nodes.list_item("", nodes.paragraph("", "", marker), classes=["dependency-duplicate"])
+
+			return bulletList
+
+		duplicate = FoldedDependencies("", classes=["dependency-duplicate"])
+		duplicate += FoldedSummary("", "", marker)
+		duplicate += self._CreateBulletList(dependencies)
+
+		return duplicate
+
+	def _SetAnchor(self, node: nodes.Element, original: ResolvedRequirement) -> None:
+		"""
+		Give the row or list item of an original a readable ID, which the markers of its duplicates link to.
+
+		The ID names the entrypoint and the package with its extras - ``dependency-documentation-requests`` -, so a link
+		to it reads well and stays the same from build to build, unlike a counted ``id7``. A second original of the
+		same name on the page gets a number appended. The ID is registered with the document, which keeps it unique on
+		the page. The whole row or item is the target, so the stylesheet highlights the package with its dependencies.
+
+		:param node:     The table row or list item showing the original.
+		:param original: The original.
+		"""
+		document = self.state.document
+		baseID =   nodes.make_id(
+			f"dependency-{self._identifier}-{original.Requirement.name}{self._ExtrasText(original.Requirement)}"
+		)
+
+		anchorID = baseID
+		number =   1
+		while anchorID in document.ids:
+			number += 1
+			anchorID = f"{baseID}-{number}"
+
+		node["ids"].append(anchorID)
+		document.set_id(node)
+		self._anchors[original] = anchorID
+
+	@staticmethod
+	def _SortedRequirements(resolution: Resolution) -> list[ResolvedRequirement]:
+		"""
+		Return the first-level requirements in the order the table lists them: by canonical package name.
+
+		:param resolution: The entrypoint's requirements, resolved.
+		:returns:          The rows' requirements, sorted.
+		"""
+		from packaging.utils import canonicalize_name
+
+		return sorted(resolution.Requirements, key=lambda item: canonicalize_name(item.Requirement.name))
+
+	@staticmethod
+	def _SortedByName(dependencies: Iterable[ResolvedRequirement]) -> list[ResolvedRequirement]:
+		"""
+		Return dependencies in the order a dependency tree lists them: by package name, ignoring case.
+
+		:param dependencies: The dependencies of one line.
+		:returns:            The dependencies, sorted.
+		"""
+		return sorted(dependencies, key=lambda item: item.Requirement.name.lower())
+
+	def _FindDuplicates(self, resolution: Resolution) -> dict[ResolvedRequirement, ResolvedRequirement]:
+		"""
+		Find the lines of the dependency trees whose dependencies an earlier line of the table already shows.
+
+		The lines are visited in the order the table shows them, after every first-level requirement became an
+		original: a dependency the table lists in a row of its own links to that row, even if the row is further down.
+		A line with dependencies is a duplicate if :meth:`_IsDuplicate` matches it to an original of the same package.
+		Otherwise it is an original itself - unless the depth limit cut its dependencies off, as a duplicate linking to
+		it would show less than its own line - and its dependencies are visited. A duplicate's dependencies aren't
+		visited: they are folded or not shown at all.
+
+		:param resolution: The entrypoint's requirements, resolved.
+		:returns:          Every duplicate, mapped to its original; empty if duplicates are expanded.
+		"""
+		from packaging.utils import canonicalize_name
+
+		from pyTooling.Dependency.Resolver import ResolutionStatus
+
+		duplicateOf: dict[ResolvedRequirement, ResolvedRequirement] = {}
+		if self._duplicateFormat is DuplicateFormat.Expanded:
+			return duplicateOf
+
+		rows = [row for row in self._SortedRequirements(resolution) if _SelectedRelease(row) is not None]
+		originals: dict[str, list[ResolvedRequirement]] = {}
+		for row in rows:
+			originals.setdefault(canonicalize_name(row.Requirement.name), []).append(row)
+
+		def visit(dependencies: list[ResolvedRequirement]) -> None:
+			"""
+			Nested function for recursion.
+
+			:param dependencies: The dependencies of one line.
+			"""
+			for dependency in self._SortedByName(dependencies):
+				if len(nested := self._Dependencies(dependency)) == 0:
+					continue
+
+				candidates = originals.setdefault(canonicalize_name(dependency.Requirement.name), [])
+				for original in candidates:
+					if self._IsDuplicate(dependency, original):
+						duplicateOf[dependency] = original
+						break
+				else:
+					if not any(nestedDependency.Status is ResolutionStatus.LimitReached for nestedDependency in nested):
+						candidates.append(dependency)
+						visit(nested)
+
+		for row in rows:
+			visit(self._Dependencies(row))
+
+		return duplicateOf
+
+	def _IsDuplicate(self, line: ResolvedRequirement, original: ResolvedRequirement) -> bool:
+		"""
+		Whether a line of a dependency tree is a duplicate of an original line of the same package.
+
+		:attr:`_duplicateMatch` decides: ``Exact`` requires the same release and the same extras, ``Subset`` the same
+		release and the original's extras or fewer - so everything the line requires is shown at the original -, and
+		``Name`` nothing more than the package.
+
+		:param line:     The line to check.
+		:param original: An original line of the same package.
+		:returns:        ``True`` if the line is a duplicate of the original.
+		"""
+		if self._duplicateMatch is DuplicateMatch.Name:
+			return True
+		elif _SelectedRelease(line) is not _SelectedRelease(original):
+			return False
+		elif self._duplicateMatch is DuplicateMatch.Exact:
+			return line.Requirement.extras == original.Requirement.extras
+		else:
+			return line.Requirement.extras <= original.Requirement.extras
 
 	def _RequirementParagraph(
 		self,
@@ -1271,11 +1573,14 @@ class DependencyTable(BaseDirective):
 		"""
 		paragraph = nodes.paragraph()
 
-		name = project.Name if project is not None else requirement.name
+		name = self._PackageName(requirement, project)
 		if (url := self._PackageURL(project)) is not None:
 			paragraph += nodes.reference("", name, refuri=url)
 		else:
 			paragraph += nodes.Text(name)
+
+		if (extras := self._ExtrasText(requirement)) != "":
+			paragraph += nodes.Text(extras)
 
 		if self._dependencyFormat.ShowsVersion:
 			specifier = self._FormatSpecifier(requirement.specifier, self._simplify, self._versionFormat)
@@ -1295,6 +1600,35 @@ class DependencyTable(BaseDirective):
 			paragraph += nodes.Text(")")
 
 		return paragraph
+
+
+@export
+class ReplaceFoldedDependencies(SphinxPostTransform):
+	"""
+	A post-transform replacing the folded dependencies of a duplicate by the marker alone, in the output formats that
+	can't unfold anything: LaTeX, text, manual pages and Texinfo.
+
+	A marker's link to the original's line becomes its text there, as these formats write no target for the line.
+	"""
+
+	default_priority = 200                                  #: Priority among the post-transforms.
+	formats =          ("latex", "text", "man", "texinfo")  #: Output formats the transform runs for.
+
+	def run(self, **kwargs: Any) -> None:
+		"""
+		Replace every folded duplicate by a bullet list of its summary, and every marker's link by its text.
+
+		:param kwargs: Keyword arguments Sphinx passes to a post-transform; none is used.
+		"""
+		for duplicate in list(self.document.findall(FoldedDependencies)):
+			summary = duplicate.children[0]
+			item = nodes.list_item("", nodes.paragraph("", "", *summary.children), classes=["dependency-duplicate"])
+			duplicate.replace_self(nodes.bullet_list("", item))
+
+		for item in list(self.document.findall(nodes.list_item)):
+			if "dependency-duplicate" in item["classes"]:
+				for reference in list(item.findall(nodes.reference)):
+					reference.replace_self(nodes.Text(reference.astext()))
 
 
 @export

@@ -210,7 +210,7 @@ Ensure the packaging requirements ``build``, ``setuptools`` and ``pyTooling`` ar
          python3 -m pip uninstall -y pyTooling.Sphinx
 
          # Install from wheel
-         python3 -m pip install ./dist/pytooling_sphinx-0.1.0-py3-none-any.whl
+         python3 -m pip install ./dist/pytooling_sphinx-1.0.0-py3-none-any.whl
 
    .. tab-item:: Windows
       :sync: Windows
@@ -226,4 +226,4 @@ Ensure the packaging requirements ``build``, ``setuptools`` and ``pyTooling`` ar
          py -m pip uninstall -y pyTooling.Sphinx
 
          # Install from wheel
-         py -m pip install .\dist\pytooling_sphinx-0.1.0-py3-none-any.whl
+         py -m pip install .\dist\pytooling_sphinx-1.0.0-py3-none-any.whl
