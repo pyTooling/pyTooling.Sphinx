@@ -10,7 +10,7 @@ notes on every release.
 Version 1.x (2026)
 ******************
 
-.. topic:: :gh:`v1.0.0 - unreleased <pyTooling/pyTooling.Sphinx/releases/v1.0.0>`
+.. topic:: :gh:`v1.0.0 - 29.10.2026 <pyTooling/pyTooling.Sphinx/releases/v1.0.0>`
 
    .. rubric:: New Features
 
