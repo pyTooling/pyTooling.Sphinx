@@ -54,7 +54,7 @@ with WarningCollector() as warnings:
 				"Framework :: Sphinx :: Domain",
 				"Framework :: Sphinx :: Extension",
 			],
-			developmentStatus="alpha",
+			developmentStatus="stable",
 			pythonVersions=("3.12", "3.13", "3.14", "3.15"),
 			additionalRequirements={
 				"reports": [
