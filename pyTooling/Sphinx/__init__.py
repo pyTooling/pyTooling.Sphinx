@@ -123,11 +123,10 @@ __project_url__ =       "https://github.com/pyTooling/pyTooling.Sphinx"
 __documentation_url__ = "https://pyTooling.github.io/pyTooling.Sphinx"
 __issue_tracker_url__ = "https://GitHub.com/pyTooling/pyTooling.Sphinx/issues"
 
-from enum                    import Enum, Flag
 from hashlib                 import md5
 from pathlib                 import Path
 from re                      import compile as re_compile, match as re_match
-from typing                  import Any, ClassVar, Iterable, Iterator, NamedTuple, Optional as Nullable, TypeVar
+from typing                  import Any, ClassVar, Iterable, Iterator, NamedTuple, Optional as Nullable
 
 from docutils                import nodes
 from sphinx.addnodes         import pending_xref
@@ -234,10 +233,6 @@ The nodes the extension registers, each with its visitors per output format.
 A format without visitors of its own - e.g. LaTeX for the tree's nodes - writes a node with the visitors of its
 base-class.
 """
-
-
-_EnumType = TypeVar("_EnumType", bound=Enum)
-"""Type of an enumeration read from a directive's options."""
 
 
 @export
@@ -391,46 +386,6 @@ class BaseDirective(ObjectDescription[str]):
 		raise SphinxExtensionError(
 			f"{self.directiveName}::{optionName}: '{option}' not an accepted value for regexp '{regexp}'."
 		)
-
-	def _ParseEnumOption(
-		self,
-		optionName: str,
-		enumType: type[_EnumType],
-		default: Nullable[_EnumType] = None
-	) -> _EnumType:
-		"""
-		Read an option naming a member of an enumeration.
-
-		The written value is lowered and its dashes become underscores, so ``horizontal-table`` in a document selects
-		the ``horizontal_table`` member - a document reads in the spelling documents use, and the enumeration keeps
-		the spelling Python uses.
-
-		:param optionName:             Name of the option to read.
-		:param enumType:               The enumeration whose members the value is looked up in.
-		:param default:                Optional, the member to return when the option wasn't given.
-		:returns:                      The named member of the enumeration.
-		:raises SphinxExtensionError:  If the option wasn't given and has no default.
-		:raises SphinxExtensionError:  If the value names no member of the enumeration.
-		"""
-		try:
-			option: str = self.options[optionName]
-		except KeyError as cause:
-			if default is not None:
-				return default
-
-			raise SphinxExtensionError(
-				f"{self.directiveName}: Required option '{optionName}' not found for directive."
-			) from cause
-
-		identifier = option.lower().replace("-", "_")
-
-		try:
-			return enumType[identifier]
-		except KeyError as cause:
-			raise SphinxExtensionError(
-				f"{self.directiveName}::{optionName}: Value '{option}' (transformed: '{identifier}') is not a valid "
-				f"member of '{enumType.__name__}'."
-			) from cause
 
 	def _CreateSingleRowTableHeader(
 		self,
