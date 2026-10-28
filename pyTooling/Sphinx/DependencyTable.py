@@ -501,7 +501,7 @@ class DependencyCollector(metaclass=ExtendedType, slots=True):
 		try:
 			from requests import RequestException
 		except ImportError as ex:  # pragma: no cover
-			raise MissingDependencyError(dependency="requests", extra="pypi") from ex
+			raise MissingDependencyError(dependency="requests", extra="dependencies") from ex
 
 		from pyTooling.Dependency.Resolver import Resolver
 
@@ -645,7 +645,7 @@ def _FileEntrypoint(
 	try:
 		from packaging.utils import canonicalize_name
 	except ImportError as ex:  # pragma: no cover
-		raise MissingDependencyError(dependency="packaging", extra="pypi") from ex
+		raise MissingDependencyError(dependency="packaging", extra="dependencies") from ex
 
 	from pyTooling.Dependency.Python import RequirementsFile
 
@@ -741,7 +741,7 @@ def prepareEntrypoints(sphinx: Sphinx, config: Config) -> None:
 	Call-back for Sphinx' ``config-inited`` event, reading the entrypoints and the license overrides.
 
 	A build declaring no entrypoint does nothing here - not even import :mod:`pyTooling.Dependency.Python`, so a
-	project using only this extension's roles doesn't need the ``pypi`` extra.
+	project using only this extension's roles doesn't need the ``dependencies`` extra.
 
 	:param sphinx:                The Sphinx application.
 	:param config:                The configuration, after :file:`conf.py` was read.
@@ -932,7 +932,7 @@ class DependencyTable(BaseDirective):
 		try:
 			from packaging.utils import canonicalize_name
 		except ImportError as ex:  # pragma: no cover
-			raise MissingDependencyError(dependency="packaging", extra="pypi") from ex
+			raise MissingDependencyError(dependency="packaging", extra="dependencies") from ex
 
 		if (entrypoint := collector.Entrypoints.get(identifier, None)) is None:
 			known = ", ".join(sorted(collector.Entrypoints)) or "none"

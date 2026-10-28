@@ -9,7 +9,7 @@ is fetched from the package index while the documentation is built.
 
 .. attention::
 
-   The directive reads the package index with pyTooling's ``pypi`` extra, a requirement of this package.
+   The directive reads the package index with pyTooling's ``dependencies`` extra, a requirement of this package.
 
 .. rubric:: Configuration
 
