@@ -22,6 +22,7 @@
   --pyTooling-table-cell-vertical-align: top;
   --pyTooling-table-list-margin:         0;
   --pyTooling-table-min-width:           50%;
+  --pyTooling-table-target-color:        #fbe54e;
 
   --pyTooling-report-indentation: 1em;
 
@@ -129,6 +130,32 @@ table.dependency-table td li > p,
 table.dependency-table td li > ul,
 table.dependency-table td > p {
   margin-bottom: var(--pyTooling-table-list-margin) !important;
+}
+
+/* The row or list item a duplicate's marker links to: after the jump, its background fades from Sphinx' highlight
+   color to the table's own, so the package and its dependencies stand out in a long list. Without motion, the
+   highlight stays. */
+table.dependency-table tr:target > td,
+table.dependency-table li:target {
+  animation: pyTooling-table-target 2.5s ease-out;
+}
+
+/* Without a 'to' keyframe, the animation ends at the cell's own background - a theme's row stripe included. */
+@keyframes pyTooling-table-target {
+  from { background-color: var(--pyTooling-table-target-color); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  table.dependency-table tr:target > td,
+  table.dependency-table li:target {
+    animation:        none;
+    background-color: var(--pyTooling-table-target-color) !important;
+  }
+}
+
+/* A duplicate's folded dependencies open on a click on their marker, which says so by the pointer. */
+table.dependency-table td details.dependency-duplicate > summary {
+  cursor: pointer;
 }
 
 /* Without a floor, every table is as wide as its widest row, so a table of one short dependency and a table of a

@@ -253,3 +253,22 @@ class LineBreak(nodes.inline):
 
 	The node's text is a newline, so a format writing its base-class - an inline element - writes a space.
 	"""
+
+
+@export
+class FoldedDependencies(nodes.container):
+	"""
+	The folded dependencies of a duplicate in a dependency table: a :class:`FoldedSummary` and the bullet
+	list of the dependencies, which HTML draws as a ``<details>`` element, unfolded by a click on its summary.
+
+	Formats that can't unfold anything - LaTeX, text, manual pages and Texinfo - get the summary alone:
+	:class:`~pyTooling.Sphinx.DependencyTable.ReplaceFoldedDependencies` replaces the node.
+	"""
+
+
+@export
+class FoldedSummary(nodes.paragraph):
+	"""
+	The summary of a duplicate's folded dependencies: how many there are, and a link to the line showing them; HTML
+	draws it as the ``<summary>`` of the :class:`FoldedDependencies`'s ``<details>`` element.
+	"""

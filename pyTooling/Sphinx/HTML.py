@@ -41,14 +41,15 @@ from pyTooling.Decorators  import export
 from pyTooling.Sphinx.Node import Abbreviation, CopyButton, Landscape, TreeDescription, TreeItem, TreeLabel, \
                                   TreeLegend, TreeLegendItem, TreeSeparator, COVERAGE_STATES, DOCUMENTATION_STATES, \
                                   CoverageListing, DocCoverageListing, Emoji, LineBreak, ReportIndentation, \
-                                  TaskListCheckbox, visitFunc, departFunc
+                                  TaskListCheckbox, FoldedDependencies, FoldedSummary, visitFunc, \
+                                  departFunc
 
 
 __all__ = [
 	"translateLandscape", "translateTreeItem", "translateTreeLabel", "translateTreeSeparator", "translateTreeDescription",
 	"translateTreeLegend", "translateTreeLegendItem", "translateAbbreviation", "translateCoverageListing",
 	"translateDocCoverageListing", "translateCopyButton", "translateEmoji", "translateTaskListCheckbox",
-	"translateLineBreak", "COPY_ICONS"
+	"translateLineBreak", "translateFoldedDependencies", "translateFoldedSummary", "COPY_ICONS"
 ]
 
 _SVG = (
@@ -613,3 +614,57 @@ def depart_ReportIndentation(translator: HTML5Translator, node: ReportIndentatio
 
 translateReportIndentation: tuple[visitFunc, departFunc] = (visit_ReportIndentation, depart_ReportIndentation)
 """Visit and depart function writing a :class:`~pyTooling.Sphinx.Node.ReportIndentation` in HTML."""
+
+
+@export
+def visit_FoldedDependencies(translator: HTML5Translator, node: FoldedDependencies) -> None:
+	"""
+	Open a duplicate's folded dependencies in HTML: a ``<details>`` element, closed until its summary is clicked.
+
+	:param translator: The HTML translator writing the page.
+	:param node:       The folded dependencies.
+	"""
+	translator.body.append(translator.starttag(node, "details", ""))
+
+
+@export
+def depart_FoldedDependencies(translator: HTML5Translator, node: FoldedDependencies) -> None:
+	"""
+	Close a duplicate's folded dependencies in HTML.
+
+	:param translator: The HTML translator writing the page.
+	:param node:       The folded dependencies.
+	"""
+	translator.body.append("</details>\n")
+
+
+translateFoldedDependencies: tuple[visitFunc, departFunc] = (visit_FoldedDependencies, depart_FoldedDependencies)
+"""Visit and depart function writing a :class:`~pyTooling.Sphinx.Node.FoldedDependencies` in HTML."""
+
+
+@export
+def visit_FoldedSummary(translator: HTML5Translator, node: FoldedSummary) -> None:
+	"""
+	Open the summary of a duplicate's folded dependencies in HTML: the ``<summary>`` of its ``<details>`` element.
+
+	:param translator: The HTML translator writing the page.
+	:param node:       The summary.
+	"""
+	translator.body.append(translator.starttag(node, "summary", ""))
+
+
+@export
+def depart_FoldedSummary(translator: HTML5Translator, node: FoldedSummary) -> None:
+	"""
+	Close the summary of a duplicate's folded dependencies in HTML.
+
+	:param translator: The HTML translator writing the page.
+	:param node:       The summary.
+	"""
+	translator.body.append("</summary>\n")
+
+
+translateFoldedSummary: tuple[visitFunc, departFunc] = (
+	visit_FoldedSummary, depart_FoldedSummary
+)
+"""Visit and depart function writing a :class:`~pyTooling.Sphinx.Node.FoldedSummary` in HTML."""
