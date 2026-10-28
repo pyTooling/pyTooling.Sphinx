@@ -894,6 +894,7 @@ class _TreeTable(DependencyTable):
 	) -> None:
 		self._duplicateFormat =   duplicateFormat
 		self._duplicateMatch =    duplicateMatch
+		self._identifier =        "documentation"
 		self._duplicateOf =       {}
 		self._originals =         set()
 		self._anchors =           {}
@@ -1139,7 +1140,32 @@ class Duplicates(Testcase):
 
 		[(reference, original)] = table._pendingReferences
 		self.assertIs(first, original)
+		self.assertEqual("dependency-documentation-pydantic", table._anchors[first])
 		self.assertIn(table._anchors[first], table.state.document.ids)
+
+	@testcase("Readable anchors")
+	def Anchors(self) -> None:
+		"""
+		An original's list item gets an ID naming the entrypoint, the package and its extras; a second one a number.
+
+		Sets the anchors of 'pyTooling[yaml]' and of two 'requests' and checks the IDs, that they are on the items and
+		registered with the document.
+		"""
+		table = _TreeTable()
+		items = [nodes.list_item() for _ in range(3)]
+		lines = [_Resolved(name, ResolutionStatus.Resolved) for name in ("pyTooling[yaml]", "requests", "requests")]
+
+		for item, line in zip(items, lines):
+			table._SetAnchor(item, line)
+
+		self.assertEqual(
+			["dependency-documentation-pytooling-yaml", "dependency-documentation-requests",
+			 "dependency-documentation-requests-2"],
+			[table._anchors[line] for line in lines]
+		)
+		for item, line in zip(items, lines):
+			self.assertEqual([table._anchors[line]], item["ids"])
+			self.assertIs(item, table.state.document.ids[table._anchors[line]])
 
 	@testcase("Subset of the extras")
 	def Subset(self) -> None:

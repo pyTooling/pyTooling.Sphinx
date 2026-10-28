@@ -116,6 +116,12 @@ installs every extra any statement names.
       share, several levels down. The duplicate's own line keeps its version constraint and license, as these differ
       by what requires the package. A line whose dependencies the ``:depth:`` limit cut off is no original.
 
+      The marker links to the original's row or line by a readable ID, ``#dependency-<entrypoint>-<package>``, e.g.
+      ``#dependency-documentation-requests``. In HTML, the row or line with its dependencies is highlighted after the
+      jump, the color fading out in 2.5 seconds - or staying, if the reader's system asks for reduced motion. The
+      stylesheet's custom property ``--pyTooling-table-target-color`` sets the color, by default Sphinx' highlight
+      yellow.
+
    .. rst:directive:option:: duplicate-match: exact | subset | name
 
       When a line is a duplicate of an earlier line of the same package. Default: ``subset``.

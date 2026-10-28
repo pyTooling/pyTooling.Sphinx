@@ -907,6 +907,7 @@ class DependencyTable(BaseDirective):
 	_duplicateFormat:  DuplicateFormat    #: How this table's dependency trees show a duplicate's dependencies.
 	_duplicateMatch:   DuplicateMatch     #: When a line of this table's dependency trees is a duplicate.
 
+	_identifier:        str                                                #: The entrypoint this table renders.
 	_duplicateOf:       dict[ResolvedRequirement, ResolvedRequirement]     #: Each duplicate, mapped to its original.
 	_originals:         set[ResolvedRequirement]                           #: The originals duplicates link to.
 	_anchors:           dict[ResolvedRequirement, str]                     #: The ID of each original's line.
@@ -953,6 +954,7 @@ class DependencyTable(BaseDirective):
 				collector = self._Collector()
 				requirements = self._Requirements(identifier, collector)
 				resolution = collector.Resolve(requirements.values(), limit)
+				self._identifier =        identifier
 				self._duplicateOf =       self._FindDuplicates(resolution)
 				self._originals =         set(self._duplicateOf.values())
 				self._anchors =           {}
@@ -1111,14 +1113,13 @@ class DependencyTable(BaseDirective):
 		:returns:        The table row.
 		"""
 		tableRow = nodes.row("", classes=["dependency-table-row"])
+		if resolved in self._originals:
+			self._SetAnchor(tableRow, resolved)
 
 		requirement = resolved.Requirement
 		release =     _SelectedRelease(resolved)
 
-		tableRow += (packageEntry := self._PackageEntry(requirement, resolved.Project))
-		if resolved in self._originals:
-			self._anchors[resolved] = self.state.document.set_id(packageEntry[0])
-
+		tableRow += self._PackageEntry(requirement, resolved.Project)
 		specifier = self._FormatSpecifier(requirement.specifier, self._simplify, self._versionFormat)
 
 		tableRow += nodes.entry("", nodes.paragraph(text=specifier))
@@ -1406,11 +1407,10 @@ class DependencyTable(BaseDirective):
 
 		for dependency in self._SortedByName(dependencies):
 			item = nodes.list_item()
-			item += (paragraph := self._RequirementParagraph(
-				dependency.Requirement, dependency.Project, _SelectedRelease(dependency)
-			))
 			if dependency in self._originals:
-				self._anchors[dependency] = self.state.document.set_id(paragraph)
+				self._SetAnchor(item, dependency)
+
+			item += self._RequirementParagraph(dependency.Requirement, dependency.Project, _SelectedRelease(dependency))
 
 			if len(nested := self._Dependencies(dependency)) > 0:
 				if (original := self._duplicateOf.get(dependency, None)) is not None:
@@ -1474,6 +1474,33 @@ class DependencyTable(BaseDirective):
 		duplicate += self._CreateBulletList(dependencies)
 
 		return duplicate
+
+	def _SetAnchor(self, node: nodes.Element, original: ResolvedRequirement) -> None:
+		"""
+		Give the row or list item of an original a readable ID, which the markers of its duplicates link to.
+
+		The ID names the entrypoint and the package with its extras - ``dependency-documentation-requests`` -, so a link
+		to it reads well and stays the same from build to build, unlike a counted ``id7``. A second original of the
+		same name on the page gets a number appended. The ID is registered with the document, which keeps it unique on
+		the page. The whole row or item is the target, so the stylesheet highlights the package with its dependencies.
+
+		:param node:     The table row or list item showing the original.
+		:param original: The original.
+		"""
+		document = self.state.document
+		baseID =   nodes.make_id(
+			f"dependency-{self._identifier}-{original.Requirement.name}{self._ExtrasText(original.Requirement)}"
+		)
+
+		anchorID = baseID
+		number =   1
+		while anchorID in document.ids:
+			number += 1
+			anchorID = f"{baseID}-{number}"
+
+		node["ids"].append(anchorID)
+		document.set_id(node)
+		self._anchors[original] = anchorID
 
 	@staticmethod
 	def _SortedRequirements(resolution: Resolution) -> list[ResolvedRequirement]:
