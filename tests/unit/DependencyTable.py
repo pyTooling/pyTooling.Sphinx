@@ -33,7 +33,7 @@ Unit tests for :mod:`pyTooling.Sphinx.DependencyTable`: the entrypoints, the ver
 report of unresolved licenses.
 """
 from pathlib                          import Path
-from sys                              import platform as sys_platform
+from sys                              import intern as sys_intern, platform as sys_platform
 from tempfile                         import TemporaryDirectory
 from textwrap                         import dedent
 from types                            import SimpleNamespace
@@ -41,6 +41,7 @@ from typing                           import Optional as Nullable
 from unittest.mock                    import patch
 
 from docutils                         import nodes
+from docutils.utils                   import new_document
 from packaging.requirements           import Requirement
 from packaging.specifiers             import SpecifierSet
 from pytest                           import mark
@@ -53,8 +54,11 @@ from pyTooling.Versioning             import SemanticVersion
 from pyTooling.Sphinx                 import SphinxExtensionError
 from pyTooling.Sphinx.DependencyTable import DependencyFormat, DependencyTable, VersionFormat, \
                                              formatUnresolvedLicenses, DependencyCollector, prepareEntrypoints, \
-                                             readEntrypoints, DEFAULT_DEPENDENCY_FORMAT, DEFAULT_VERSION_FORMAT, \
-                                             _COLLECTORS
+                                             readEntrypoints, DuplicateFormat, DuplicateMatch, \
+                                             ReplaceFoldedDependencies, DEFAULT_DEPENDENCY_FORMAT, \
+                                             DEFAULT_VERSION_FORMAT, DEFAULT_DUPLICATE_FORMAT, \
+                                             DEFAULT_DUPLICATE_MATCH, _COLLECTORS, _MergeRequirements
+from pyTooling.Sphinx.Node            import FoldedDependencies
 from pyTooling.Testing                import Testcase, testsuite, testcase
 
 
@@ -862,24 +866,43 @@ class DependencyFormats(Testcase):
 
 
 class _Resolved:
-	"""A requirement as the resolver hands it over: the package's name stands in for its project and release."""
+	"""
+	A requirement as the resolver hands it over: the index doesn't know the project, and the package's name - or the
+	name given as release - stands in for its release, interned, so two lines of the same release share one object.
+	"""
 
-	def __init__(self, name: str, status: ResolutionStatus, *dependencies: "_Resolved") -> None:
+	def __init__(
+		self,
+		name: str,
+		status: ResolutionStatus,
+		*dependencies: "_Resolved",
+		release: Nullable[str] = None
+	) -> None:
 		self.Requirement =  Requirement(name)
 		self.Status =       status
-		self.Project =      name
-		self.Release =      name
+		self.Project =      None
+		self.Release =      sys_intern(self.Requirement.name if release is None else release)
 		self.Dependencies = dependencies
 
 
 class _TreeTable(DependencyTable):
-	"""A table rendering a package as its name."""
+	"""A table rendering a package as its name, with its extras."""
 
-	def __init__(self) -> None:
-		pass
+	def __init__(
+		self,
+		duplicateFormat: DuplicateFormat = DuplicateFormat.Expanded,
+		duplicateMatch: DuplicateMatch = DuplicateMatch.Subset
+	) -> None:
+		self._duplicateFormat =   duplicateFormat
+		self._duplicateMatch =    duplicateMatch
+		self._duplicateOf =       {}
+		self._originals =         set()
+		self._anchors =           {}
+		self._pendingReferences = []
+		self.state =              SimpleNamespace(document=new_document("<test>"))
 
-	def _RequirementParagraph(self, requirement: Requirement, project: str, release: str) -> nodes.paragraph:
-		return nodes.paragraph(text=requirement.name)
+	def _RequirementParagraph(self, requirement: Requirement, project: None, release: str) -> nodes.paragraph:
+		return nodes.paragraph(text=f"{requirement.name}{self._ExtrasText(requirement)}")
 
 
 @testsuite("Dependency trees")
@@ -974,6 +997,297 @@ class DependencyTrees(Testcase):
 		entry = _TreeTable()._DependenciesEntry(_Resolved("ghost", ResolutionStatus.UnknownProject))
 
 		self.assertEqual("not evaluated", entry.astext())
+
+
+@testsuite("Duplicate dependencies")
+class Duplicates(Testcase):
+	"""
+	A line whose dependencies an earlier line of the table shows is a duplicate.
+
+	Its dependencies are folded or replaced by a link to that line. Every first-level row is an original before any
+	line of a tree.
+	"""
+
+	@staticmethod
+	def _Table(
+		rows: tuple[_Resolved, ...],
+		duplicateFormat: DuplicateFormat = DuplicateFormat.Collapsed,
+		duplicateMatch: DuplicateMatch = DuplicateMatch.Subset
+	) -> _TreeTable:
+		table = _TreeTable(duplicateFormat, duplicateMatch)
+		table._duplicateOf = table._FindDuplicates(SimpleNamespace(Requirements=rows))
+		table._originals =   set(table._duplicateOf.values())
+
+		return table
+
+	@staticmethod
+	def _Lines(table: _TreeTable, row: _Resolved) -> list[str]:
+		bulletList = table._CreateBulletList(list(row.Dependencies))
+
+		return [node.astext() for node in bulletList.findall(nodes.paragraph)]
+
+	@staticmethod
+	def _Sphinx() -> tuple[_Resolved, _Resolved]:
+		"""The rows 'autodoc -> sphinx -> docutils' and 'sphinx -> docutils', as the resolver returns them."""
+		return (
+			_Resolved("autodoc", ResolutionStatus.Resolved,
+				_Resolved("sphinx", ResolutionStatus.Resolved, _Resolved("docutils", ResolutionStatus.Resolved))
+			),
+			_Resolved("sphinx", ResolutionStatus.Resolved, _Resolved("docutils", ResolutionStatus.Resolved))
+		)
+
+	@testcase("Defaults")
+	def Defaults(self) -> None:
+		"""
+		Duplicates are collapsed and matched by subset when the document doesn't say.
+
+		Checks both defaults.
+		"""
+		self.assertIs(DuplicateFormat.Collapsed, DEFAULT_DUPLICATE_FORMAT)
+		self.assertIs(DuplicateMatch.Subset, DEFAULT_DUPLICATE_MATCH)
+
+	@testcase("Expanded")
+	def Expanded(self) -> None:
+		"""
+		Expanded duplicates are no duplicates: every tree is shown in full.
+
+		Finds the duplicates of the 'sphinx' rows with 'Expanded' and checks there are none and the tree is complete.
+		"""
+		rows = self._Sphinx()
+		table = self._Table(rows, DuplicateFormat.Expanded)
+
+		self.assertEqual({}, table._duplicateOf)
+		self.assertEqual(["sphinx", "docutils"], self._Lines(table, rows[0]))
+
+	@testcase("Collapsed duplicate of a row")
+	def Collapsed(self) -> None:
+		"""
+		A dependency the table lists in a row of its own is a duplicate of that row, even if the row is further down.
+
+		Renders the tree of 'autodoc', whose 'sphinx' is a row below it, and checks the marker follows 'sphinx' and the
+		folded 'docutils' is still there, inside a FoldedDependencies node.
+		"""
+		rows = self._Sphinx()
+		table = self._Table(rows)
+
+		self.assertIs(rows[1], table._duplicateOf[rows[0].Dependencies[0]])
+		self.assertEqual(["sphinx", "… 1 dependency, listed at sphinx", "docutils"], self._Lines(table, rows[0]))
+		bulletList = table._CreateBulletList(list(rows[0].Dependencies))
+		self.assertEqual(1, len(list(bulletList.findall(FoldedDependencies))))
+
+	@testcase("Referenced duplicate of a row")
+	def Reference(self) -> None:
+		"""
+		A referenced duplicate gets the marker alone; its dependencies aren't rendered.
+
+		Renders the tree of 'autodoc' with 'Reference' and checks 'docutils' is missing and nothing is folded.
+		"""
+		rows = self._Sphinx()
+		table = self._Table(rows, DuplicateFormat.Reference)
+
+		self.assertEqual(["sphinx", "… 1 dependency, listed at sphinx"], self._Lines(table, rows[0]))
+		bulletList = table._CreateBulletList(list(rows[0].Dependencies))
+		self.assertEqual(0, len(list(bulletList.findall(FoldedDependencies))))
+
+	@testcase("Shared dependency of two trees")
+	def Shared(self) -> None:
+		"""
+		A package two trees share is shown at its first line; the second line links to it.
+
+		Builds rows 'a -> x -> pydantic -> core' and 'b -> y -> pydantic -> core', renders both trees, and checks the
+		first 'pydantic' is shown, the second links to it, and the link's target is the first line's ID.
+		"""
+		first =  _Resolved("pydantic", ResolutionStatus.Resolved, _Resolved("core", ResolutionStatus.Resolved))
+		second = _Resolved("pydantic", ResolutionStatus.Resolved, _Resolved("core", ResolutionStatus.Resolved))
+		rows = (
+			_Resolved("a", ResolutionStatus.Resolved, _Resolved("x", ResolutionStatus.Resolved, first)),
+			_Resolved("b", ResolutionStatus.Resolved, _Resolved("y", ResolutionStatus.Resolved, second))
+		)
+		table = self._Table(rows, DuplicateFormat.Reference)
+
+		self.assertEqual({second: first}, table._duplicateOf)
+		self.assertEqual(["x", "pydantic", "core"], self._Lines(table, rows[0]))
+		self.assertEqual(["y", "pydantic", "… 1 dependency, listed at pydantic"], self._Lines(table, rows[1]))
+
+		[(reference, original)] = table._pendingReferences
+		self.assertIs(first, original)
+		self.assertIn(table._anchors[first], table.state.document.ids)
+
+	@testcase("Subset of the extras")
+	def Subset(self) -> None:
+		"""
+		With 'Subset', a line requiring the original's extras or fewer is a duplicate; one requiring more is not.
+
+		Builds the row 'pyTooling[dependencies]' and the tree 'reports -> pyTooling, pyTooling[yaml]', and checks plain
+		'pyTooling' is a duplicate of the row, 'pyTooling[yaml]' is not.
+		"""
+		resolved = ResolutionStatus.Resolved
+		plain =    _Resolved("pyTooling", resolved, _Resolved("colorama", resolved))
+		yaml =     _Resolved("pyTooling[yaml]", resolved, _Resolved("ruamel.yaml", resolved))
+		row =      _Resolved("pyTooling[dependencies]", resolved, _Resolved("aiohttp", resolved))
+		table =    self._Table((_Resolved("reports", resolved, plain, yaml), row))
+
+		self.assertEqual({plain: row}, table._duplicateOf)
+
+	@testcase("Exact extras")
+	def Exact(self) -> None:
+		"""
+		With 'Exact', a line is a duplicate only with the original's extras.
+
+		Builds the row 'pyTooling[dependencies]' and the tree 'reports -> pyTooling, pyTooling[dependencies]', and checks
+		only the line with the same extra is a duplicate.
+		"""
+		resolved = ResolutionStatus.Resolved
+		plain =    _Resolved("pyTooling", resolved, _Resolved("colorama", resolved))
+		same =     _Resolved("pyTooling[dependencies]", resolved, _Resolved("aiohttp", resolved))
+		row =      _Resolved("pyTooling[dependencies]", resolved, _Resolved("aiohttp", resolved))
+		table =    self._Table((_Resolved("reports", resolved, plain, same), row), duplicateMatch=DuplicateMatch.Exact)
+
+		self.assertEqual({same: row}, table._duplicateOf)
+
+	@testcase("Other release")
+	def OtherRelease(self) -> None:
+		"""
+		A line of another release is no duplicate, unless duplicates are matched by name.
+
+		Builds the row 'sphinx' and the tree 'autodoc -> sphinx' of another release, and checks it is a duplicate with
+		'Name' only.
+		"""
+		resolved = ResolutionStatus.Resolved
+		older =    _Resolved("sphinx", resolved, _Resolved("docutils", resolved), release="8.2")
+		rows = (
+			_Resolved("autodoc", resolved, older),
+			_Resolved("sphinx", resolved, _Resolved("docutils", resolved), release="9.1")
+		)
+
+		self.assertEqual({}, self._Table(rows)._duplicateOf)
+		self.assertEqual({older: rows[1]}, self._Table(rows, duplicateMatch=DuplicateMatch.Name)._duplicateOf)
+
+	@testcase("Original cut off by the depth limit")
+	def Limited(self) -> None:
+		"""
+		A line whose dependencies the depth limit cut off is no original; the next full line is.
+
+		Builds 'a -> x -> pydantic (limit reached)', 'b -> pydantic -> core' and 'c -> pydantic -> core', and checks the
+		line below 'b' is the original of the one below 'c', not the cut-off line below 'a'.
+		"""
+		cut =    _Resolved("pydantic", ResolutionStatus.Resolved, _Resolved("core", ResolutionStatus.LimitReached))
+		full =   _Resolved("pydantic", ResolutionStatus.Resolved, _Resolved("core", ResolutionStatus.Resolved))
+		second = _Resolved("pydantic", ResolutionStatus.Resolved, _Resolved("core", ResolutionStatus.Resolved))
+		rows = (
+			_Resolved("a", ResolutionStatus.Resolved, _Resolved("x", ResolutionStatus.Resolved, cut)),
+			_Resolved("b", ResolutionStatus.Resolved, full),
+			_Resolved("c", ResolutionStatus.Resolved, second)
+		)
+
+		self.assertEqual({second: full}, self._Table(rows)._duplicateOf)
+
+	@testcase("Without dependencies")
+	def Leaf(self) -> None:
+		"""
+		A line without dependencies is never a duplicate: there is nothing to fold.
+
+		Builds the row 'docutils' and the tree 'sphinx -> docutils', and checks no duplicate is found.
+		"""
+		rows = (
+			_Resolved("sphinx", ResolutionStatus.Resolved, _Resolved("docutils", ResolutionStatus.Resolved)),
+			_Resolved("docutils", ResolutionStatus.Resolved)
+		)
+
+		self.assertEqual({}, self._Table(rows)._duplicateOf)
+
+	@testcase("Output formats without folding")
+	def NoFolding(self) -> None:
+		"""
+		LaTeX, text, manual pages and Texinfo get the marker alone, its link as text.
+
+		Renders the tree of 'autodoc' collapsed into a document, runs ReplaceFoldedDependencies, and checks nothing is
+		folded, 'docutils' is gone, and the marker holds no reference.
+		"""
+		rows = self._Sphinx()
+		table = self._Table(rows)
+		document = table.state.document
+		document += table._CreateBulletList(list(rows[0].Dependencies))
+
+		ReplaceFoldedDependencies(document).run()
+
+		self.assertEqual(0, len(list(document.findall(FoldedDependencies))))
+		self.assertEqual(0, len(list(document.findall(nodes.reference))))
+		self.assertEqual(
+			["sphinx", "… 1 dependency, listed at sphinx"],
+			[node.astext() for node in document.findall(nodes.paragraph)]
+		)
+		self.assertEqual(("latex", "text", "man", "texinfo"), ReplaceFoldedDependencies.formats)
+
+
+@testsuite("Extras")
+class Extras(Testcase):
+	"""A requirement's extras are shown behind the package's name, and several statements of a package merge them."""
+
+	@testcase("No extras")
+	def None_(self) -> None:
+		"""
+		A requirement without extras adds nothing to the name.
+
+		Checks the text of 'pyTooling >= 10.1' is empty.
+		"""
+		self.assertEqual("", DependencyTable._ExtrasText(Requirement("pyTooling >= 10.1")))
+
+	@testcase("Sorted extras")
+	def Sorted(self) -> None:
+		"""
+		Several extras are shown sorted, in one pair of brackets.
+
+		Checks the text of 'pyTooling[yaml,packaging,console]'.
+		"""
+		requirement = Requirement("pyTooling[yaml,packaging,console]")
+
+		self.assertEqual("[console,packaging,yaml]", DependencyTable._ExtrasText(requirement))
+
+	@testcase("Later statement keeps earlier extras")
+	def Merge(self) -> None:
+		"""
+		A later statement of a package wins, with the extras of the earlier one added; the given requirements stay as
+		they are.
+
+		Merges 'pyTooling[yaml] >= 9.0' and 'pyTooling >= 10.1', and checks the result and both inputs.
+		"""
+		earlier = Requirement("pyTooling[yaml] >= 9.0")
+		later =   Requirement("pyTooling >= 10.1")
+
+		merged = _MergeRequirements([earlier, later])
+
+		self.assertEqual("pyTooling[yaml]>=10.1", str(merged["pytooling"]))
+		self.assertEqual(set(), later.extras)
+		self.assertEqual("pyTooling[yaml]>=9.0", str(earlier))
+
+	@testcase("Later statement with all extras")
+	def Merge_Contained(self) -> None:
+		"""
+		A later statement naming the earlier extras already is taken as it is.
+
+		Merges 'pyTooling[yaml]' and 'pyTooling[dependencies,yaml]', and checks the second statement is the result.
+		"""
+		later = Requirement("pyTooling[dependencies,yaml]")
+
+		self.assertIs(later, _MergeRequirements([Requirement("pyTooling[yaml]"), later])["pytooling"])
+
+	@testcase("Extras across requirements files")
+	def Files(self) -> None:
+		"""
+		A file entrypoint of several files merges the extras of a package stated in two of them.
+
+		Writes 'pyTooling[yaml]' into the first file and 'pyTooling ~= 10.1' into the second, reads both, and checks the
+		merged requirement.
+		"""
+		with TemporaryDirectory() as directory:
+			root = Path(directory).resolve()
+			(root / "first.txt").write_text("pyTooling[yaml] >= 9.0\n", encoding="utf-8")
+			(root / "second.txt").write_text("pyTooling ~= 10.1\n", encoding="utf-8")
+
+			entrypoints = readEntrypoints({"both": {"files": ["first.txt", "second.txt"]}}, root, root)
+
+		self.assertEqual("pyTooling[yaml]~=10.1", str(entrypoints["both"].Requirements["pytooling"]))
 
 
 def _licenseWarning(name: str) -> UnknownLicenseWarning:

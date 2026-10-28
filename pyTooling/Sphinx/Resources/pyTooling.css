@@ -131,6 +131,11 @@ table.dependency-table td > p {
   margin-bottom: var(--pyTooling-table-list-margin) !important;
 }
 
+/* A duplicate's folded dependencies open on a click on their marker, which says so by the pointer. */
+table.dependency-table td details.dependency-duplicate > summary {
+  cursor: pointer;
+}
+
 /* Without a floor, every table is as wide as its widest row, so a table of one short dependency and a table of a
    four-level tree sit beside each other at wildly different widths and the page reads as ragged. */
 table.dependency-table {

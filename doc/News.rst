@@ -37,6 +37,9 @@ Version 0.x (2026)
    * A :ref:`dependency-table <DIR/DependencyTable>` lists the build requirements of a :file:`pyproject.toml` file,
      declared with the entrypoint field ``pyproject``; the file is found in the project's root directory,
      ``pyTooling_ProjectRoot``.
+   * A :ref:`dependency-table <DIR/DependencyTable>` folds the dependencies of a duplicate - a package an earlier
+     line already shows - below a link to that line (``:duplicates:``, ``:duplicate-match:``), and names a package's
+     extras: ``pyTooling[dependencies]``.
    * A :ref:`tree <DIR/Tree>` explains its icons in a :ref:`legend <DIR/Tree/Legend>`: an icon option takes a text
      behind a ``|``, and ``:legend:`` draws the legend above or below the tree.
    * A :ref:`tree <DIR/Tree>` entry may have a :ref:`description <DIR/Tree/Descriptions>` behind a ``|``, drawn as a

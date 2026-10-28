@@ -70,6 +70,11 @@ The tables of a build share one view of the index, so a package several tables r
 table logs what it cost, and the build ends with the total and the packages whose license couldn't be resolved -
 the list the override file answers.
 
+A package is shown with the extras its requirement names, sorted: ``pyTooling[dependencies]``, as its dependencies
+differ from those of ``pyTooling``. When several statements of an entrypoint require a package - e.g. a file and the
+file it includes with ``-r`` -, the last statement's constraint is used with the extras of all of them, as ``pip``
+installs every extra any statement names.
+
 .. rst:directive:: .. dependency-table:: <entrypoint>
 
    Renders the dependencies of the entrypoint the argument names.
@@ -92,6 +97,36 @@ the list the override file answers.
    .. rst:directive:option:: dependency-format: Package | PackageVersion | PackageLicense | PackageVersionLicense
 
       What a line of a dependency tree states. Default: ``PackageVersionLicense``.
+
+   .. rst:directive:option:: duplicates: Expanded | Collapsed | Reference
+
+      How a tree shows the dependencies of a **duplicate**, a package whose dependencies an earlier line of the table
+      already shows. Default: ``Collapsed``.
+
+      ``Expanded``
+         |rarr| shown again, as at the earlier line.
+      ``Collapsed``
+         |rarr| folded below a marker, e.g. *… 12 dependencies, listed at sphinx*, which links to the earlier line. In
+         HTML, a click on the marker unfolds them; LaTeX, text, manual pages and Texinfo show the marker alone.
+      ``Reference``
+         |rarr| replaced by the marker.
+
+      Every package of the table's first column is an original, so a dependency the table lists in a row of its own
+      links to that row. Any other package's first line in reading order is the original - also a package two trees
+      share, several levels down. The duplicate's own line keeps its version constraint and license, as these differ
+      by what requires the package. A line whose dependencies the ``:depth:`` limit cut off is no original.
+
+   .. rst:directive:option:: duplicate-match: Exact | Subset | Name
+
+      When a line is a duplicate of an earlier line of the same package. Default: ``Subset``.
+
+      ``Exact``
+         |rarr| the same release with the same extras.
+      ``Subset``
+         |rarr| the same release with the earlier line's extras or fewer: ``pyTooling`` is a duplicate of
+         ``pyTooling[dependencies]``, as everything it requires is shown there; ``pyTooling[yaml]`` is not.
+      ``Name``
+         |rarr| any release with any extras.
 
    .. rst:directive:option:: caption: <text>
 

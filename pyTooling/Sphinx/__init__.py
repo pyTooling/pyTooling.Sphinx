@@ -155,7 +155,8 @@ from pyTooling.Sphinx.HTML   import translateLandscape as translateLandscapeAsHT
                                     translateTreeLegendItem, translateCopyButton, translateEmoji, \
                                     translateLineBreak as translateLineBreakAsHTML, \
                                     translateReportIndentation as translateReportIndentationAsHTML, \
-                                    translateTaskListCheckbox as translateTaskListCheckboxAsHTML
+                                    translateTaskListCheckbox as translateTaskListCheckboxAsHTML, \
+                                    translateFoldedDependencies, translateFoldedSummary
 from pyTooling.Sphinx.LaTeX  import translateLandscape as translateLandscapeAsLaTeX, \
                                     translateCoverageListing as translateCoverageListingAsLaTeX, \
                                     translateDocCoverageListing as translateDocCoverageListingAsLaTeX, \
@@ -164,7 +165,8 @@ from pyTooling.Sphinx.LaTeX  import translateLandscape as translateLandscapeAsLa
                                     translateTaskListCheckbox as translateTaskListCheckboxAsLaTeX
 from pyTooling.Sphinx.Node   import Abbreviation, Landscape, RegisteredNode, TreeItem, TreeLabel, TreeSeparator, \
                                     CopyButton, CoverageListing, DocCoverageListing, TreeDescription, TreeLegend, \
-                                    Emoji, LineBreak, ReportIndentation, TaskListCheckbox, TreeLegendItem
+                                    Emoji, LineBreak, ReportIndentation, TaskListCheckbox, TreeLegendItem, \
+                                    FoldedDependencies, FoldedSummary
 
 
 __all__ = [
@@ -223,6 +225,8 @@ NODES: tuple[RegisteredNode, ...] = (
 	 "latex": translateLineBreakAsLaTeX},
 	{"name": "ReportIndentation",  "node": ReportIndentation,  "html": translateReportIndentationAsHTML,
 	 "latex": translateReportIndentationAsLaTeX},
+	{"name": "FoldedDependencies", "node": FoldedDependencies, "html": translateFoldedDependencies},
+	{"name": "FoldedSummary",      "node": FoldedSummary,      "html": translateFoldedSummary},
 )
 """
 The nodes the extension registers, each with its visitors per output format.
@@ -1056,7 +1060,7 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	from pyTooling.Sphinx.CodeCoveragePages import CodeCoverageReportPages
 	from pyTooling.Sphinx.CondensedClass    import CondensedClass
 	from pyTooling.Sphinx.DependencyTable   import CONFIG_PREFIX, PROJECT_ROOT_CONFIG, DependencyTable, \
-	                                               prepareEntrypoints, reportBuildTime
+	                                               ReplaceFoldedDependencies, prepareEntrypoints, reportBuildTime
 	from pyTooling.Sphinx.DocCoverage       import CONFIG_PREFIX as DOC_COVERAGE_PREFIX, DocCoverageBase, \
 	                                               DocCoverageLegend, DocCoverageReportPages, DocStrCoverage
 	from pyTooling.Sphinx.ExternalLink      import CONFIG_PREFIX as EXTERNAL_LINK_PREFIX, BaseExternalLinkTransform, \
@@ -1123,6 +1127,7 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	sphinx.add_latex_package(LATEX_PACKAGE)
 	sphinx.add_post_transform(FixLatexTableWidths)
 	sphinx.add_post_transform(RemoveTreeLegends)
+	sphinx.add_post_transform(ReplaceFoldedDependencies)
 	sphinx.add_post_transform(RemoveUnicodeGlyphs)
 	sphinx.add_post_transform(RasterizeShieldsBadges)
 
