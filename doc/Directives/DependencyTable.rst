@@ -9,7 +9,7 @@ is fetched from the package index while the documentation is built.
 
 .. attention::
 
-   The directive reads the package index with pyTooling's ``pypi`` extra, a requirement of this package.
+   The directive reads the package index with pyTooling's ``dependencies`` extra, a requirement of this package.
 
 .. rubric:: Configuration
 
@@ -19,9 +19,10 @@ A table names an **entrypoint**, which :file:`conf.py` declares:
 
    # doc/conf.py
    pyTooling_Dependency_Requirements = {
-     "package":       {"file":    "../requirements.txt"},
-     "documentation": {"file":    "requirements.txt"},
-     "yaml":          {"package": "pyTooling[yaml]"},
+     "package":       {"file":      "../requirements.txt"},
+     "documentation": {"file":      "requirements.txt"},
+     "yaml":          {"package":   "pyTooling[yaml]"},
+     "packaging":     {"pyproject": True},
    }
 
 Each entrypoint states exactly one of:
@@ -32,6 +33,13 @@ Each entrypoint states exactly one of:
 ``package`` / ``packages``
   |rarr| a package, or several, as the package index publishes its **latest release**: ``pyTooling`` for its own
   requirements, ``pyTooling[yaml]`` for what the extra ``yaml`` adds.
+``pyproject``
+  |rarr| the project's :file:`pyproject.toml` file: the build requirements of its ``[build-system]`` table
+  (:pep:`518`), which ``pip`` and ``build`` install into an isolated build environment. ``True`` reads
+  :file:`pyproject.toml` in the project's root directory, a string is a path relative to that directory
+  (``"package/pyproject.toml"``), and ``None`` declares a project without such a file - its table is empty. A file
+  without a ``[build-system]`` table has no build requirements. Like a requirements file, it is read while
+  :file:`conf.py` is processed. A project has one such file, so there is no plural form.
 
 .. list-table:: Configuration values in :file:`conf.py`
    :header-rows: 1
@@ -41,6 +49,9 @@ Each entrypoint states exactly one of:
      - Value
    * - ``pyTooling_Dependency_Requirements``
      - The entrypoints, by identifier.
+   * - ``pyTooling_ProjectRoot``
+     - Optional, the project's root directory, relative to :file:`conf.py`; a ``pyproject`` path is relative to it.
+       Default: the parent of the directory :file:`conf.py` is in, e.g. ``"../.."`` for :file:`docs/sphinx/conf.py`.
    * - ``pyTooling_Dependency_PackageOverrides``
      - Optional, a YAML file stating the license of a package the index can't answer for, relative to
        :file:`conf.py`. Reading it needs pyTooling's ``yaml`` extra.

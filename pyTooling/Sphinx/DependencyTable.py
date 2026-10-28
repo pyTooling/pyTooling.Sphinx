@@ -44,9 +44,10 @@ declares its reports:
    # doc/conf.py
    pyTooling_Dependency_PackageOverrides = "Dependency.PackageOverrides.yaml"
    pyTooling_Dependency_Requirements = {
-     "package":       {"file":    "../requirements.txt"},
-     "documentation": {"file":    "requirements.txt"},
-     "yaml":          {"package": "pyTooling[yaml]"}
+     "package":       {"file":      "../requirements.txt"},
+     "documentation": {"file":      "requirements.txt"},
+     "yaml":          {"package":   "pyTooling[yaml]"},
+     "packaging":     {"pyproject": True}
    }
 
 .. code-block:: rest
@@ -55,7 +56,10 @@ declares its reports:
       :caption: Documentation dependencies
 
 A requirements file is read - with its ``-r`` includes followed - while :file:`conf.py` is being processed, so a
-path that doesn't exist ends the build with one clear message instead of an error box in the middle of a page.
+path that doesn't exist ends the build with one clear message instead of an error box in the middle of a page. A
+:file:`pyproject.toml` file is read at the same time; its entrypoint stands for the build requirements of the
+``[build-system]`` table. ``True`` names the file in the project's root directory - ``pyTooling_ProjectRoot``,
+relative to :file:`conf.py`, by default the parent of the directory :file:`conf.py` is in.
 
 **The data is fetched live** from the package index, once per build and shared between every table of that build:
 :file:`requirements.txt`, :file:`tests/requirements.txt` and :file:`doc/requirements.txt` overlap heavily, and a
@@ -181,12 +185,22 @@ _DROPPED_OPERATORS = ("<", "<=", "!=")
 TABLE_COLUMNS = (("Package", 3), ("Version", 1), ("License", 2), ("Dependencies", 4))
 """The table's columns, as ``(title, relative width)``."""
 
-ENTRYPOINT_FIELDS = ("file", "files", "package", "packages")
+ENTRYPOINT_FIELDS = ("file", "files", "package", "packages", "pyproject")
 """
 The fields one entrypoint may state in :file:`conf.py`, exactly one of them.
 
 The singular forms take a string and the plural forms an iterable of strings; they are otherwise the same
-statement, and a project writes whichever reads better where it stands.
+statement, and a project writes whichever reads better where it stands. ``pyproject`` names a project's
+:file:`pyproject.toml` file - ``True`` for the one in the project's root directory, a path relative to that directory,
+or ``None`` for a project without one; a project has one such file, so the field has no plural form.
+"""
+
+PROJECT_ROOT_CONFIG = "pyTooling_ProjectRoot"
+"""
+Configuration value naming the project's root directory, relative to :file:`conf.py`.
+
+Unset, the root is the parent of the directory :file:`conf.py` is in - :file:`doc/conf.py` in a project's root
+directory. A ``pyproject`` entrypoint's path is relative to it.
 """
 
 CONFIG_PREFIX = "pyTooling_Dependency"
@@ -197,7 +211,7 @@ _ConfigRebuild = Literal["env"]
 
 __all__ = [
 	"DEFAULT_INDEX_URL", "DEFAULT_API_URL", "DEFAULT_DEPTH", "DEFAULT_SIMPLIFIED_VERSIONS", "OPERATOR_SYMBOLS",
-	"TABLE_COLUMNS", "ENTRYPOINT_FIELDS", "CONFIG_PREFIX",
+	"TABLE_COLUMNS", "ENTRYPOINT_FIELDS", "CONFIG_PREFIX", "PROJECT_ROOT_CONFIG",
 	"DEFAULT_VERSION_FORMAT", "DEFAULT_DEPENDENCY_FORMAT"
 ]
 
@@ -251,13 +265,13 @@ class Entrypoint(metaclass=ExtendedType, slots=True):
 	"""
 	One entry of ``pyTooling_Dependency_Requirements``: an identifier and the requirements it stands for.
 
-	A file entrypoint is read while :file:`conf.py` is being processed and carries its requirements from then on.
-	A package entrypoint can only be resolved by asking the package index, so it carries the package's name and
-	extra and is resolved the first time a table names it.
+	A file entrypoint - a requirements file or a :file:`pyproject.toml` file - is read while :file:`conf.py` is being
+	processed and carries its requirements from then on. A package entrypoint can only be resolved by asking the
+	package index, so it carries the package's name and extra and is resolved the first time a table names it.
 	"""
 
 	_identifier:   str                                    #: Name the documents refer to this entrypoint by.
-	_files:        tuple[Path, ...]                       #: Every requirements file read, references included.
+	_files:        tuple[Path, ...]                       #: Every file read, a requirements file's references included.
 	_packages:     tuple[tuple[str, Nullable[str]], ...]  #: The packages to read, as name and extra.
 	_requirements: Nullable[dict[str, Requirement]]       #: The resolved requirements, by canonical package name.
 
@@ -272,7 +286,7 @@ class Entrypoint(metaclass=ExtendedType, slots=True):
 		Describe one entrypoint.
 
 		:param identifier:   Name the documents refer to this entrypoint by.
-		:param files:        Optional, every requirements file read, for a file entrypoint. Default: ``()``.
+		:param files:        Optional, every file read, for a file entrypoint. Default: ``()``.
 		:param packages:     Optional, the packages and their extras, for a package entrypoint. Default: ``()``.
 		:param requirements: Optional, the requirements, if they are known already. Default: ``None``.
 		"""
@@ -293,7 +307,7 @@ class Entrypoint(metaclass=ExtendedType, slots=True):
 	@readonly
 	def Files(self) -> tuple[Path, ...]:
 		"""
-		The requirements file and every file it includes.
+		The requirements file and every file it includes, or the :file:`pyproject.toml` file.
 
 		:returns: The files this entrypoint was read from; empty for a package entrypoint.
 		"""
@@ -497,7 +511,7 @@ class DependencyCollector(metaclass=ExtendedType, slots=True):
 		try:
 			from requests import RequestException
 		except ImportError as ex:  # pragma: no cover
-			raise MissingDependencyError(dependency="requests", extra="pypi") from ex
+			raise MissingDependencyError(dependency="requests", extra="dependencies") from ex
 
 		from pyTooling.Dependency.Resolver import Resolver
 
@@ -534,19 +548,23 @@ class DependencyCollector(metaclass=ExtendedType, slots=True):
 
 
 @export
-def readEntrypoints(configuration: Any, confDirectory: Path) -> dict[str, Entrypoint]:
+def readEntrypoints(configuration: Any, confDirectory: Path, projectRoot: Path) -> dict[str, Entrypoint]:
 	"""
-	Turn ``pyTooling_Dependency_Requirements`` into entrypoints, reading every requirements file it names.
+	Turn ``pyTooling_Dependency_Requirements`` into entrypoints, reading every file it names.
 
-	A requirements file is read here rather than when a table is built, so a path that doesn't exist ends the build
-	with one message naming the identifier instead of an error box in the middle of a page - and so two tables
-	naming the same file read it once.
+	A requirements file or :file:`pyproject.toml` file is read here rather than when a table is built, so a path that
+	doesn't exist ends the build with one message naming the identifier instead of an error box in the middle of a
+	page - and so two tables naming the same file read it once.
 
 	:param configuration:           Value of ``pyTooling_Dependency_Requirements``.
-	:param confDirectory:           Directory :file:`conf.py` lives in; relative paths are resolved against it.
+	:param confDirectory:           Directory :file:`conf.py` lives in; a requirements file's relative path is resolved
+	                                against it.
+	:param projectRoot:             The project's root directory; a ``pyproject`` entrypoint's relative path is resolved
+	                                against it.
 	:returns:                       Every declared entrypoint, by its identifier.
 	:raises MissingDependencyError: If the 'dependencies' extra isn't installed.
-	:raises SphinxExtensionError:   If the configuration is malformed, or a requirements file can't be read.
+	:raises SphinxExtensionError:   If the configuration is malformed, or a requirements file or
+	                                :file:`pyproject.toml` file can't be read.
 	"""
 	if not isinstance(configuration, dict):
 		raise SphinxExtensionError(
@@ -580,7 +598,14 @@ def readEntrypoints(configuration: Any, confDirectory: Path) -> dict[str, Entryp
 		fieldLocation = f"{location}.{field}"
 		value = declaration[field]
 
-		if field in ("file", "package"):
+		if field == "pyproject":
+			if value is not None and value is not True and not isinstance(value, str):
+				raise SphinxExtensionError(
+					f"{fieldLocation}: Expected None, True or a string, got '{getFullyQualifiedName(value)}'."
+				)
+			elif value == "":
+				raise SphinxExtensionError(f"{fieldLocation}: Path is empty. Use True for the project root's file.")
+		elif field in ("file", "package"):
 			if not isinstance(value, str):
 				raise SphinxExtensionError(
 					f"{fieldLocation}: Expected a string, got '{getFullyQualifiedName(value)}'."
@@ -606,6 +631,8 @@ def readEntrypoints(configuration: Any, confDirectory: Path) -> dict[str, Entryp
 
 		if field in ("file", "files"):
 			entrypoints[identifier] = _FileEntrypoint(identifier, fieldLocation, values, confDirectory)
+		elif field == "pyproject":
+			entrypoints[identifier] = _PyProjectEntrypoint(identifier, fieldLocation, value, projectRoot)
 		else:
 			entrypoints[identifier] = _PackageEntrypoint(identifier, values)
 
@@ -638,7 +665,7 @@ def _FileEntrypoint(
 	try:
 		from packaging.utils import canonicalize_name
 	except ImportError as ex:  # pragma: no cover
-		raise MissingDependencyError(dependency="packaging", extra="pypi") from ex
+		raise MissingDependencyError(dependency="packaging", extra="dependencies") from ex
 
 	from pyTooling.Dependency.Python import RequirementsFile
 
@@ -667,6 +694,57 @@ def _FileEntrypoint(
 	return Entrypoint(identifier, files=tuple(readFiles), requirements=requirements)
 
 
+def _PyProjectEntrypoint(identifier: str, location: str, file: Nullable[bool | str], projectRoot: Path) -> Entrypoint:
+	"""
+	Read the build requirements of one entrypoint's :file:`pyproject.toml` file.
+
+	The requirements are the ``requires`` key of the ``[build-system]`` table (:pep:`518`), read by pyTooling's
+	:meth:`PyProjectFile.Parse <pyTooling.Dependency.Python.PyProjectFile.Parse>`. A file without a ``[build-system]``
+	table has no build requirements, and neither has a project declaring ``None``, which has no such file. A requirement
+	that can't be parsed - an :class:`~pyTooling.Dependency.UnparsableRequirementWarning` - is reported as a Sphinx
+	warning naming the file; the file's other requirements are read.
+
+	:param identifier:              Identifier of the entrypoint.
+	:param location:                Where in :file:`conf.py` this came from.
+	:param file:                    ``True`` for :file:`pyproject.toml` in the project's root directory, a path relative
+	                                to that directory, or ``None`` if the project has no such file.
+	:param projectRoot:             The project's root directory.
+	:returns:                       The entrypoint, with its requirements read.
+	:raises MissingDependencyError: If the 'dependencies' extra isn't installed.
+	:raises SphinxExtensionError:   If the file can't be read, isn't valid TOML, or its ``[build-system]`` table
+	                                states no list of requirements.
+	"""
+	try:
+		from packaging.utils import canonicalize_name
+	except ImportError as ex:  # pragma: no cover
+		raise MissingDependencyError(dependency="packaging", extra="dependencies") from ex
+
+	from pyTooling.Dependency.Python import PyProjectFile
+
+	if file is None:
+		return Entrypoint(identifier, requirements={})
+	elif file is True:
+		path = projectRoot / "pyproject.toml"
+	else:
+		path = Path(file)
+		if not path.is_absolute():
+			path = projectRoot / path
+
+	warnings: list[BaseException] = []
+	try:
+		with WarningCollector(warnings):
+			pyProjectFile = PyProjectFile.Parse(path)
+	except (DependencyError, OSError, UnicodeDecodeError) as cause:
+		raise SphinxExtensionError(f"{location}: Project file '{path}' can't be read: {cause}") from cause
+
+	for warning in warnings:
+		_ReportWarning(f"{location}:", warning)
+
+	requirements = {canonicalize_name(req.name): req for req in pyProjectFile.BuildRequirements}
+
+	return Entrypoint(identifier, files=(pyProjectFile.Path,), requirements=requirements)
+
+
 def _PackageEntrypoint(identifier: str, packages: tuple[str, ...]) -> Entrypoint:
 	"""
 	Describe one entrypoint's packages, which only the package index can resolve.
@@ -688,13 +766,16 @@ def prepareEntrypoints(sphinx: Sphinx, config: Config) -> None:
 	"""
 	Call-back for Sphinx' ``config-inited`` event, reading the entrypoints and the license overrides.
 
+	A ``pyproject`` entrypoint is resolved against the project's root directory, :data:`PROJECT_ROOT_CONFIG` relative to
+	:file:`conf.py`, or the parent of :file:`conf.py`'s directory if it isn't set.
+
 	A build declaring no entrypoint does nothing here - not even import :mod:`pyTooling.Dependency.Python`, so a
-	project using only this extension's roles doesn't need the ``pypi`` extra.
+	project using only this extension's roles doesn't need the ``dependencies`` extra.
 
 	:param sphinx:                The Sphinx application.
 	:param config:                The configuration, after :file:`conf.py` was read.
-	:raises SphinxExtensionError: If the configuration is malformed, or a
-	  requirements or license override file can't be read.
+	:raises SphinxExtensionError: If the configuration is malformed, or a requirements file, :file:`pyproject.toml`
+	                              file or license override file can't be read.
 	:raises SphinxExtensionError: If a license override file is configured, but pyTooling's ``yaml`` extra isn't
 	                              installed.
 	"""
@@ -702,6 +783,12 @@ def prepareEntrypoints(sphinx: Sphinx, config: Config) -> None:
 		return
 
 	confDirectory = Path(sphinx.confdir)
+	if (projectRootSetting := getattr(config, PROJECT_ROOT_CONFIG, None)) is None:
+		projectRoot = confDirectory.parent
+	else:
+		projectRoot = Path(projectRootSetting)
+		if not projectRoot.is_absolute():
+			projectRoot = confDirectory / projectRoot
 
 	try:
 		from pyTooling.Dependency.Python import LicenseOverrides
@@ -730,7 +817,7 @@ def prepareEntrypoints(sphinx: Sphinx, config: Config) -> None:
 			) from cause
 
 	_COLLECTORS[id(sphinx)] = DependencyCollector(
-		readEntrypoints(declarations, confDirectory),
+		readEntrypoints(declarations, confDirectory, projectRoot),
 		getattr(config, f"{CONFIG_PREFIX}_IndexURL", DEFAULT_INDEX_URL),
 		getattr(config, f"{CONFIG_PREFIX}_APIURL", DEFAULT_API_URL),
 		overrides
@@ -753,9 +840,9 @@ class DependencyTable(BaseDirective):
 	#: The configuration values this directive adds to :file:`conf.py`, as ``name: (default, rebuild, types)``. Each is
 	#: registered with :data:`CONFIG_PREFIX` as prefix, e.g. ``pyTooling_Dependency_Requirements``.
 	#:
-	#: ``Requirements`` maps an identifier to what it names - a file, files, a package or packages. The other three are
-	#: build-wide, because one package index is queried per build and one override file answers for it. All four are
-	#: ``"env"``-rebuilt: changing any of them changes every table.
+	#: ``Requirements`` maps an identifier to what it names - a file, files, a package, packages or a
+	#: :file:`pyproject.toml` file. The other three are build-wide, because one package index is queried per build and
+	#: one override file answers for it. All four are ``"env"``-rebuilt: changing any of them changes every table.
 	configValues: ClassVar[dict[str, tuple[Any, _ConfigRebuild, Any]]] = {
 		"Requirements":     ({},                "env", dict),
 		"PackageOverrides": (None,              "env", (str, Path)),
@@ -880,7 +967,7 @@ class DependencyTable(BaseDirective):
 		try:
 			from packaging.utils import canonicalize_name
 		except ImportError as ex:  # pragma: no cover
-			raise MissingDependencyError(dependency="packaging", extra="pypi") from ex
+			raise MissingDependencyError(dependency="packaging", extra="dependencies") from ex
 
 		if (entrypoint := collector.Entrypoints.get(identifier, None)) is None:
 			known = ", ".join(sorted(collector.Entrypoints)) or "none"

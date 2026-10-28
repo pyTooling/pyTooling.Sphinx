@@ -1055,7 +1055,8 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 	                                               CodeCoverageBase, CodeCoverageLegend, FileCoverage
 	from pyTooling.Sphinx.CodeCoveragePages import CodeCoverageReportPages
 	from pyTooling.Sphinx.CondensedClass    import CondensedClass
-	from pyTooling.Sphinx.DependencyTable   import CONFIG_PREFIX, DependencyTable, prepareEntrypoints, reportBuildTime
+	from pyTooling.Sphinx.DependencyTable   import CONFIG_PREFIX, PROJECT_ROOT_CONFIG, DependencyTable, \
+	                                               prepareEntrypoints, reportBuildTime
 	from pyTooling.Sphinx.DocCoverage       import CONFIG_PREFIX as DOC_COVERAGE_PREFIX, DocCoverageBase, \
 	                                               DocCoverageLegend, DocCoverageReportPages, DocStrCoverage
 	from pyTooling.Sphinx.ExternalLink      import CONFIG_PREFIX as EXTERNAL_LINK_PREFIX, BaseExternalLinkTransform, \
@@ -1140,6 +1141,8 @@ def setup(sphinx: Sphinx) -> dict[str, Any]:
 
 	for configName, (default, rebuild, types) in Abbreviations.configValues.items():
 		sphinx.add_config_value(f"{ABBREVIATION_PREFIX}_{configName}", default, rebuild, types)
+
+	sphinx.add_config_value(PROJECT_ROOT_CONFIG, None, "env", (str, Path))
 
 	# HTML only: the first marks the links written with their URI, the second the links resolved in between
 	sphinx.add_post_transform(MarkExternalLinks)
