@@ -304,7 +304,7 @@ class CodeCoverageBase(BaseDirective):
 			else:
 				from pyEDAA.Reports.CodeCoverage.CoveragePy import Document
 		except ImportError as cause:
-			raise ReportsPackageMissingError("Reading a code coverage report", "'pyEDAA.Reports' >= 0.20") from cause
+			raise ReportsPackageMissingError("Reading a code coverage report", "'pyEDAA.Reports' >= 1.0") from cause
 
 		return Document(packageConfiguration["report"], analyzeAndConvert=True).ToCoverageSummary()
 
