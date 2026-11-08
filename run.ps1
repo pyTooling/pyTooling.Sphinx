@@ -38,7 +38,7 @@ Param(
 
 $ProjectName =    "pyTooling.Sphinx"
 $PackageName =    $ProjectName
-$PackageVersion = "1.0.1"
+$PackageVersion = "1.1.0"
 $PythonVersion =  "3.15"
 $LaTeXDocument =  "${ProjectName}.tex"
 
