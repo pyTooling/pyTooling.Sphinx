@@ -605,19 +605,17 @@ def extendProlog(sphinx: Sphinx, config: Any) -> None:
 	:param sphinx: The Sphinx application.
 	:param config: The configuration, after :file:`conf.py` was read.
 	"""
-	definition = re_compile(r"^\.\. (?:\|([^|]+)\||include:: (\S+))", MULTILINE)
+	definition = re_compile(r"^\.\. (\|[^|]+\||include:: \S+)", MULTILINE)
 
-	prolog =  config.rst_prolog or ""
-	defined = {name or fileName for name, fileName in definition.findall(prolog)}
+	prolog =  "" if config.rst_prolog is None else config.rst_prolog
+	defined = set(definition.findall(prolog))
 
 	blocks = []
 	for block in SUBSTITUTIONS.strip("\n").split("\n\n"):
-		name, fileName = definition.match(block).groups()
-		if (name or fileName) not in defined:
+		if definition.match(block)[1] not in defined:
 			blocks.append(block)
 
-	if len(blocks) > 0:
-		config.rst_prolog = prolog + "\n\n" + "\n\n".join(blocks) + "\n"
+	config.rst_prolog = prolog + "\n\n" + "\n\n".join(blocks) + "\n"
 
 
 @export

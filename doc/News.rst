@@ -10,18 +10,13 @@ notes on every release.
 Version 1.x (2026)
 ******************
 
-.. topic:: :gh:`v1.0.1 - unreleased <pyTooling/pyTooling.Sphinx/releases/v1.0.1>`
+.. topic:: :gh:`v1.1.0 - unreleased <pyTooling/pyTooling.Sphinx/releases/v1.1.0>`
 
    .. rubric:: New Features
 
    * The prolog includes docutils' substitution files ``isonum.txt`` and ``mmlalias.txt`` (``|rarr|``, ``|copy|``,
-     ...), so a project's own prolog no longer needs to.
-
-   .. rubric:: Bug Fixes
-
-   * A substitution or substitution file the project's prolog defined already (e.g. ``|br|`` as raw HTML, copied from
-     the former prolog template) was appended a second time: docutils reported ``Duplicate substitution definition
-     name`` on every page. It is appended only when the project's prolog doesn't define it.
+     ...), so a project's own prolog no longer needs to. A substitution or substitution file the project's prolog
+     defines already is not appended a second time; the project's definition stays.
 
 .. topic:: :gh:`v1.0.0 - 29.10.2026 <pyTooling/pyTooling.Sphinx/releases/v1.0.0>`
 
