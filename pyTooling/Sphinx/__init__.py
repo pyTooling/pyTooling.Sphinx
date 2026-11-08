@@ -125,7 +125,7 @@ __issue_tracker_url__ = "https://GitHub.com/pyTooling/pyTooling.Sphinx/issues"
 
 from hashlib                 import md5
 from pathlib                 import Path
-from re                      import compile as re_compile, match as re_match
+from re                      import MULTILINE, compile as re_compile, match as re_match
 from typing                  import Any, ClassVar, Iterable, Iterator, NamedTuple, Optional as Nullable
 
 from docutils                import nodes
@@ -188,6 +188,10 @@ defines the commands LaTeX writes for the style roles ``:strike:`` and ``:underl
 """
 
 SUBSTITUTIONS = """
+.. include:: <isonum.txt>
+
+.. include:: <mmlalias.txt>
+
 .. |degree| unicode:: U+00B0
    :trim:
 
@@ -198,6 +202,7 @@ SUBSTITUTIONS = """
 """
 Substitutions that have to stay substitutions, because ``|br|`` is written as one in every project.
 
+The docutils substitution files ``isonum.txt`` and ``mmlalias.txt`` define ``|rarr|``, ``|copy|`` and the like.
 ``|br|`` and ``|hr|`` delegate to the ``:br:`` and ``:hr:`` roles rather than writing HTML themselves, so they
 reach every output format instead of only HTML - see :func:`~pyTooling.Sphinx.Roles.breakRole`.
 """
@@ -594,10 +599,25 @@ def extendProlog(sphinx: Sphinx, config: Any) -> None:
 	it that way already. Appending them here is what lets a project delete them from its own prolog without changing
 	a single document.
 
+	A substitution or an included substitution file the project's prolog defines already is not appended, so the
+	project's definition stays and docutils reports no duplicate definition.
+
 	:param sphinx: The Sphinx application.
 	:param config: The configuration, after :file:`conf.py` was read.
 	"""
-	config.rst_prolog = (config.rst_prolog or "") + SUBSTITUTIONS
+	definition = re_compile(r"^\.\. (?:\|([^|]+)\||include:: (\S+))", MULTILINE)
+
+	prolog =  config.rst_prolog or ""
+	defined = {name or fileName for name, fileName in definition.findall(prolog)}
+
+	blocks = []
+	for block in SUBSTITUTIONS.strip("\n").split("\n\n"):
+		name, fileName = definition.match(block).groups()
+		if (name or fileName) not in defined:
+			blocks.append(block)
+
+	if len(blocks) > 0:
+		config.rst_prolog = prolog + "\n\n" + "\n\n".join(blocks) + "\n"
 
 
 @export
