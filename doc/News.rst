@@ -18,6 +18,12 @@ Version 1.x (2026)
      ...), so a project's own prolog no longer needs to. A substitution or substitution file the project's prolog
      defines already is not appended a second time; the project's definition stays.
 
+   .. rubric:: Bug Fixes
+
+   * pyTooling 10.2 is required. With pyTooling 10.1.0, a ``dependency-table`` in a project whose ``conf.py`` sets
+     ``pyTooling_Dependency_PackageOverrides`` failed with ``MissingDependencyError``: reading the overrides file needs
+     ruamel.yaml, which pyTooling's extra ``dependencies`` includes since pyTooling 10.1.1.
+
 .. topic:: :gh:`v1.0.0 - 29.10.2026 <pyTooling/pyTooling.Sphinx/releases/v1.0.0>`
 
    .. rubric:: New Features
