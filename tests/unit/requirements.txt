@@ -12,5 +12,5 @@ pytest-xdist ~= 3.8
 pyEDAA.Reports ~= 1.0
 
 # GitHub Markdown: extra 'markdown'
-markdown-it-py ~= 4.2
+markdown-it-py ~= 4.3
 mdit-py-plugins ~= 0.6
