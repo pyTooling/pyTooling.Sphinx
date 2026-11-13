@@ -13,4 +13,4 @@ pyEDAA.Reports ~= 1.0
 
 # GitHub Markdown: extra 'markdown'
 markdown-it-py ~= 4.2
-mdit-py-plugins ~= 0.6
+mdit-py-plugins ~= 0.7
