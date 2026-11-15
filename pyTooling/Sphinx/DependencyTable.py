@@ -153,7 +153,7 @@ class DependencyFormat(StringEnum):
 
 		:returns: ``True`` if the version is printed.
 		"""
-		return self in (DependencyFormat.PackageVersion, DependencyFormat.PackageVersionLicense)
+		return self is DependencyFormat.PackageVersion or self is DependencyFormat.PackageVersionLicense
 
 	@readonly
 	def ShowsLicense(self) -> bool:
@@ -162,7 +162,7 @@ class DependencyFormat(StringEnum):
 
 		:returns: ``True`` if the license is printed.
 		"""
-		return self in (DependencyFormat.PackageLicense, DependencyFormat.PackageVersionLicense)
+		return self is DependencyFormat.PackageLicense or self is DependencyFormat.PackageVersionLicense
 
 
 @export
