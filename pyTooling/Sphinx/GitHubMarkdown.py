@@ -222,12 +222,12 @@ class GitHubMarkdown(metaclass=ExtendedType, slots=True):
 		try:
 			from markdown_it         import MarkdownIt
 		except ImportError as ex:
-			raise MissingDependencyError(dependency="markdown-it-py", extra="markdown") from ex
+			raise MissingDependencyError(dependency="markdown-it-py", extra="markdown", package="pyTooling.Sphinx") from ex
 
 		try:
 			from mdit_py_plugins.gfm import gfm_plugin
 		except ImportError as ex:
-			raise MissingDependencyError(dependency="mdit-py-plugins", extra="markdown") from ex
+			raise MissingDependencyError(dependency="mdit-py-plugins", extra="markdown", package="pyTooling.Sphinx") from ex
 
 		self._owner =      owner
 		self._repository = repository
