@@ -45,6 +45,20 @@ The extension is enabled in :file:`conf.py`:
 It links its stylesheet into every HTML page, appends its substitutions to ``rst_prolog``, and sets up
 :mod:`sphinx.ext.graphviz` for the schema graphs.
 
+Appended to ``rst_prolog``, after the project's own prolog:
+
+``.. include:: <isonum.txt>``, ``.. include:: <mmlalias.txt>``
+  |rarr| docutils' substitution files with pre-defined aliases and graphical characters (``|rarr|``, ``|copy|``,
+  ...). ``<file>`` denotes docutils' include directory, :file:`<Python>/Lib/site-packages/docutils/parsers/rst/include`,
+  which holds further substitution files a project can include itself.
+``|degree|``
+  |rarr| a degree sign.
+``|br|``, ``|hr|``
+  |rarr| a line break and a horizontal rule in HTML and LaTeX - see :ref:`the break roles <ROLE/Breaks>`.
+
+A substitution or substitution file the project's prolog defines already is not appended a second time, so the
+project's definition stays and docutils reports no duplicate definition.
+
 For LaTeX, it sets two configuration values, unless :file:`conf.py` sets them:
 
 ``latex_table_style``

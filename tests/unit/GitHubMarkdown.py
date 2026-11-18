@@ -233,6 +233,8 @@ class Dependencies(Testcase):
 			GitHubMarkdown("a", "b")
 
 		self.assertEqual("Optional dependency 'markdown-it-py' not installed.", str(context.exception))
+		self.assertEqual("markdown", context.exception.Extra)
+		self.assertEqual("pyTooling.Sphinx", context.exception.Package)
 
 	@testcase("Missing mdit-py-plugins")
 	def MissingPlugins(self) -> None:
@@ -243,6 +245,8 @@ class Dependencies(Testcase):
 			GitHubMarkdown("a", "b")
 
 		self.assertEqual("Optional dependency 'mdit-py-plugins' not installed.", str(context.exception))
+		self.assertEqual("markdown", context.exception.Extra)
+		self.assertEqual("pyTooling.Sphinx", context.exception.Package)
 
 	@testcase("Extension without markdown-it-py")
 	def Extension(self) -> None:

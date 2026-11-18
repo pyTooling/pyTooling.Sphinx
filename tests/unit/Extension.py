@@ -230,6 +230,50 @@ class Registration(Project):
 
 		self.assertIn(SUBSTITUTIONS, app.config.rst_prolog)
 
+	@testcase("Substitution files in the prolog")
+	def Substitutions_Files(self) -> None:
+		"""
+		The prolog includes docutils' substitution files 'isonum.txt' and 'mmlalias.txt'.
+
+		Builds a page using '|rarr|' and '|copy|' without a project prolog and checks both are replaced, without warnings.
+		"""
+		self._build("Index\n#####\n\nArrow |rarr| and |copy|.\n")
+
+		html = self._html("index")
+		self.assertIn("Arrow \u2192 and \u00a9.", html)
+		self.assertListEqual([], self._warningLines())
+
+	@testcase("Substitutions the project defines")
+	def Substitutions_ProjectDefinition(self) -> None:
+		"""
+		A substitution the project's prolog defines already is not appended: the project's definition stays.
+
+		Builds a page with a project prolog defining '|br|' as raw HTML and checks that definition is used, without a
+		duplicate definition error.
+		"""
+		app = self._build(
+			"Index\n#####\n\nA |br| B\n",
+			rst_prolog='.. |br| raw:: html\n\n   <br class="project" />\n'
+		)
+
+		self.assertIn('<br class="project" />', self._html("index"))
+		self.assertNotIn(".. |br| replace::", app.config.rst_prolog)
+		self.assertListEqual([], self._warningLines())
+
+	@testcase("Substitution files the project includes")
+	def Substitutions_ProjectInclude(self) -> None:
+		"""
+		A substitution file the project's prolog includes already is not included a second time.
+
+		Builds a page with a project prolog including 'isonum.txt' and checks '|rarr|' is replaced, without duplicate
+		definition errors, and the file is included once.
+		"""
+		app = self._build("Index\n#####\n\nArrow |rarr|.\n", rst_prolog=".. include:: <isonum.txt>\n")
+
+		self.assertIn("Arrow \u2192.", self._html("index"))
+		self.assertEqual(1, app.config.rst_prolog.count(".. include:: <isonum.txt>"))
+		self.assertListEqual([], self._warningLines())
+
 
 @testsuite("Rendering in a document")
 class Rendering(Project):
