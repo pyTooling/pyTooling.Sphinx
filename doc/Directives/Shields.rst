@@ -190,7 +190,9 @@ HTML and LaTeX
 **************
 
 The directive emits both variants, each wrapped in an :rst:dir:`only` node: HTML embeds the SVG from
-``img.shields.io``, LaTeX the PNG from ``raster.shields.io`` - a PDF cannot embed an SVG.
+``img.shields.io``, LaTeX the PNG from ``raster.shields.io`` - a PDF cannot embed an SVG. The PNG's path ends in
+``.png`` (``pypi/v/pyEDAA.OSVVM.png?...``), so the downloaded image gets this extension, also when the badge names a
+dotted package or workflow file.
 
 
 .. _DIR/Shields/Errors:
