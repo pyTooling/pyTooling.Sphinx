@@ -71,7 +71,7 @@ is written as ``LicenseRef-<name>``.
 .. rubric:: HTML and LaTeX
 
 Both variants are emitted, each wrapped in an :rst:dir:`only` node: HTML embeds the SVG from ``img.shields.io``,
-LaTeX the PNG from ``raster.shields.io``, because a PDF cannot embed an SVG.
+LaTeX the PNG from ``raster.shields.io``, because a PDF cannot embed an SVG. The PNG's path ends in ``.png``.
 
 .. seealso::
 
@@ -187,13 +187,18 @@ class Shield(metaclass=ExtendedType, slots=True):
 		"""
 		Format the badge's image URL.
 
+		For LaTeX, the path ends in ``.png`` (``pypi/v/pyEDAA.OSVVM.png?...``), so the downloaded image has this
+		extension: Sphinx names the file after the path's last part and takes a dot in it (``.OSVVM``) as extension.
+
 		:param settings: The settings derived from the directive's options, which the path's placeholders name.
 		:param latex:    Whether the URL is for a LaTeX build, which needs the rasterized badge.
 		:returns:        The complete URL of the badge image.
 		"""
-		host = SHIELDS_SERVICE_PNG if latex else SHIELDS_SERVICE_SVG
+		if latex:
+			path, separator, query = self._path.format_map(settings).partition("?")
+			return f"{SHIELDS_SERVICE_PNG}/{path}.png{separator}{query}"
 
-		return f"{host}/{self._path.format_map(settings)}"
+		return f"{SHIELDS_SERVICE_SVG}/{self._path.format_map(settings)}"
 
 	def TargetURL(self, settings: dict[str, str]) -> Nullable[str]:
 		"""

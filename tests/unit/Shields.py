@@ -399,15 +399,33 @@ class ShieldTable(Testcase):
 		"""
 		LaTeX gets the rasterized badge, as a PDF can't embed an SVG.
 
-		Formats the image URL of 'pypi-tag' for HTML and for LaTeX and checks they differ only in the host.
+		Formats the image URL of 'pypi-tag' for HTML and for LaTeX and checks they differ only in the host and the
+		extension '.png' before the query.
 		"""
 		shield = SHIELDS["pypi-tag"]
 		settings = Shields._Settings(self._OPTIONS)
 
 		self.assertEqual(
-			shield.ImageURL(settings, False).replace("img.shields.io", "raster.shields.io"),
+			shield.ImageURL(settings, False).replace("img.shields.io", "raster.shields.io").replace("?", ".png?", 1),
 			shield.ImageURL(settings, True)
 		)
+
+	@testcase("Raster badge with a dotted name")
+	def URLs_LaTeX_Extension(self) -> None:
+		"""
+		The LaTeX image URL's path ends in '.png', also when the last part of the path has a dot.
+
+		Formats the LaTeX image URL of every badge for 'pyEDAA.OSVVM' with the workflow 'Pipeline.yml' and checks the
+		path before the query.
+		"""
+		options =           dict(self._OPTIONS)
+		options["github"] = "edaa-org/pyEDAA.OSVVM"
+		options["pypi"] =   "pyEDAA.OSVVM"
+		settings =          Shields._Settings(options)
+
+		for identifier, shield in SHIELDS.items():
+			with self.subTest(shield=identifier):
+				self.assertTrue(shield.ImageURL(settings, True).partition("?")[0].endswith(".png"))
 
 	@testcase("Badge without target")
 	def Target_None(self) -> None:

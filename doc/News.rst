@@ -10,6 +10,14 @@ notes on every release.
 Version 1.x (2026)
 ******************
 
+.. topic:: :gh:`v1.1.1 - unreleased <pyTooling/pyTooling.Sphinx/releases/v1.1.1>`
+
+   .. rubric:: Bug Fixes
+
+   * ``shields``: a LaTeX build failed with ``Unknown graphics extension`` when a badge's URL path ended in a dotted
+     name - a PyPI package like ``pyEDAA.OSVVM`` or a workflow file like ``Pipeline.yml``. Sphinx took ``.OSVVM`` as
+     the downloaded image's extension. The rasterized badge's path ends in ``.png`` now.
+
 .. topic:: :gh:`v1.1.0 - 18.11.2026 <pyTooling/pyTooling.Sphinx/releases/v1.1.0>`
 
    .. rubric:: New Features
